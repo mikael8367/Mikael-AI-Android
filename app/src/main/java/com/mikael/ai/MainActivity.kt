@@ -468,7 +468,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                 history = messages.takeLast(6).map { it.role to it.text },
                                                 searchResults = searchResults,
                                                 searchRequested = searchThisMessage,
-                                                searchError = searchError
+                                                searchError = searchError,
+                                                contextTokens = contextTokens
                                             )
                                             val answer = withContext(Dispatchers.IO) {
                                                 LocalInferenceEngine.generate(
