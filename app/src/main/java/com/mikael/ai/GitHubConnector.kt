@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -88,6 +89,95 @@ object GitHubTokenVault {
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(TOKEN).commit()
+    }
+}
+
+
+data class GitHubDeviceCode(
+    val deviceCode: String,
+    val userCode: String,
+    val verificationUri: String,
+    val expiresIn: Int,
+    val interval: Int
+)
+
+object GitHubDeviceFlow {
+    private fun formPost(url: String, values: Map<String, String>): JSONObject {
+        val encoded = values.entries.joinToString("&") {
+            java.net.URLEncoder.encode(it.key, "UTF-8") + "=" +
+                java.net.URLEncoder.encode(it.value, "UTF-8")
+        }
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 12000
+            readTimeout = 20000
+            doOutput = true
+            setRequestProperty("Accept", "application/json")
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            setRequestProperty("User-Agent", "MikaelAI-Android")
+        }
+        try {
+            connection.outputStream.use { it.write(encoded.toByteArray(Charsets.UTF_8)) }
+            val code = connection.responseCode
+            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
+            val body = stream?.bufferedReader()?.use { it.readText().take(12000) }.orEmpty()
+            if (code !in 200..299) error("GitHub OAuth respondeu HTTP $code. $body")
+            return JSONObject(body)
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    fun requestCode(clientId: String): GitHubDeviceCode {
+        require(clientId.matches(Regex("[A-Za-z0-9]{20}"))) {
+            "Informe o Client ID de um OAuth App do GitHub com Device Flow ativado."
+        }
+        val json = formPost(
+            "https://github.com/login/device/code",
+            mapOf("client_id" to clientId, "scope" to "read:user public_repo")
+        )
+        return GitHubDeviceCode(
+            deviceCode = json.getString("device_code"),
+            userCode = json.getString("user_code"),
+            verificationUri = json.optString("verification_uri", "https://github.com/login/device"),
+            expiresIn = json.optInt("expires_in", 900),
+            interval = json.optInt("interval", 5)
+        )
+    }
+
+    suspend fun awaitAuthorization(
+        clientId: String,
+        device: GitHubDeviceCode,
+        onPending: () -> Unit
+    ): String {
+        var intervalSeconds = device.interval.coerceAtLeast(5)
+        val deadline = System.currentTimeMillis() + device.expiresIn.coerceAtLeast(60) * 1000L
+        while (System.currentTimeMillis() < deadline) {
+            delay(intervalSeconds * 1000L)
+            val json = withContext(Dispatchers.IO) {
+                formPost(
+                    "https://github.com/login/oauth/access_token",
+                    mapOf(
+                        "client_id" to clientId,
+                        "device_code" to device.deviceCode,
+                        "grant_type" to "urn:ietf:params:oauth:grant-type:device_code"
+                    )
+                )
+            }
+            val token = json.optString("access_token")
+            if (token.isNotBlank()) return token
+            when (json.optString("error")) {
+                "authorization_pending" -> onPending()
+                "slow_down" -> {
+                    intervalSeconds += 5
+                    onPending()
+                }
+                "expired_token" -> error("O código de autorização expirou. Inicie a conexão novamente.")
+                "access_denied" -> error("A autorização foi recusada no GitHub.")
+                else -> error(json.optString("error_description", "Não foi possível concluir a autorização OAuth."))
+            }
+        }
+        error("O código de autorização expirou. Inicie a conexão novamente.")
     }
 }
 
@@ -269,6 +359,9 @@ object GitHubConnector {
 fun GitHubConnectorCard(onContextLoaded: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val oauthPrefs = remember(context) { context.getSharedPreferences("github_oauth", Context.MODE_PRIVATE) }
+    var clientId by remember { mutableStateOf(oauthPrefs.getString("client_id", "") ?: "") }
+    var deviceUserCode by remember { mutableStateOf("") }
     var token by remember { mutableStateOf("") }
     var repository by remember { mutableStateOf("mikael8367/Mikael-AI-Android") }
     var filePath by remember { mutableStateOf("") }
@@ -315,10 +408,63 @@ fun GitHubConnectorCard(onContextLoaded: (String) -> Unit) {
                 "Conecte sua conta para consultar seus repositórios. O chat e a inferência continuam locais; a internet é usada somente nas ações que você tocar.",
                 color = Color(0xFF9EAAA2)
             )
+            Text("Conexão pelo navegador", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            OutlinedTextField(
+                value = clientId,
+                onValueChange = { clientId = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("GitHub OAuth Client ID") },
+                placeholder = { Text("Client ID do seu OAuth App") },
+                singleLine = true
+            )
+            OutlinedButton(
+                onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/applications/new")))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Criar OAuth App no GitHub") }
+            Button(
+                onClick = {
+                    val id = clientId.trim()
+                    oauthPrefs.edit().putString("client_id", id).apply()
+                    busy = true
+                    deviceUserCode = ""
+                    status = "Solicitando código de autorização..."
+                    scope.launch {
+                        try {
+                            val device = withContext(Dispatchers.IO) { GitHubDeviceFlow.requestCode(id) }
+                            deviceUserCode = device.userCode
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(device.verificationUri)))
+                            status = "Digite o código mostrado abaixo no site do GitHub. Aguardando autorização..."
+                            val accessToken = GitHubDeviceFlow.awaitAuthorization(id, device) {
+                                status = "Aguardando você autorizar no GitHub..."
+                            }
+                            val user = withContext(Dispatchers.IO) { GitHubConnector.validate(accessToken) }
+                            withContext(Dispatchers.IO) { GitHubTokenVault.save(context, accessToken) }
+                            username = user
+                            deviceUserCode = ""
+                            status = "Conectado como @$user. Autorização protegida pelo Android Keystore."
+                        } catch (error: Exception) {
+                            status = error.message ?: "Falha na autorização pelo GitHub."
+                        } finally {
+                            busy = false
+                        }
+                    }
+                },
+                enabled = !busy && clientId.isNotBlank(),
+                modifier = Modifier.fillMaxWidth()
+            ) { Text(if (busy) "Aguardando autorização..." else "Conectar com GitHub pelo navegador") }
+            if (deviceUserCode.isNotBlank()) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202B25))) {
+                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                        Text("Seu código de autorização", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                        Text(deviceUserCode, style = MaterialTheme.typography.headlineMedium, color = Color(0xFF8BE7B7))
+                        Text("Volte ao app depois de confirmar o código no GitHub.", color = Color(0xFFCFD8D1), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            Text("Alternativa: token pessoal com permissões somente de leitura.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/login")))
-                }) { Text("Entrar no GitHub") }
                 OutlinedButton(onClick = {
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/personal-access-tokens/new")))
                 }) { Text("Criar token") }
@@ -444,7 +590,7 @@ fun GitHubConnectorCard(onContextLoaded: (String) -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Desconectar e apagar token") }
             Text(
-                "Permissões necessárias: acesso de leitura a Contents e Metadata. Issues e Pull requests também precisam de leitura desses recursos. Nenhuma ação de escrita é executada.",
+                "O OAuth pelo navegador usa read:user e public_repo. Para repositórios privados, use um Fine-grained token com Contents, Metadata, Issues e Pull requests em somente leitura. O app não compartilha a conexão do site do ChatGPT e não executa ações de escrita.",
                 color = Color(0xFFFFD18A),
                 style = MaterialTheme.typography.bodySmall
             )
