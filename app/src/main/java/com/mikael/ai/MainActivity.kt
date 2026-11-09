@@ -69,6 +69,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.ByteArrayOutputStream
 
 private enum class AppTab(val title: String, val symbol: String) {
     HOME("Início", "⌂"),
@@ -189,14 +190,19 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                                 if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
                             } ?: "arquivo"
-                            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                            val maxBytes = if (mime.startsWith("image/")) 5 * 1024 * 1024 else 8 * 1024 * 1024
+                            val inputStream = context.contentResolver.openInputStream(uri)
                                 ?: throw IllegalStateException("Não foi possível abrir o arquivo.")
-                            onlineApi.uploadFile(name, context.contentResolver.getType(uri) ?: "application/octet-stream", bytes)
+                            val bytes = readLimited(inputStream, maxBytes)
+                            onlineApi.uploadFile(name, mime, bytes)
                         }
                         uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
                         onlineStatus = "Arquivo enviado: ${uploaded.filename}"
+                        android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_SHORT).show()
                     } catch (error: Exception) {
                         onlineStatus = error.message ?: "Falha ao enviar arquivo."
+                        android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
                     } finally {
                         fileBusy = false
                     }
@@ -442,7 +448,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             scope.launch {
                                 runCatching {
                                     remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
-                                }.onFailure { onlineStatus = it.message ?: "Não foi possível consultar conectores." }
+                                }.onFailure {
+                                    onlineStatus = it.message ?: "Não foi possível consultar conectores."
+                                    android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
+                                }
                             }
                         },
                         onOpenWebSettings = {
@@ -464,7 +473,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             scope.launch {
                                 runCatching {
                                     uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
-                                }.onFailure { onlineStatus = it.message ?: "Não foi possível carregar arquivos." }
+                                }.onFailure {
+                                    onlineStatus = it.message ?: "Não foi possível carregar arquivos."
+                                    android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
+                                }
                             }
                         },
                         onUpload = { uploadPicker.launch(arrayOf("*/*")) },
@@ -477,7 +489,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     messages.add(ChatMessage(System.currentTimeMillis(), "assistant", analysis))
                                     remoteConversationId = null
                                     tab = AppTab.CHAT
-                                }.onFailure { onlineStatus = it.message ?: "Não foi possível analisar o arquivo." }
+                                }.onFailure {
+                                    onlineStatus = it.message ?: "Não foi possível analisar o arquivo."
+                                    android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
+                                }
                                 fileBusy = false
                             }
                         },
@@ -488,7 +503,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     withContext(Dispatchers.IO) { onlineApi.generateFile(filename, description) }
                                     uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
                                     onlineStatus = "Arquivo gerado e salvo no servidor."
-                                }.onFailure { onlineStatus = it.message ?: "Não foi possível gerar o arquivo." }
+                                }.onFailure {
+                                    onlineStatus = it.message ?: "Não foi possível gerar o arquivo."
+                                    android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
+                                }
                                 fileBusy = false
                             }
                         }
@@ -632,6 +650,22 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
             }
         }
+    }
+}
+
+private fun readLimited(stream: java.io.InputStream, limitBytes: Int): ByteArray {
+    stream.use { input ->
+        val output = ByteArrayOutputStream(minOf(limitBytes, 64 * 1024))
+        val buffer = ByteArray(64 * 1024)
+        var total = 0
+        while (true) {
+            val count = input.read(buffer)
+            if (count < 0) break
+            total += count
+            require(total <= limitBytes) { "O arquivo ultrapassa o limite permitido de ${limitBytes / (1024 * 1024)} MB." }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
     }
 }
 
