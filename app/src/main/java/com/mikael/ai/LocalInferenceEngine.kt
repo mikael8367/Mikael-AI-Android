@@ -15,6 +15,7 @@ object LocalInferenceEngine {
         check(libraryLoaded) { "O motor nativo não foi incluído nesta compilação." }
         check(modelPath.isNotBlank()) { "Selecione um modelo GGUF." }
         check(contextTokens in 256..8192) { "O contexto precisa ficar entre 256 e 8192 tokens." }
+        ready = false
         val nativeError = nativeLoad(
             modelPath,
             contextTokens,
@@ -28,7 +29,7 @@ object LocalInferenceEngine {
         check(ready) { "Carregue um modelo antes de conversar." }
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
-        val result = nativeGenerate(prompt, maxTokens)
+        val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
         if (result == null) error("O motor local não retornou uma resposta.")
         result
     }

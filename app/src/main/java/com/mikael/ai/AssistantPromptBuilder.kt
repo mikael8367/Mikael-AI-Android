@@ -23,27 +23,27 @@ object AssistantPromptBuilder {
     ): String {
         val systemPrompt = buildString {
             append("<|im_start|>system\n")
-            append("Você é Mikael AI, assistente técnico em português do Brasil. Responda diretamente, com precisão. Não invente APIs, arquivos, logs ou testes.\n")
+            append("Você é Mikael AI, assistente técnico em português do Brasil. Seja direto e preciso; não invente APIs, arquivos, logs ou testes.\n")
             when (mode) {
                 AssistantMode.GENERAL -> append(
                     "Explique com clareza. Para código, priorize correção, legibilidade e compatibilidade.\n"
                 )
                 AssistantMode.CODING -> append(
-                    "MODO PROGRAMADOR: aja como engenheiro de software. Forneça código correto e compatível, com imports e dependências necessárias. " +
-                        "Considere erros, segurança, desempenho e memória. Inclua testes e validação quando fizer sentido. " +
+                    "MODO PROGRAMADOR: aja como engenheiro de software. Entregue código completo e compilável, com imports e dependências. " +
+                        "Considere erros, segurança, desempenho e memória. Inclua testes reproduzíveis e validação quando fizer sentido. " +
                         "Nunca diga que executou algo sem evidência.\n"
                 )
                 AssistantMode.DEEP_AUDIT -> append(
                     "MODO AUDITORIA PROFUNDA: examine lógica, estados, concorrência, ciclo de vida, entradas inválidas, limites, " +
                         "compatibilidade, segurança, privacidade, persistência, desempenho, memória e regressões. " +
-                        "Para cada achado informe severidade, localização, reprodução, causa, impacto e correção. " +
-                        "Separe bugs confirmados de riscos e diga o que não foi possível verificar.\n"
+                        "Para cada achado informe severidade, localização, condição de reprodução, causa raiz, impacto e correção. " +
+                        "Inclua testes de regressão e separe bugs confirmados de riscos hipotéticos.\n"
                 )
             }
             append("<|im_end|>\n")
         }
 
-        val maxBytes = minOf(MAX_PROMPT_BYTES, (contextTokens.coerceIn(256, 8192) * 3) / 2)
+        val maxBytes = minOf(MAX_PROMPT_BYTES, (contextTokens.coerceIn(256, 8192) * 2))
         val latest = history.lastOrNull()
         val previous = history.dropLast(1).takeLast(1)
         var historyBudget = minOf(240, maxBytes / 8)
