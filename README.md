@@ -1,5 +1,41 @@
 # Mikael AI Android
 
+Aplicativo Android nativo com modo offline local e modo online conectado ao serviço Mikael AI.
+
+## Interface
+- Cinco abas inferiores animadas: Início, Conversas, Projetos, Arquivos e Ajustes.
+- Tema escuro verde alinhado à identidade visual do Mikael AI original.
+- Layout pensado para uso em celular e navegação por toque.
+
+## Modo online
+- Login com a senha de acesso APP_PASSWORD configurada no servidor Mikael AI.
+- Opção para salvar a senha no aparelho; ela é criptografada com AES-GCM e uma chave mantida pelo Android Keystore.
+- A sessão do servidor usa cookie HttpOnly em memória; ao reabrir o app, a senha salva é usada para autenticar novamente.
+- A chave LLM_API_KEY do provedor permanece exclusivamente no servidor. Ela não deve ser colocada no APK.
+- Conversas e histórico online são obtidos da API do servidor.
+- A conexão requer internet e o serviço online disponível.
+
+## Modo offline
+- Inferência local com llama.cpp via JNI/NDK e modelos GGUF importados pelo seletor de arquivos do Android.
+- O modo offline não envia mensagens ao servidor.
+- A disponibilidade e velocidade dependem do tamanho/quantização do modelo, contexto, RAM e CPU do aparelho.
+
+## Modelos online
+A API original oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini. A branch complementar feature/android-model-catalog do repositório Mikael-AI adiciona presets para Gemini 2.5 Flash, Claude Sonnet 4.5, Qwen3 Coder Plus e GPT-5 mini. Esses modelos adicionais só aparecerão quando essa atualização do backend for integrada e publicada no serviço online. A disponibilidade depende da chave e dos modelos liberados no provedor.
+
+## Segurança
+- A senha é criptografada no aparelho pelo Android Keystore quando a opção Salvar senha está ativada.
+- O app não armazena a chave do provedor de IA.
+- O tráfego online usa HTTPS.
+- O modo offline permanece sem chamadas de chat remotas.
+
+## Compilação
+O workflow .github/workflows/android-apk.yml executa testes unitários, lint e assembleDebug para main e feature/native-online-hybrid-ui. O APK debug é publicado como artefato do GitHub Actions quando a compilação termina com sucesso.
+
+## Estado desta versão
+A interface nativa de cinco abas, login online, persistência protegida da senha, consulta dos modelos publicados e chat online/offline estão em implementação. As abas Projetos e Arquivos ainda não reproduzem todos os recursos do site original; upload/análise de arquivos e conectores GitHub/MCP precisam de integração nativa adicional. A compilação e os testes em aparelho precisam ser confirmados antes de considerar a versão pronta.
+
+
 Aplicativo Android nativo da Mikael AI, com foco em inferência local e privacidade.
 
 ## Regras do projeto
