@@ -82,6 +82,7 @@ private fun nextMessageId(): Long = messageIds.incrementAndGet()
 private enum class AppTab(val label: String, val symbol: String) {
     CHAT("Chat", "◌"),
     MODELS("Modelos", "▤"),
+    CONNECTORS("Conectores", "⌁"),
     SETTINGS("Configurações", "⚙")
 }
 
@@ -250,7 +251,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 Column(Modifier.padding(start = 11.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("IA LOCAL • PRIVACIDADE NO DISPOSITIVO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                    Text("v1.6.1", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                    Text("v1.7.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -428,6 +429,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             }
                         }
                     )
+                    AppTab.CONNECTORS -> GitHubConnectorCard(onContextLoaded = { repoContext ->
+                        input = repoContext
+                        tab = AppTab.CHAT
+                    })
                     AppTab.SETTINGS -> OfflineSettingsScreen(
                         memoryLimit = memoryLimit,
                         contextTokens = contextTokens,
@@ -629,12 +634,12 @@ private fun OfflineModelsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Modelos locais", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Os arquivos GGUF ficam no armazenamento privado do aplicativo. A geração nunca envia mensagens para servidores.", color = Color(0xFF9EAAA2))
+        Text("Mikael AI usa o perfil técnico próprio sobre um modelo-base local Qwen2.5 0.5B quantizado. O arquivo GGUF é baixado uma vez e a conversa funciona offline.", color = Color(0xFF9EAAA2))
         Button(onClick = onImport, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
             Text("Importar modelo GGUF")
         }
         OutlinedButton(onClick = onDownload, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-            Text("Baixar modelo recomendado • Qwen 0.5B Q4")
+            Text("Baixar Mikael AI • 0.5B (base local)")
         }
         if (busy && downloadStatus.isNotBlank()) {
             if (downloadProgress > 0f) {
@@ -653,7 +658,7 @@ private fun OfflineModelsScreen(
                 Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Nenhum modelo instalado", fontWeight = FontWeight.Bold, color = Color(0xFFFFD18A))
                     Text(
-                        "Baixe o Qwen 0.5B recomendado (aproximadamente 469 MiB) ou importe um arquivo GGUF. Depois que o modelo estiver instalado, a conversa poderá funcionar offline.",
+                        "Baixe o modelo Mikael AI (base Qwen2.5 0.5B, aproximadamente 469 MiB) ou importe outro arquivo GGUF. A identidade Mikael AI vem das instruções locais do assistente, não de pesos treinados separadamente.",
                         color = Color(0xFFCFD8D1),
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -737,7 +742,7 @@ private fun OfflineSettingsScreen(
         )
         OutlinedButton(onClick = onReload, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
         OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
-        GitHubConnectorCard(onContextLoaded = onGitHubContextLoaded)
+        Text("Os conectores ficam na aba Conectores. Eles só acessam a internet quando você aciona uma função.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
                 Text("Privacidade", fontWeight = FontWeight.Bold)
