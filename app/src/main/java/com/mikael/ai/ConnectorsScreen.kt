@@ -61,8 +61,7 @@ fun ConnectorsScreen(
     onAddMcp: (String, String, String) -> Unit,
     onToggle: (RemoteConnector, Boolean) -> Unit,
     onTest: (RemoteConnector) -> Unit,
-    onDelete: (RemoteConnector) -> Unit,
-    onOpenWebsite: () -> Unit
+    onDelete: (RemoteConnector) -> Unit
 ) {
     var search by remember { mutableStateOf("") }
     var showAddDialog by remember { mutableStateOf(false) }
@@ -104,8 +103,8 @@ fun ConnectorsScreen(
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202B25))) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Conecte sua conta Mikael AI", style = MaterialTheme.typography.titleMedium)
-                    Text("Entre no modo online em Ajustes para adicionar, testar e gerenciar conectores. As recomendações podem ser consultadas sem login.", color = Color(0xFFB8C6BD))
-                    OutlinedButton(onClick = onOpenWebsite, modifier = Modifier.fillMaxWidth()) { Text("Abrir Mikael AI no navegador") }
+                    Text("Volte para Ajustes e entre na sua conta Mikael AI para adicionar, testar e gerenciar conectores. As recomendações podem ser consultadas sem login.", color = Color(0xFFB8C6BD))
+                    OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) { Text("Ir para Ajustes e conectar") }
                 }
             }
         }
