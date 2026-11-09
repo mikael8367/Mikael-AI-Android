@@ -252,11 +252,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             engineStatus = "Modo online selecionado. O modelo local está descarregado."
             return@LaunchedEffect
         }
-        if (modelPath.isNullOrBlank()) {
+        val selectedPath = modelPath
+        if (selectedPath.isNullOrBlank()) {
             engineStatus = "Importe um modelo GGUF para começar."
             return@LaunchedEffect
         }
-        val file = File(modelPath)
+        val file = File(selectedPath)
         if (!file.isFile || file.length() <= 0L) {
             engineStatus = "O arquivo do modelo não foi encontrado."
             return@LaunchedEffect
