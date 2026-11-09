@@ -31,7 +31,7 @@ A API atualmente publicada oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini.
 - A senha é criptografada no aparelho pelo Android Keystore; ela não é gravada em texto puro nas preferências.
 - A chave LLM_API_KEY do provedor fica somente no servidor e nunca deve ser incluída no APK.
 - O tráfego online usa HTTPS.
-- A geração de respostas continua local; a pesquisa web é a única etapa que envia a pergunta ao buscador externo.
+- A geração de respostas continua local. Quando a pesquisa web é ativada, somente a pergunta daquela mensagem é enviada ao buscador externo.
 - O backup Android do app está desativado para evitar copiar credenciais locais.
 
 ## Compilação e testes
@@ -40,11 +40,11 @@ O workflow .github/workflows/android-apk.yml executa testes unitários e lint na
 ## Limitações conhecidas
 - O gerenciamento completo de GitHub/MCP ainda é feito no site original.
 - O histórico local offline ainda é uma conversa salva no aparelho; o histórico online usa as conversas do servidor.
-- Download integrado de modelos GGUF, streaming de tokens e visualização/baixar arquivos do servidor ainda não foram implementados.
+- Streaming de tokens e visualização/baixar arquivos do servidor ainda não foram implementados.
 - A compilação e o teste em aparelho Android ARM64 ainda precisam ser confirmados. Não considere esta branch pronta até o CI passar e ocorrer um teste real no dispositivo.
 
 ## Requisitos
 - Android 9.0 (API 28) ou superior.
 - ABI inicial: ARM64 (arm64-v8a).
 - Internet para a pesquisa web opcional, download inicial do modelo e recursos remotos.
-- Para usar offline, importe um modelo GGUF compatível.
+- Para usar offline, baixe o modelo recomendado ou importe um modelo GGUF compatível.
