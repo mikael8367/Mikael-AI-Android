@@ -74,6 +74,10 @@ private object McpCredentialVault {
             .putString(TOKEN, Base64.encodeToString(packed, Base64.NO_WRAP)).apply()
     }
 
+    fun clear(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(TOKEN).apply()
+    }
+
     fun read(context: Context): String? = runCatching {
         val packed = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(TOKEN, null) ?: return null
@@ -312,6 +316,20 @@ fun McpConnectorCard(onContextLoaded: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 ) { Text("Enviar resultado ao chat") }
             }
+            OutlinedButton(
+                onClick = {
+                    McpCredentialVault.clear(context)
+                    prefs.edit().remove("endpoint").apply()
+                    endpoint = ""
+                    bearer = ""
+                    toolName = ""
+                    arguments = "{}"
+                    output = ""
+                    status = "Conexão MCP removida deste aparelho."
+                },
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Desconectar MCP e apagar credencial") }
         }
     }
 }

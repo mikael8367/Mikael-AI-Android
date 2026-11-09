@@ -423,6 +423,11 @@ fun GitHubConnectorCard(onContextLoaded: (String) -> Unit) {
                 },
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Criar OAuth App no GitHub") }
+            Text(
+                "Na configuração do OAuth App, ative Device Flow e copie o Client ID. O fluxo usa código temporário do GitHub e não pede senha dentro do Mikael AI.",
+                color = Color(0xFF9EAAA2),
+                style = MaterialTheme.typography.bodySmall
+            )
             Button(
                 onClick = {
                     val id = clientId.trim()
