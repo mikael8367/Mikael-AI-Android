@@ -416,7 +416,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         }.onFailure { error ->
                                             messages.add(ChatMessage(nextChatMessageId(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
                                             onlineStatus = error.message ?: "Falha na conexão online."
-                                            if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
+                                            if (!onlineApi.isAuthenticated()) {
+                                                onlineAuthenticated = false
+                                                passwordInput = savedPasswordCache.orEmpty()
+                                            }
                                         }
                                     } else {
                                         val conversationPrompt = buildString {
@@ -462,6 +465,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 runCatching {
                                     remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
                                 }.onFailure {
+                                    if (!onlineApi.isAuthenticated()) {
+                                        onlineAuthenticated = false
+                                        passwordInput = savedPasswordCache.orEmpty()
+                                    }
                                     onlineStatus = it.message ?: "Não foi possível consultar conectores."
                                     android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
                                 }
@@ -487,6 +494,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 runCatching {
                                     uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
                                 }.onFailure {
+                                    if (!onlineApi.isAuthenticated()) {
+                                        onlineAuthenticated = false
+                                        passwordInput = savedPasswordCache.orEmpty()
+                                    }
                                     onlineStatus = it.message ?: "Não foi possível carregar arquivos."
                                     android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
                                 }
@@ -503,6 +514,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     remoteConversationId = null
                                     tab = AppTab.CHAT
                                 }.onFailure {
+                                    if (!onlineApi.isAuthenticated()) {
+                                        onlineAuthenticated = false
+                                        passwordInput = savedPasswordCache.orEmpty()
+                                    }
                                     onlineStatus = it.message ?: "Não foi possível analisar o arquivo."
                                     android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
                                 }
@@ -517,6 +532,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
                                     onlineStatus = "Arquivo gerado e salvo no servidor."
                                 }.onFailure {
+                                    if (!onlineApi.isAuthenticated()) {
+                                        onlineAuthenticated = false
+                                        passwordInput = savedPasswordCache.orEmpty()
+                                    }
                                     onlineStatus = it.message ?: "Não foi possível gerar o arquivo."
                                     android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
                                 }
@@ -591,6 +610,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     }.onFailure {
                                         selectedOnlineModel = "mikael"
                                         preferences.onlineModelId = "mikael"
+                                        if (!onlineApi.isAuthenticated()) {
+                                            onlineAuthenticated = false
+                                            passwordInput = savedPasswordCache.orEmpty()
+                                        }
                                         onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
                                     }
                                     if (savePassword) {
