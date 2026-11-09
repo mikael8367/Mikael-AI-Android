@@ -128,7 +128,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val logEvent: (String, String) -> Unit = { level, message -> AppLogStore.add(context, level, message) }
-    LaunchedEffect(Unit) { logEvent("INFO", "Aplicativo iniciado • versão 1.8.2") }
+    LaunchedEffect(Unit) {
+        LocalInferenceEngine.setDiagnosticSink { level, message ->
+            AppLogStore.add(context, level, message)
+        }
+        logEvent("INFO", "Aplicativo iniciado • versão 1.8.3")
+    }
     val activityManager = remember(context) {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     }
@@ -232,6 +237,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
             onFailure = {
                 engineReady = false
                 engineStatus = it.message ?: "Falha ao carregar o modelo."
+                AppLogStore.addThrowable(context, "Falha ao carregar modelo", it)
                 logEvent("ERROR", "Falha ao carregar modelo: ${it.message ?: "erro desconhecido"}")
             }
         )
@@ -380,9 +386,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         ))
                                         ConversationStore.save(context, messages)
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
+                                        AppLogStore.addThrowable(context, "Falha na geração local após ${elapsedMs} ms", error)
                                         logEvent(
                                             "ERROR",
-                                            "Falha na geração local após ${elapsedMs} ms: ${error.javaClass.simpleName} • ${error.message ?: "sem detalhes"}"
+                                            "Falha na geração local após ${elapsedMs} ms: ${error.javaClass.name} • ${error.message ?: "sem detalhes"}"
                                         )
                                     } finally {
                                         generating = false
