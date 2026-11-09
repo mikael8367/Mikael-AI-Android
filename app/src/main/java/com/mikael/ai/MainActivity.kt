@@ -435,7 +435,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 } else {
                                     ConversationStore.save(context, messages)
                                     isGenerating = true
-                                    val searchThisMessage = webSearchEnabled
+                                    val searchThisMessage = webSearchEnabled || WebSearch.requestsSearch(prompt)
                                     scope.launch {
                                     try {
                                         var searchResults = emptyList<WebSearchResult>()
