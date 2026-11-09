@@ -12,8 +12,8 @@ data class MemoryCheck(
 
 object MemoryBudget {
     private const val MIB = 1024L * 1024L
-    private const val SYSTEM_RESERVE_MIB = 640L
-    private const val ENGINE_OVERHEAD_MIB = 192L
+    private const val SYSTEM_RESERVE_MIB = 448L
+    private const val ENGINE_OVERHEAD_MIB = 128L
     val allowedLimitsMiB = listOf(512, 768, 1024, 1536, 2048)
 
     fun availableBytes(manager: ActivityManager): Long {
@@ -53,7 +53,7 @@ object MemoryBudget {
             availableBytes = availableBytes,
             safeBudgetBytes = budget,
             estimatedBytes = estimate,
-            reason = if (allowed) null else "A estimativa do modelo ultrapassa o orçamento seguro disponível. Tente um GGUF menor ou reduza o contexto."
+            reason = if (allowed) null else "Memória insuficiente para carregar com segurança: estimativa de ${mib(estimate)} MiB, orçamento disponível de ${mib(budget)} MiB (RAM livre: ${mib(availableBytes)} MiB). Feche outros aplicativos ou reduza o contexto."
         )
     }
 
