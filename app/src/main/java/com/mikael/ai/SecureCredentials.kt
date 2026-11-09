@@ -38,8 +38,10 @@ object SecureCredentials {
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.doFinal(password.toByteArray(Charsets.UTF_8))
         val packed = cipher.iv + encrypted
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(PASSWORD, Base64.encodeToString(packed, Base64.NO_WRAP)).commit()
+        check(
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString(PASSWORD, Base64.encodeToString(packed, Base64.NO_WRAP)).commit()
+        ) { "O Android não conseguiu salvar a senha criptografada." }
     }
 
     fun readPassword(context: Context): String? = runCatching {
