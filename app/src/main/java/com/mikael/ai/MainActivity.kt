@@ -447,7 +447,11 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         },
                         onReload = { if (!generating) { engineReady = false; reloadKey++ } },
                         reloadEnabled = !generating,
-                        controlsEnabled = !generating
+                        controlsEnabled = !generating,
+                        onGitHubContextLoaded = { repoContext ->
+                            input = repoContext
+                            tab = AppTab.CHAT
+                        }
                     )
                 }
             }
@@ -672,7 +676,8 @@ private fun OfflineSettingsScreen(
     onClearHistory: () -> Unit,
     onReload: () -> Unit,
     reloadEnabled: Boolean,
-    controlsEnabled: Boolean
+    controlsEnabled: Boolean,
+    onGitHubContextLoaded: (String) -> Unit
 ) {
     Column(
         Modifier.fillMaxSize().padding(18.dp),
@@ -713,7 +718,7 @@ private fun OfflineSettingsScreen(
         )
         OutlinedButton(onClick = onReload, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
         OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
-        GitHubConnectorCard(onContextLoaded = { repoContext -> input = repoContext })
+        GitHubConnectorCard(onContextLoaded = onGitHubContextLoaded)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
                 Text("Privacidade", fontWeight = FontWeight.Bold)
