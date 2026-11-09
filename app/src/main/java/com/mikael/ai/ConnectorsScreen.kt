@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 private data class ConnectorSuggestion(
     val name: String,
@@ -196,7 +197,7 @@ fun ConnectorsScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
                     OutlinedTextField(value = newName, onValueChange = { newName = it }, label = { Text("Nome do conector") }, singleLine = true, enabled = !busy)
                     OutlinedTextField(value = newEndpoint, onValueChange = { newEndpoint = it }, label = { Text("URL HTTPS do servidor MCP") }, placeholder = { Text("https://servidor.exemplo/mcp") }, singleLine = true, enabled = !busy)
-                    OutlinedTextField(value = newToken, onValueChange = { newToken = it }, label = { Text("Token (opcional)") }, singleLine = true, enabled = !busy)
+                    OutlinedTextField(value = newToken, onValueChange = { newToken = it }, label = { Text("Token (opcional)") }, visualTransformation = PasswordVisualTransformation(), singleLine = true, enabled = !busy)
                     Text("O servidor será testado antes de ser salvo. Endereços locais e HTTP sem TLS não são aceitos.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 }
             },
