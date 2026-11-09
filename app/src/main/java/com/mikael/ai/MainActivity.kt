@@ -288,7 +288,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         val response = withContext(Dispatchers.IO) {
                                             LocalInferenceEngine.generate(
                                                 conversationPrompt,
-                                                AssistantPromptBuilder.maxTokens(selectedMode)
+                                                AssistantPromptBuilder.maxTokens(selectedMode, contextTokens)
                                             ).getOrThrow()
                                         }
                                         if (response.isNotBlank()) {
@@ -399,7 +399,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             messages.clear()
                             ConversationStore.clear(context)
                         },
-                        onReload = { reloadKey++ }
+                        onReload = { if (!generating) reloadKey++ },\n                        reloadEnabled = !generating
                     )
                 }
             }
@@ -617,15 +617,18 @@ private fun OfflineSettingsScreen(
         Text("Tudo relacionado à geração acontece localmente. A internet é usada apenas se você escolher baixar um modelo.", color = Color(0xFF9EAAA2))
         Text("Orçamento de memória: $memoryLimit MiB", fontWeight = FontWeight.SemiBold)
         Text("RAM livre informada pelo Android: ${MemoryBudget.mib(availableBytes)} MiB", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
-        Slider(
-            value = memoryLimit.toFloat(),
-            onValueChange = { value ->
-                val nearest = MemoryBudget.allowedLimitsMiB.minBy { kotlin.math.abs(it - value) }
-                onMemoryChange(nearest)
-            },
-            valueRange = 512f..2048f,
-            steps = 2
-        )
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            MemoryBudget.allowedLimitsMiB.forEach { limit ->
+                FilterChip(
+                    selected = memoryLimit == limit,
+                    onClick = { onMemoryChange(limit) },
+                    label = { Text(if (limit >= 1024) "${limit / 1024.0} GB" else "$limit MB") }
+                )
+            }
+        }
         Text("Contexto: $contextTokens tokens", fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(512, 1024, 2048, 4096).forEach { count ->
@@ -641,7 +644,7 @@ private fun OfflineSettingsScreen(
             color = Color(0xFF9EAAA2),
             style = MaterialTheme.typography.bodySmall
         )
-        OutlinedButton(onClick = onReload, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
+        OutlinedButton(onClick = onReload, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
         OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
