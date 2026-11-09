@@ -291,7 +291,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             ConversationStore.clear(context)
                         },
                         onSend = {
-                            val prompt = input.trim()
+                            val prompt = input.trim().ifBlank { if (attachments.isNotEmpty()) "Analise os anexos selecionados." else "" }
                             if (prompt.isNotEmpty() && engineReady && !generating) {
                                 input = ""
                                 val attachmentContext = attachments.joinToString("\n\n") { it.promptContext }
@@ -565,7 +565,7 @@ private fun OfflineChatScreen(
             } else {
                 Button(
                     onClick = onSend,
-                    enabled = ready && input.isNotBlank(),
+                    enabled = ready && (input.isNotBlank() || attachments.isNotEmpty()),
                     modifier = Modifier.height(54.dp)
                 ) { Text("Enviar") }
             }
@@ -707,7 +707,7 @@ private fun OfflineSettingsScreen(
         )
         OutlinedButton(onClick = onReload, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
         OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
-        GitHubConnectorCard()
+        GitHubConnectorCard(onContextLoaded = { repoContext -> input = repoContext })
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
                 Text("Privacidade", fontWeight = FontWeight.Bold)
