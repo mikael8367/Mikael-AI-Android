@@ -313,7 +313,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     Text("ENGENHARIA DE SOFTWARE", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8BE7B7))
                 }
                 Spacer(Modifier.weight(1f))
-                Text(
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
                     when {
                         onlineMode && onlineAuthenticated -> "● ONLINE"
                         onlineMode -> "○ SEM LOGIN"
@@ -323,7 +324,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     color = if (onlineMode && onlineAuthenticated || !onlineMode && engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
-                )
+                    )
+                    Text("v1.1.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                }
             }
             AnimatedContent(
                 targetState = tab,
