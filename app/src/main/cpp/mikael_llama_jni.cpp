@@ -1,11 +1,12 @@
 #include <jni.h>
 #include <android/log.h>
+#include <algorithm>
 #include <atomic>
 #include <climits>
+#include <cstdint>
 #include <mutex>
 #include <string>
 #include <vector>
-#include <algorithm>
 #include "llama.h"
 
 namespace {
@@ -16,6 +17,7 @@ std::once_flag g_backend_once;
 llama_model* g_model = nullptr;
 llama_context* g_context = nullptr;
 const llama_vocab* g_vocab = nullptr;
+uint32_t g_context_size = 0;
 
 void unloadLocked() {
     if (g_context != nullptr) {
@@ -27,10 +29,57 @@ void unloadLocked() {
         g_model = nullptr;
     }
     g_vocab = nullptr;
+    g_context_size = 0;
 }
 
 jstring errorString(JNIEnv* env, const char* message) {
     return env->NewStringUTF(message);
+}
+
+jstring utf8ToJava(JNIEnv* env, const std::string& value) {
+    std::vector<jchar> utf16;
+    utf16.reserve(value.size());
+    size_t i = 0;
+    while (i < value.size()) {
+        const uint8_t first = static_cast<uint8_t>(value[i]);
+        uint32_t codePoint = 0xFFFD;
+        size_t count = 1;
+        if (first < 0x80) {
+            codePoint = first;
+        } else if ((first & 0xE0) == 0xC0 && i + 1 < value.size()) {
+            codePoint = ((first & 0x1F) << 6) | (static_cast<uint8_t>(value[i + 1]) & 0x3F);
+            count = 2;
+        } else if ((first & 0xF0) == 0xE0 && i + 2 < value.size()) {
+            codePoint = ((first & 0x0F) << 12)
+                    | ((static_cast<uint8_t>(value[i + 1]) & 0x3F) << 6)
+                    | (static_cast<uint8_t>(value[i + 2]) & 0x3F);
+            count = 3;
+        } else if ((first & 0xF8) == 0xF0 && i + 3 < value.size()) {
+            codePoint = ((first & 0x07) << 18)
+                    | ((static_cast<uint8_t>(value[i + 1]) & 0x3F) << 12)
+                    | ((static_cast<uint8_t>(value[i + 2]) & 0x3F) << 6)
+                    | (static_cast<uint8_t>(value[i + 3]) & 0x3F);
+            count = 4;
+        }
+        bool valid = true;
+        for (size_t j = 1; j < count; ++j) {
+            if ((static_cast<uint8_t>(value[i + j]) & 0xC0) != 0x80) valid = false;
+        }
+        if (!valid || codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+            codePoint = 0xFFFD;
+            count = 1;
+        }
+        if (codePoint <= 0xFFFF) {
+            utf16.push_back(static_cast<jchar>(codePoint));
+        } else {
+            codePoint -= 0x10000;
+            utf16.push_back(static_cast<jchar>(0xD800 + (codePoint >> 10)));
+            utf16.push_back(static_cast<jchar>(0xDC00 + (codePoint & 0x3FF)));
+        }
+        i += count;
+    }
+    if (utf16.size() > static_cast<size_t>(INT_MAX)) return nullptr;
+    return env->NewString(utf16.data(), static_cast<jsize>(utf16.size()));
 }
 }
 
@@ -50,7 +99,6 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(
     g_cancel.store(true);
     unloadLocked();
     g_cancel.store(false);
-
     std::call_once(g_backend_once, [] { llama_backend_init(); });
 
     llama_model_params modelParams = llama_model_default_params();
@@ -78,7 +126,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(
         unloadLocked();
         return errorString(env, "O modelo não forneceu um vocabulário válido.");
     }
-
+    g_context_size = static_cast<uint32_t>(contextTokens);
     __android_log_print(ANDROID_LOG_INFO, kTag, "Modelo local carregado.");
     return nullptr;
 }
@@ -91,17 +139,18 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     if (promptChars == nullptr) return errorString(env, "Não foi possível ler a mensagem.");
     const std::string prompt(promptChars);
     env->ReleaseStringUTFChars(promptValue, promptChars);
-
-    if (prompt.empty() || prompt.size() > 24000) {
+    if (prompt.empty() || prompt.size() > 24000 || prompt.size() > static_cast<size_t>(INT_MAX)) {
         return errorString(env, "A mensagem precisa ter entre 1 e 24000 bytes.");
     }
 
     std::lock_guard<std::mutex> lock(g_mutex);
-    if (g_model == nullptr || g_context == nullptr || g_vocab == nullptr) {
+    if (g_model == nullptr || g_context == nullptr || g_vocab == nullptr || g_context_size == 0) {
         return errorString(env, "Nenhum modelo local está carregado.");
     }
 
     g_cancel.store(false);
+    llama_memory_clear(llama_get_memory(g_context), true);
+
     const int32_t capacity = static_cast<int32_t>(std::min<size_t>(prompt.size() + 64, INT_MAX));
     std::vector<llama_token> tokens(static_cast<size_t>(capacity));
     int32_t tokenCount = llama_tokenize(
@@ -116,10 +165,18 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     if (tokenCount <= 0 || tokenCount > static_cast<int32_t>(tokens.size())) {
         return errorString(env, "Não foi possível converter a mensagem em tokens.");
     }
+    if (static_cast<uint32_t>(tokenCount) >= g_context_size) {
+        return errorString(env, "A conversa ultrapassou o contexto configurado. Reduza o histórico ou aumente o contexto.");
+    }
 
-    llama_batch batch = llama_batch_get_one(tokens.data(), tokenCount);
-    if (llama_decode(g_context, batch) != 0) {
-        return errorString(env, "Falha ao processar a mensagem no modelo local.");
+    constexpr int32_t batchLimit = 128;
+    for (int32_t offset = 0; offset < tokenCount; offset += batchLimit) {
+        if (g_cancel.load()) return utf8ToJava(env, "");
+        const int32_t count = std::min(batchLimit, tokenCount - offset);
+        llama_batch batch = llama_batch_get_one(tokens.data() + offset, count);
+        if (llama_decode(g_context, batch) != 0) {
+            return errorString(env, "Falha ao processar a mensagem no modelo local.");
+        }
     }
 
     llama_sampler* sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
@@ -127,22 +184,31 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
 
     std::string output;
-    std::vector<char> piece(512);
-    const int limit = std::clamp(static_cast<int>(maxTokens), 1, 512);
+    std::vector<char> piece(4096);
+    const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
+    const int limit = std::clamp(std::min(static_cast<int>(maxTokens), remainingContext), 1, 512);
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
         const llama_token token = llama_sampler_sample(sampler, g_context, -1);
         if (llama_vocab_is_eog(g_vocab, token)) break;
 
-        const int32_t pieceSize = llama_token_to_piece(
+        int32_t pieceSize = llama_token_to_piece(
                 g_vocab, token, piece.data(), static_cast<int32_t>(piece.size()), 0, true);
-        if (pieceSize > 0) output.append(piece.data(), static_cast<size_t>(pieceSize));
+        if (pieceSize < 0) {
+            piece.resize(static_cast<size_t>(-pieceSize));
+            pieceSize = llama_token_to_piece(
+                    g_vocab, token, piece.data(), static_cast<int32_t>(piece.size()), 0, true);
+        }
+        if (pieceSize > 0 && pieceSize <= static_cast<int32_t>(piece.size())) {
+            output.append(piece.data(), static_cast<size_t>(pieceSize));
+        }
 
-        batch = llama_batch_get_one(const_cast<llama_token*>(&token), 1);
+        llama_token nextToken = token;
+        llama_batch batch = llama_batch_get_one(&nextToken, 1);
         if (llama_decode(g_context, batch) != 0) break;
     }
 
     llama_sampler_free(sampler);
-    return env->NewStringUTF(output.c_str());
+    return utf8ToJava(env, output);
 }
 
 extern "C" JNIEXPORT void JNICALL
