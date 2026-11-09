@@ -65,6 +65,24 @@ class GamesTest {
     }
 
     @Test
+    fun chessStartsAndRejectsIllegalMovesWithoutChangingPosition() {
+        val start = Games.handle(null, "/games xadrez")!!
+        assertEquals("xadrez", start.state?.type)
+        val invalid = Games.handle(start.state, "e2e5")!!
+        assertEquals(start.state, invalid.state)
+        assertTrue(invalid.text.contains("não é legal"))
+    }
+
+    @Test
+    fun chessAcceptsAStandardLegalOpeningMove() {
+        val start = Games.handle(null, "/games xadrez")!!
+        val next = Games.handle(start.state, "e2e4")!!
+        assertNotNull(next.state)
+        assertTrue(next.text.contains("Minha jogada"))
+        assertTrue(next.state!!.chessFen != start.state!!.chessFen)
+    }
+
+    @Test
     fun endingGameClearsSession() {
         val state = GameState(type = "rps")
         val result = Games.handle(state, "pedra")!!
