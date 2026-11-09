@@ -33,8 +33,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -122,7 +120,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         if (uri != null) {
             scope.launch {
                 try {
+                    val previousPath = modelPath
                     val copiedPath = withContext(Dispatchers.IO) { copyModelToPrivateStorage(context, uri) }
+                    LocalInferenceEngine.cancel()
+                    withContext(Dispatchers.IO) {
+                        LocalInferenceEngine.unload()
+                        if (previousPath != null && previousPath != copiedPath) File(previousPath).delete()
+                    }
                     preferences.modelPath = copiedPath
                     modelPath = copiedPath
                     tab = AppTab.MODELS
@@ -325,16 +329,29 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
     }
     val directory = File(context.filesDir, "models").apply { mkdirs() }
     val safeName = displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-    val destination = File(directory, safeName)
-    val temporary = File(directory, "$safeName.importing")
-    context.contentResolver.openInputStream(uri).use { input ->
-        requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
-        temporary.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
+    val uniqueName = "${System.currentTimeMillis()}_$safeName"
+    val destination = File(directory, uniqueName)
+    val temporary = File(directory, "$uniqueName.importing")
+    try {
+        context.contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
+            temporary.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
+        }
+        require(temporary.length() > 1024L * 1024L) {
+            "O arquivo parece pequeno demais para ser um modelo GGUF válido."
+        }
+        val header = temporary.inputStream().use { stream ->
+            val bytes = ByteArray(4)
+            val read = stream.read(bytes)
+            read == 4 && bytes.decodeToString() == "GGUF"
+        }
+        require(header) { "O arquivo selecionado não tem o cabeçalho GGUF esperado." }
+        check(temporary.renameTo(destination)) { "Não foi possível concluir a cópia do modelo." }
+        return destination.absolutePath
+    } catch (error: Exception) {
+        temporary.delete()
+        throw error
     }
-    require(temporary.length() > 1024L * 1024L) { "O arquivo parece pequeno demais para ser um modelo GGUF válido." }
-    if (destination.exists()) check(destination.delete()) { "Não foi possível substituir o modelo anterior." }
-    check(temporary.renameTo(destination)) { "Não foi possível concluir a cópia do modelo." }
-    return destination.absolutePath
 }
 
 @Composable
