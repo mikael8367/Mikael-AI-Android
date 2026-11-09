@@ -1,0 +1,1 @@
+-keep class com.mikael.ai.LocalInferenceEngine { *; }
