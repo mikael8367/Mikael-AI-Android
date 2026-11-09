@@ -1,10 +1,14 @@
-# Mikael AI Android — v1.2.0
+# Mikael AI Android — v1.3.0
 
 Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O projeto é independente do site e mantém a interface móvel inspirada no Mikael AI original.
 
 ## Interface
 - Cinco abas inferiores animadas: Início, Conversas, Projetos, Arquivos e Ajustes.
 - Tema escuro verde.
+- Modos de conversa: Normal, Programar e Auditoria profunda.
+- Modo Programar orienta a IA a produzir código completo, indicar arquivos, dependências, compatibilidade e testes sem alegar execução inexistente.
+- Auditoria profunda solicita análise sistemática de lógica, estados, erros, segurança, desempenho, memória, concorrência e regressões; achados devem incluir severidade, localização, reprodução, causa raiz, impacto e correção.
+- O contexto recente é ampliado e limitado para caber no modelo local; os modos técnicos usam orçamento de até 768 tokens de saída.
 - Navegação e componentes adaptados para celular.
 - Versão exibida no cabeçalho.
 
