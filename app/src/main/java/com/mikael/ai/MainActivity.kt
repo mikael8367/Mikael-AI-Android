@@ -149,6 +149,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         val saved = withContext(Dispatchers.IO) { SecureCredentials.readPassword(context) }
         savedPasswordCache = saved
         if (saved != null && onlineMode) {
+            passwordInput = saved
             loginBusy = true
             onlineStatus = "Reconectando à Mikael AI online..."
             val loginResult = runCatching {
@@ -169,6 +170,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         preferences.onlineModelId = selectedOnlineModel
                     }
                     onlineStatus = "Conectado com segurança."
+                    passwordInput = ""
                 }.onFailure {
                     if (!onlineApi.isAuthenticated()) {
                         onlineAuthenticated = false
@@ -182,6 +184,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 if (loginError.contains("senha incorreta", ignoreCase = true)) {
                     withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
                     savedPasswordCache = null
+                    passwordInput = ""
                     savePassword = false
                 }
                 onlineStatus = loginError
