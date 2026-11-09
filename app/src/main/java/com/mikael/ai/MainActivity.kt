@@ -81,7 +81,8 @@ private enum class AppTab(val title: String, val symbol: String) {
     CHAT("Conversas", "◌"),
     PROJECTS("Projetos", "⌘"),
     FILES("Arquivos", "▤"),
-    SETTINGS("Ajustes", "⚙")
+    SETTINGS("Ajustes", "⚙"),
+    CONNECTORS("Conectores", "⌘")
 }
 
 class MainActivity : ComponentActivity() {
@@ -150,6 +151,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var remoteConversations by remember { mutableStateOf(emptyList<RemoteConversation>()) }
     var uploadedFiles by remember { mutableStateOf(emptyList<RemoteFile>()) }
     var remoteConnectors by remember { mutableStateOf(emptyList<RemoteConnector>()) }
+    var connectorBusy by remember { mutableStateOf(false) }
+    var connectorStatus by remember { mutableStateOf("") }
     var fileBusy by remember { mutableStateOf(false) }
     var remoteConversationId by remember { mutableStateOf<Long?>(null) }
     var activeGame by remember { mutableStateOf<GameState?>(null) }
@@ -312,12 +315,27 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         )
     }
 
+    LaunchedEffect(tab, onlineAuthenticated) {
+        if (tab == AppTab.CONNECTORS && onlineAuthenticated) {
+            runCatching {
+                remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
+                connectorStatus = "Conectores atualizados."
+            }.onFailure {
+                if (!onlineApi.isAuthenticated()) {
+                    onlineAuthenticated = false
+                    passwordInput = savedPasswordCache.orEmpty()
+                }
+                connectorStatus = it.message ?: "Não foi possível carregar os conectores."
+            }
+        }
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = Color(0xFF09150F)) {
-                AppTab.entries.forEach { item ->
+                AppTab.entries.filter { it != AppTab.CONNECTORS }.forEach { item ->
                     NavigationBarItem(
-                        selected = tab == item,
+                        selected = tab == item || (tab == AppTab.CONNECTORS && item == AppTab.SETTINGS),
                         onClick = { tab = item },
                         icon = { Text(item.symbol, fontWeight = FontWeight.Bold) },
                         label = { Text(item.title) }
@@ -384,18 +402,27 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
-                        canSend = engineReady || activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true),
-                        engineStatus = engineStatus,
+                        canSend = activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true) || if (onlineMode) onlineAuthenticated else engineReady,
+                        engineStatus = if (onlineMode) {
+                            if (onlineAuthenticated) "Conectado • modelo online: $selectedOnlineModel"
+                            else "Entre na conta em Ajustes para usar o modelo Mikael AI online."
+                        } else engineStatus,
                         isGenerating = isGenerating,
                         webSearchEnabled = webSearchEnabled,
                         assistantMode = assistantMode,
                         onAssistantModeChange = { assistantMode = it },
                         webSearchInProgress = webSearchInProgress,
                         onWebSearchChange = { webSearchEnabled = it },
-                        onlineMode = false,
-                        onlineModels = emptyList(),
+                        onlineMode = onlineMode,
+                        onlineModels = onlineModels,
                         selectedOnlineModel = selectedOnlineModel,
-                        remoteConversations = emptyList(),
+                        remoteConversations = remoteConversations,
+                        localModels = installedModels,
+                        activeLocalModelPath = modelPath,
+                        onLocalModelChange = { selectedPath ->
+                            preferences.modelPath = selectedPath
+                            if (selectedPath == modelPath) modelReloadCounter += 1 else modelPath = selectedPath
+                        },
                         onModelChange = {
                             selectedOnlineModel = it
                             preferences.onlineModelId = it
@@ -433,67 +460,80 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onSend = {
                             val prompt = input.trim()
                             val isGameInput = prompt.equals("/games", true) || prompt.startsWith("/games ", true) || activeGame != null
-                            if (prompt.isNotEmpty() && !isGenerating &&
-                                (isGameInput || engineReady)) {
+                            val selectedEngineReady = if (onlineMode) onlineAuthenticated else engineReady
+                            if (prompt.isNotEmpty() && !isGenerating && (isGameInput || selectedEngineReady)) {
                                 input = ""
                                 messages.add(ChatMessage(nextChatMessageId(), "user", prompt))
                                 val gameReply = Games.handle(activeGame, prompt)
                                 if (gameReply != null) {
                                     activeGame = gameReply.state
                                     messages.add(ChatMessage(nextChatMessageId(), "assistant", gameReply.text))
-                                    ConversationStore.save(context, messages)
+                                    if (!onlineMode) ConversationStore.save(context, messages)
                                 } else {
-                                    ConversationStore.save(context, messages)
+                                    if (!onlineMode) ConversationStore.save(context, messages)
                                     isGenerating = true
-                                    val searchThisMessage = webSearchEnabled || WebSearch.requestsSearch(prompt)
+                                    val searchThisMessage = !onlineMode && (webSearchEnabled || WebSearch.requestsSearch(prompt))
                                     val modeForMessage = assistantMode
                                     webSearchInProgress = searchThisMessage
                                     generationJob = scope.launch {
                                         try {
-                                            var searchResults = emptyList<WebSearchResult>()
-                                            var searchError: String? = null
-                                            if (searchThisMessage) {
-                                                try {
-                                                    searchResults = withContext(Dispatchers.IO) { webSearch.search(prompt) }
-                                                } catch (cancelled: CancellationException) {
-                                                    throw cancelled
-                                                } catch (error: Exception) {
-                                                    searchError = (error.message ?: "Não foi possível acessar o buscador.").take(240)
-                                                } finally {
-                                                    webSearchInProgress = false
+                                            if (onlineMode) {
+                                                val result = withContext(Dispatchers.IO) {
+                                                    onlineApi.sendMessage(prompt, remoteConversationId, selectedOnlineModel)
                                                 }
-                                            }
-                                            val conversationPrompt = AssistantPromptBuilder.build(
-                                                mode = modeForMessage,
-                                                history = messages.takeLast(6).map { it.role to it.text },
-                                                searchResults = searchResults,
-                                                searchRequested = searchThisMessage,
-                                                searchError = searchError,
-                                                contextTokens = contextTokens
-                                            )
-                                            val answer = withContext(Dispatchers.IO) {
-                                                LocalInferenceEngine.generate(
-                                                    conversationPrompt,
-                                                    AssistantPromptBuilder.maxTokens(modeForMessage)
-                                                ).getOrThrow()
-                                            }
-                                            if (answer.isNotBlank()) {
-                                                val citations = if (searchResults.isNotEmpty()) {
-                                                    "\n\nFontes consultadas:\n" + searchResults.mapIndexed { index, item ->
-                                                        "[${index + 1}] ${item.title} — ${item.url}"
-                                                    }.joinToString("\n")
-                                                } else ""
-                                                val searchNotice = if (searchThisMessage && searchError != null && searchResults.isEmpty()) {
-                                                    "\n\n(Pesquisa web indisponível: ${searchError})"
-                                                } else ""
-                                                messages.add(ChatMessage(nextChatMessageId(), "assistant", answer.trim() + citations + searchNotice))
+                                                remoteConversationId = result.conversationId
+                                                messages.add(ChatMessage(nextChatMessageId(), "assistant", result.reply.trim()))
+                                                remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                            } else {
+                                                var searchResults = emptyList<WebSearchResult>()
+                                                var searchError: String? = null
+                                                if (searchThisMessage) {
+                                                    try {
+                                                        searchResults = withContext(Dispatchers.IO) { webSearch.search(prompt) }
+                                                    } catch (cancelled: CancellationException) {
+                                                        throw cancelled
+                                                    } catch (error: Exception) {
+                                                        searchError = (error.message ?: "Não foi possível acessar o buscador.").take(240)
+                                                    } finally {
+                                                        webSearchInProgress = false
+                                                    }
+                                                }
+                                                val conversationPrompt = AssistantPromptBuilder.build(
+                                                    mode = modeForMessage,
+                                                    history = messages.takeLast(6).map { it.role to it.text },
+                                                    searchResults = searchResults,
+                                                    searchRequested = searchThisMessage,
+                                                    searchError = searchError,
+                                                    contextTokens = contextTokens
+                                                )
+                                                val answer = withContext(Dispatchers.IO) {
+                                                    LocalInferenceEngine.generate(
+                                                        conversationPrompt,
+                                                        AssistantPromptBuilder.maxTokens(modeForMessage)
+                                                    ).getOrThrow()
+                                                }
+                                                if (answer.isNotBlank()) {
+                                                    val citations = if (searchResults.isNotEmpty()) {
+                                                        "\n\nFontes consultadas:\n" + searchResults.mapIndexed { index, item ->
+                                                            "[${index + 1}] ${item.title} — ${item.url}"
+                                                        }.joinToString("\n")
+                                                    } else ""
+                                                    val searchNotice = if (searchThisMessage && searchError != null && searchResults.isEmpty()) {
+                                                        "\n\n(Pesquisa web indisponível: ${searchError})"
+                                                    } else ""
+                                                    messages.add(ChatMessage(nextChatMessageId(), "assistant", answer.trim() + citations + searchNotice))
+                                                }
                                                 ConversationStore.save(context, messages)
                                             }
                                         } catch (cancelled: CancellationException) {
                                             throw cancelled
                                         } catch (error: Exception) {
+                                            if (onlineMode && !onlineApi.isAuthenticated()) {
+                                                onlineAuthenticated = false
+                                                passwordInput = savedPasswordCache.orEmpty()
+                                            }
                                             messages.add(ChatMessage(nextChatMessageId(), "assistant", "Erro: ${error.message ?: "não foi possível concluir a solicitação."}"))
-                                            ConversationStore.save(context, messages)
+                                            if (!onlineMode) ConversationStore.save(context, messages)
                                         } finally {
                                             isGenerating = false
                                             webSearchInProgress = false
@@ -501,9 +541,93 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         }
                                     }
                                 }
-                            } else if (!engineReady) {
+                            } else if (onlineMode && !onlineAuthenticated) {
+                                android.widget.Toast.makeText(context, "Entre em Ajustes para conectar à Mikael AI.", android.widget.Toast.LENGTH_SHORT).show()
+                            } else if (!engineReady && !onlineMode) {
                                 android.widget.Toast.makeText(context, engineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
+                        }
+                    )
+                    AppTab.CONNECTORS -> ConnectorsScreen(
+                        authenticated = onlineAuthenticated,
+                        connectors = remoteConnectors,
+                        busy = connectorBusy,
+                        status = connectorStatus,
+                        onBack = { tab = AppTab.SETTINGS },
+                        onRefresh = {
+                            if (onlineAuthenticated && !connectorBusy) {
+                                connectorBusy = true
+                                scope.launch {
+                                    runCatching {
+                                        remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
+                                        connectorStatus = "Conectores atualizados."
+                                    }.onFailure {
+                                        connectorStatus = it.message ?: "Falha ao atualizar conectores."
+                                        if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
+                                    }
+                                    connectorBusy = false
+                                }
+                            }
+                        },
+                        onAddMcp = { name, endpoint, token ->
+                            if (!connectorBusy) {
+                                connectorBusy = true
+                                connectorStatus = "Testando servidor MCP..."
+                                scope.launch {
+                                    runCatching {
+                                        val result = withContext(Dispatchers.IO) { onlineApi.addMcpConnector(name, endpoint, token) }
+                                        remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
+                                        connectorStatus = "Conector ${result.connector.name} adicionado • ${result.tools.size} ferramenta(s) encontrada(s)."
+                                    }.onFailure {
+                                        connectorStatus = it.message ?: "Não foi possível adicionar o MCP."
+                                        if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
+                                    }
+                                    connectorBusy = false
+                                }
+                            }
+                        },
+                        onToggle = { connector, enabled ->
+                            if (!connectorBusy) {
+                                connectorBusy = true
+                                scope.launch {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) { onlineApi.setConnectorEnabled(connector.id, enabled) }
+                                        remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
+                                        connectorStatus = if (enabled) "Conector ativado." else "Conector pausado."
+                                    }.onFailure { connectorStatus = it.message ?: "Não foi possível alterar o conector." }
+                                    connectorBusy = false
+                                }
+                            }
+                        },
+                        onTest = { connector ->
+                            if (!connectorBusy) {
+                                connectorBusy = true
+                                scope.launch {
+                                    runCatching {
+                                        val tools = withContext(Dispatchers.IO) { onlineApi.testConnector(connector.id) }
+                                        connectorStatus = "Teste concluído: ${tools.size} ferramenta(s) disponível(is)."
+                                    }.onFailure { connectorStatus = it.message ?: "O teste do conector falhou." }
+                                    connectorBusy = false
+                                }
+                            }
+                        },
+                        onDelete = { connector ->
+                            if (!connectorBusy) {
+                                connectorBusy = true
+                                scope.launch {
+                                    runCatching {
+                                        withContext(Dispatchers.IO) { onlineApi.deleteConnector(connector.id) }
+                                        remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
+                                        connectorStatus = "Conector removido."
+                                    }.onFailure { connectorStatus = it.message ?: "Não foi possível remover o conector." }
+                                    connectorBusy = false
+                                }
+                            }
+                        },
+                        onOpenWebsite = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mikael-ai.onrender.com")))
+                            }.onFailure { connectorStatus = "Não foi possível abrir o navegador." }
                         }
                     )
                     AppTab.PROJECTS -> ProjectsScreen(
@@ -707,6 +831,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             selectedOnlineModel = it
                             preferences.onlineModelId = it
                         },
+                        onOpenConnectors = { tab = AppTab.CONNECTORS },
                         modelPath = modelPath,
                         installedModels = installedModels,
                         engineStatus = engineStatus,
@@ -866,6 +991,9 @@ private fun ChatScreen(
     onlineModels: List<OnlineModel>,
     selectedOnlineModel: String,
     remoteConversations: List<RemoteConversation>,
+    localModels: List<File>,
+    activeLocalModelPath: String?,
+    onLocalModelChange: (String) -> Unit,
     onModelChange: (String) -> Unit,
     onNewConversation: () -> Unit,
     onOpenConversation: (Long) -> Unit,
@@ -886,6 +1014,24 @@ private fun ChatScreen(
                 Text(if (onlineMode) "Histórico sincronizado online" else "Histórico salvo neste aparelho", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
             }
             OutlinedButton(onClick = onNewConversation, enabled = !isGenerating) { Text("+ Nova") }
+        }
+        if (!onlineMode && localModels.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                Text("MODELO LOCAL", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    localModels.take(8).forEach { file ->
+                        FilterChip(
+                            selected = activeLocalModelPath == file.absolutePath,
+                            onClick = { onLocalModelChange(file.absolutePath) },
+                            enabled = !isGenerating,
+                            label = { Text(file.nameWithoutExtension.take(22), maxLines = 1) }
+                        )
+                    }
+                }
+            }
         }
         if (onlineMode && onlineModels.isNotEmpty()) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
@@ -986,7 +1132,7 @@ private fun ChatScreen(
                 )
             }
         }
-        Row(
+        if (!onlineMode) Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1175,6 +1321,7 @@ private fun SettingsScreen(
     onLogin: () -> Unit,
     onLogout: () -> Unit,
     onModelChange: (String) -> Unit,
+    onOpenConnectors: () -> Unit,
     modelPath: String?,
     installedModels: List<File>,
     engineStatus: String,
@@ -1200,6 +1347,9 @@ private fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Configurações", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        OutlinedButton(onClick = onOpenConnectors, modifier = Modifier.fillMaxWidth()) {
+            Text("Conectores • pesquisar, adicionar MCP e gerenciar")
+        }
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("MODO DE CONEXÃO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
@@ -1207,7 +1357,7 @@ private fun SettingsScreen(
                     FilterChip(selected = !onlineMode, onClick = { onOnlineModeChange(false) }, label = { Text("Offline") }, enabled = canChangeMode)
                     FilterChip(selected = onlineMode, onClick = { onOnlineModeChange(true) }, label = { Text("Online") }, enabled = canChangeMode)
                 }
-                Text("O chat sempre usa o modelo GGUF neste aparelho. A conexão online é opcional e serve apenas para recursos remotos, como arquivos e conectores.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                Text("Offline usa o GGUF selecionado neste aparelho. Online usa o modelo escolhido no servidor; Mikael AI é a opção principal.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Color(0xFF26332B))
                 Text(if (onlineAuthenticated) "Conta conectada" else "Entrar na Mikael AI", fontWeight = FontWeight.SemiBold)
                 if (!onlineAuthenticated) {
