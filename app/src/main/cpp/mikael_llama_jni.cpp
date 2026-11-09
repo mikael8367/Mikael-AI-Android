@@ -205,8 +205,20 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     if (tokenCount <= 0 || tokenCount > static_cast<int32_t>(tokens.size())) {
         return errorString(env, "Não foi possível converter a mensagem em tokens.");
     }
-    if (static_cast<uint32_t>(tokenCount) >= g_context_size) {
-        return errorString(env, "A conversa ultrapassou o contexto configurado. Reduza o histórico ou aumente o contexto.");
+    // Preserve the most recent part of the prompt and reserve context for a useful answer.
+    // Long restored histories must not make the chat permanently unusable on small devices.
+    const int32_t requestedOutput = std::clamp(static_cast<int>(maxTokens), 16, 256);
+    const int32_t outputReserve = std::min(
+            requestedOutput,
+            std::max(32, static_cast<int32_t>(g_context_size / 4)));
+    const int32_t promptLimit = std::max(1, static_cast<int32_t>(g_context_size) - outputReserve);
+    if (tokenCount > promptLimit) {
+        const int32_t removeCount = tokenCount - promptLimit;
+        tokens.erase(tokens.begin(), tokens.begin() + removeCount);
+        tokenCount = promptLimit;
+    }
+    if (tokenCount <= 0) {
+        return errorString(env, "A mensagem ficou vazia após ajustar o contexto. Envie uma mensagem menor.");
     }
 
     constexpr int32_t batchLimit = 128;
@@ -231,7 +243,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     std::string output;
     std::vector<char> piece(4096);
     const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
-    const int limit = std::clamp(std::min(static_cast<int>(maxTokens), remainingContext), 1, 768);
+    const int limit = std::clamp(std::min(requestedOutput, remainingContext), 1, 256);
     bool decodeFailed = false;
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
         const llama_token token = llama_sampler_sample(sampler, g_context, -1);

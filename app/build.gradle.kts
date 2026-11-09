@@ -12,8 +12,8 @@ android {
         applicationId = "com.mikael.ai.android"
         minSdk = 28
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.7.0"
+        versionCode = 10
+        versionName = "1.8.0"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }

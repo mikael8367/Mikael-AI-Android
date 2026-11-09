@@ -23,41 +23,37 @@ object AssistantPromptBuilder {
     ): String {
         val systemPrompt = buildString {
             append("<|im_start|>system\n")
-            append("Você é Mikael AI, assistente técnico em português do Brasil. Seja preciso; não invente APIs, arquivos, logs ou testes. Declare limitações e não alegue execução sem evidência.\n")
+            append("Você é Mikael AI, assistente técnico em português do Brasil. Responda diretamente, com precisão. Não invente APIs, arquivos, logs ou testes.\n")
             when (mode) {
                 AssistantMode.GENERAL -> append(
                     "Explique com clareza. Para código, priorize correção, legibilidade e compatibilidade.\n"
                 )
                 AssistantMode.CODING -> append(
-                    "MODO PROGRAMADOR: aja como engenheiro de software. Entregue códigos completos e compiláveis, compatíveis; " +
-                        "inclua imports, dependências, arquivos e passos. Explique onde cada trecho entra. " +
-                        "Considere casos extremos, erros, segurança, desempenho e memória. Inclua testes reproduzíveis " +
-                        "e comandos de validação. Diferencie sugestões de código realmente verificado.\n"
+                    "MODO PROGRAMADOR: aja como engenheiro de software. Forneça código correto e compatível, com imports e dependências necessárias. " +
+                        "Considere erros, segurança, desempenho e memória. Inclua testes e validação quando fizer sentido. " +
+                        "Nunca diga que executou algo sem evidência.\n"
                 )
                 AssistantMode.DEEP_AUDIT -> append(
-                    "MODO AUDITORIA PROFUNDA: examine todo o material fornecido. Verifique lógica, dados, estados, " +
-                        "concorrência, ciclo de vida, erros, entradas inválidas, limites, nullability, dependências, " +
-                        "compatibilidade, segurança, privacidade, permissões, persistência, desempenho, memória, " +
-                        "vazamentos e regressões. Para cada achado informe severidade, confiança, localização, " +
-                        "condição de reprodução, causa raiz, impacto e correção mínima. Diferencie bugs confirmados de riscos hipotéticos. " +
-                        "Inclua testes de regressão e liste o que não foi possível verificar. Não declare ausência de bugs " +
-                        "sem evidência.\n"
+                    "MODO AUDITORIA PROFUNDA: examine lógica, estados, concorrência, ciclo de vida, entradas inválidas, limites, " +
+                        "compatibilidade, segurança, privacidade, persistência, desempenho, memória e regressões. " +
+                        "Para cada achado informe severidade, localização, reprodução, causa, impacto e correção. " +
+                        "Separe bugs confirmados de riscos e diga o que não foi possível verificar.\n"
                 )
             }
             append("<|im_end|>\n")
         }
 
-        val maxBytes = minOf(MAX_PROMPT_BYTES, (contextTokens.coerceIn(256, 8192) * 5) / 2)
+        val maxBytes = minOf(MAX_PROMPT_BYTES, (contextTokens.coerceIn(256, 8192) * 3) / 2)
         val latest = history.lastOrNull()
-        val previous = history.dropLast(1).takeLast(2)
-        var historyBudget = minOf(600, maxBytes / 5)
+        val previous = history.dropLast(1).takeLast(1)
+        var historyBudget = minOf(240, maxBytes / 8)
 
         while (true) {
             val previousPart = buildString {
                 previous.forEach { (role, message) ->
                     val safeRole = if (role == "user") "user" else "assistant"
                     append("<|im_start|>$safeRole\n")
-                    append(message.take(240))
+                    append(message.take(160))
                     append("\n<|im_end|>\n")
                 }
             }.let { takeUtf8Prefix(it, historyBudget) }

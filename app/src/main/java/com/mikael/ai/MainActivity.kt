@@ -251,7 +251,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 Column(Modifier.padding(start = 11.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("IA LOCAL • PRIVACIDADE NO DISPOSITIVO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                    Text("v1.7.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                    Text("v1.8.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -348,11 +348,21 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                     AppTab.MODELS -> OfflineModelsScreen(
                         models = models,
                         selectedPath = modelPath,
+                        recommendedModelPath = models.firstOrNull { it.name == RecommendedModelDownloader.MODEL_NAME && it.length() == RecommendedModelDownloader.EXPECTED_BYTES }?.absolutePath,
                         status = engineStatus,
                         busy = busy || downloading || generating,
                         downloadProgress = downloadProgress,
                         downloadStatus = downloadStatus,
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
+                        onSelectRecommended = { path ->
+                            if (!generating && !busy && !downloading) {
+                                engineReady = false
+                                modelPath = path
+                                preferences.modelPath = path
+                                reloadKey++
+                                engineStatus = "Modelo instalado selecionado. Carregando para o chat..."
+                            }
+                        },
                         onSelect = { path ->
                             if (!generating && !busy) {
                                 engineReady = false
@@ -419,7 +429,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             preferences.memoryLimitMiB = memoryLimit
                                         }
                                         reloadKey++
-                                        downloadStatus = "Download concluído e SHA-256 validado."
+                                        downloadStatus = "Download concluído e SHA-256 validado. O modelo foi salvo e selecionado."
                                     } catch (error: Exception) {
                                         downloadStatus = error.message ?: "Falha no download."
                                     } finally {
@@ -429,10 +439,21 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             }
                         }
                     )
-                    AppTab.CONNECTORS -> GitHubConnectorCard(onContextLoaded = { repoContext ->
-                        input = repoContext
-                        tab = AppTab.CHAT
-                    })
+                    AppTab.CONNECTORS -> Column(
+                        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("Conectores", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                        Text("Conecte serviços externos quando quiser. A conversa e a inferência continuam locais.", color = Color(0xFF9EAAA2))
+                        GitHubConnectorCard(onContextLoaded = { repoContext ->
+                            input = repoContext
+                            tab = AppTab.CHAT
+                        })
+                        McpConnectorCard(onContextLoaded = { toolContext ->
+                            input = toolContext
+                            tab = AppTab.CHAT
+                        })
+                    }
                     AppTab.SETTINGS -> OfflineSettingsScreen(
                         memoryLimit = memoryLimit,
                         contextTokens = contextTokens,
@@ -619,11 +640,13 @@ private fun OfflineMessageBubble(message: ChatMessage) {
 private fun OfflineModelsScreen(
     models: List<File>,
     selectedPath: String?,
+    recommendedModelPath: String?,
     status: String,
     busy: Boolean,
     downloadProgress: Float,
     downloadStatus: String,
     onImport: () -> Unit,
+    onSelectRecommended: (String) -> Unit,
     onSelect: (String) -> Unit,
     onUnload: () -> Unit,
     onDelete: (String) -> Unit,
@@ -638,8 +661,19 @@ private fun OfflineModelsScreen(
         Button(onClick = onImport, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
             Text("Importar modelo GGUF")
         }
-        OutlinedButton(onClick = onDownload, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-            Text("Baixar Mikael AI • 0.5B (base local)")
+        if (recommendedModelPath != null) {
+            Button(
+                onClick = { onSelectRecommended(recommendedModelPath) },
+                enabled = !busy && recommendedModelPath != selectedPath,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (recommendedModelPath == selectedPath) "Mikael AI instalado e selecionado" else "Usar modelo Mikael AI já instalado")
+            }
+            Text("O arquivo já está instalado. Não é necessário baixá-lo novamente.", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
+        } else {
+            OutlinedButton(onClick = onDownload, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                Text("Baixar Mikael AI • 0.5B (base local)")
+            }
         }
         if (busy && downloadStatus.isNotBlank()) {
             if (downloadProgress > 0f) {

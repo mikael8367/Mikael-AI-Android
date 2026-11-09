@@ -12,8 +12,8 @@ data class MemoryCheck(
 
 object MemoryBudget {
     private const val MIB = 1024L * 1024L
-    private const val SYSTEM_RESERVE_MIB = 448L
-    private const val ENGINE_OVERHEAD_MIB = 128L
+    private const val SYSTEM_RESERVE_MIB = 384L
+    private const val ENGINE_OVERHEAD_MIB = 96L
     val allowedLimitsMiB = listOf(512, 768, 1024, 1536, 2048)
 
     fun availableBytes(manager: ActivityManager): Long {
@@ -32,8 +32,8 @@ object MemoryBudget {
 
     fun estimateRequiredBytes(modelBytes: Long, contextTokens: Int): Long? {
         if (modelBytes <= 0L || contextTokens !in 256..8192) return null
-        val modelMargin = modelBytes / 4L
-        val contextEstimate = contextTokens.toLong() * 64L * 1024L
+        val modelMargin = modelBytes / 5L
+        val contextEstimate = contextTokens.toLong() * 48L * 1024L
         val overhead = ENGINE_OVERHEAD_MIB * MIB
         if (modelBytes > Long.MAX_VALUE - modelMargin) return null
         val withMargin = modelBytes + modelMargin
