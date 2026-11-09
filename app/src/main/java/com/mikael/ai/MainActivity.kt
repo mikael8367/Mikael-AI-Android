@@ -844,7 +844,9 @@ private fun ChatScreen(
                 enabled = !isGenerating
             )
             Spacer(Modifier.size(8.dp))
-            if (isGenerating) {
+            if (isGenerating && onlineMode) {
+                OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.height(54.dp)) { Text("Aguarde") }
+            } else if (isGenerating) {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.height(54.dp)) { Text("Parar") }
             } else {
                 Button(onClick = onSend, enabled = input.isNotBlank() && canSend, modifier = Modifier.height(54.dp)) { Text("Enviar") }
