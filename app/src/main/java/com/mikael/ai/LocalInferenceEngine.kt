@@ -18,7 +18,7 @@ object LocalInferenceEngine {
         val nativeError = nativeLoad(
             modelPath,
             contextTokens,
-            Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
+            Runtime.getRuntime().availableProcessors().coerceIn(1, 2)
         )
         if (nativeError != null) error(nativeError)
         ready = true
