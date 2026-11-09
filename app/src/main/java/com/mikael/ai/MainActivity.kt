@@ -143,6 +143,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var remoteConnectors by remember { mutableStateOf(emptyList<RemoteConnector>()) }
     var fileBusy by remember { mutableStateOf(false) }
     var remoteConversationId by remember { mutableStateOf<Long?>(null) }
+    var activeGame by remember { mutableStateOf<GameState?>(null) }
     val onlineApi = remember { OnlineApi() }
 
     LaunchedEffect(Unit) {
@@ -363,6 +364,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     AppTab.HOME -> HomeScreen(
                         onNewChat = {
                             messages.clear()
+                            activeGame = null
                             if (!onlineMode) ConversationStore.clear(context)
                             remoteConversationId = null
                             tab = AppTab.CHAT
@@ -376,7 +378,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
-                        canSend = if (onlineMode) onlineAuthenticated else engineReady,
+                        canSend = (if (onlineMode) onlineAuthenticated else engineReady) || activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true),
                         engineStatus = if (onlineMode) onlineStatus else engineStatus,
                         isGenerating = isGenerating,
                         onlineMode = onlineMode,
@@ -389,6 +391,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         },
                         onNewConversation = {
                             messages.clear()
+                            activeGame = null
                             remoteConversationId = null
                             if (!onlineMode) ConversationStore.clear(context)
                         },
@@ -397,6 +400,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 try {
                                     val remote = withContext(Dispatchers.IO) { onlineApi.getConversation(id) }
                                     messages.clear()
+                                    activeGame = null
                                     remote.forEachIndexed { index, item ->
                                         messages.add(ChatMessage(nextChatMessageId(), item.role, item.content))
                                     }
@@ -415,13 +419,20 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         },
                         onSend = {
                             val prompt = input.trim()
+                            val isGameInput = prompt.equals("/games", true) || prompt.startsWith("/games ", true) || activeGame != null
                             if (prompt.isNotEmpty() && !isGenerating &&
-                                (if (onlineMode) onlineAuthenticated else engineReady)) {
+                                (isGameInput || (if (onlineMode) onlineAuthenticated else engineReady))) {
                                 input = ""
                                 messages.add(ChatMessage(nextChatMessageId(), "user", prompt))
-                                if (!onlineMode) ConversationStore.save(context, messages)
-                                isGenerating = true
-                                scope.launch {
+                                val gameReply = Games.handle(activeGame, prompt)
+                                if (gameReply != null) {
+                                    activeGame = gameReply.state
+                                    messages.add(ChatMessage(nextChatMessageId(), "assistant", gameReply.text))
+                                    if (!onlineMode) ConversationStore.save(context, messages)
+                                } else {
+                                    if (!onlineMode) ConversationStore.save(context, messages)
+                                    isGenerating = true
+                                    scope.launch {
                                     try {
                                         if (onlineMode) {
                                         runCatching {
@@ -478,6 +489,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     }
                                     } finally {
                                         isGenerating = false
+                                    }
                                     }
                                 }
                             } else if (onlineMode && !onlineAuthenticated) {
