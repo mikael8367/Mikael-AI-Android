@@ -348,6 +348,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 generating = true
                                 val selectedMode = mode
                                 generationJob = scope.launch {
+                                    val startedAt = android.os.SystemClock.elapsedRealtime()
                                     try {
                                         val conversationPrompt = AssistantPromptBuilder.build(
                                             mode = selectedMode,
@@ -355,7 +356,6 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             contextTokens = contextTokens
                                         )
                                         val tokenLimit = AssistantPromptBuilder.maxTokens(selectedMode, contextTokens)
-                                        val startedAt = android.os.SystemClock.elapsedRealtime()
                                         logEvent(
                                             "INFO",
                                             "Inferência local iniciada (modo ${selectedMode.label}; limite $tokenLimit tokens; contexto $contextTokens)"
