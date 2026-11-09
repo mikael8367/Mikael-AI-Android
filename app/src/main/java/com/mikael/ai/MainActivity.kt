@@ -276,7 +276,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         onInputChange = { input = it },
                         attachments = attachments,
                         onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
-                        onRemoveAttachment = { item -> attachments = attachments - item },
+                        onRemoveAttachment = { item ->
+                            attachments = attachments - item
+                            File(item.path).delete()
+                        },
                         mode = mode,
                         onModeChange = { mode = it },
                         status = engineStatus,
@@ -288,6 +291,8 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         },
                         onNewChat = {
                             messages.clear()
+                            attachments.forEach { File(it.path).delete() }
+                            attachments = emptyList()
                             ConversationStore.clear(context)
                         },
                         onSend = {
@@ -295,6 +300,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             if (prompt.isNotEmpty() && engineReady && !generating) {
                                 input = ""
                                 val attachmentContext = attachments.joinToString("\n\n") { it.promptContext }
+                                attachments.forEach { File(it.path).delete() }
                                 val completePrompt = buildString {
                                     append(prompt)
                                     if (attachmentContext.isNotBlank()) append("\n\nAnexos selecionados:\n").append(attachmentContext)
