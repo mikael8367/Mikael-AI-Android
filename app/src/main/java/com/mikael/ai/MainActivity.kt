@@ -429,11 +429,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     messages.add(ChatMessage(nextChatMessageId(), "assistant", gameReply.text))
                                     ConversationStore.save(context, messages)
                                 } else {
-                                    if (!onlineMode) ConversationStore.save(context, messages)
+                                    ConversationStore.save(context, messages)
                                     isGenerating = true
                                     scope.launch {
                                     try {
- {
+                                        val conversationPrompt = buildString {
                                             append("<|im_start|>system\nVocê é Mikael AI, um assistente útil e especializado em programação. Responda em português do Brasil quando apropriado.\n<|im_end|>\n")
                                             messages.takeLast(12).forEach { message ->
                                                 append(if (message.role == "user") "<|im_start|>user\n" else "<|im_start|>assistant\n")
@@ -464,8 +464,6 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     }
                                     }
                                 }
-                            } else if (onlineMode && !onlineAuthenticated) {
-                                android.widget.Toast.makeText(context, "Entre na aba Ajustes e conecte sua conta.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (!engineReady) {
                                 android.widget.Toast.makeText(context, engineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
