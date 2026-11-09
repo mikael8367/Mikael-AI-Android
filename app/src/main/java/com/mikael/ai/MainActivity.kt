@@ -264,6 +264,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                     preferences.modelPath = copiedPath
                     modelPath = copiedPath
+                    onlineMode = false
+                    preferences.onlineMode = false
                     installedModels = listInstalledModels(context)
                     tab = AppTab.SETTINGS
                     engineStatus = "Modelo importado. Verificando memória..."
@@ -862,10 +864,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         engineReady = engineReady,
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
                         onSelect = { selectedPath ->
+                            onlineMode = false
+                            preferences.onlineMode = false
                             preferences.modelPath = selectedPath
                             if (selectedPath == modelPath) modelReloadCounter += 1 else modelPath = selectedPath
                         },
-                        onLoad = { modelReloadCounter += 1 },
+                        onLoad = {
+                            onlineMode = false
+                            preferences.onlineMode = false
+                            modelReloadCounter += 1
+                        },
                         onUnload = {
                             LocalInferenceEngine.cancel()
                             scope.launch(Dispatchers.IO) { LocalInferenceEngine.unload() }
@@ -1429,7 +1437,7 @@ private fun SettingsScreen(
         HorizontalDivider(color = Color(0xFF26332B))
         Text("Modelos offline", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         ModelsScreen(
-            canLoadLocalModel = true,
+            canLoadLocalModel = !onlineMode,
             modelPath = modelPath,
             installedModels = installedModels,
             engineStatus = engineStatus,
