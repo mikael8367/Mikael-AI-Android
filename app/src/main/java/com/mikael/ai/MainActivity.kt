@@ -109,6 +109,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     }
     var tab by remember { mutableStateOf(AppTab.CHAT) }
     var modelPath by remember { mutableStateOf(preferences.modelPath) }
+    var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var engineReady by remember { mutableStateOf(false) }
@@ -125,6 +126,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                     preferences.modelPath = copiedPath
                     modelPath = copiedPath
+                    installedModels = listInstalledModels(context)
                     tab = AppTab.MODELS
                     engineStatus = "Modelo importado. Verificando memória..."
                 } catch (error: Exception) {
@@ -271,9 +273,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     )
                     AppTab.MODELS -> ModelsScreen(
                         modelPath = modelPath,
+                        installedModels = installedModels,
                         engineStatus = engineStatus,
                         engineReady = engineReady,
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
+                        onSelect = { selectedPath ->
+                            preferences.modelPath = selectedPath
+                            modelPath = selectedPath
+                        },
                         onUnload = {
                             scope.launch(Dispatchers.IO) { LocalInferenceEngine.unload() }
                             engineReady = false
@@ -287,6 +294,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 }
                                 preferences.modelPath = null
                                 modelPath = null
+                                installedModels = listInstalledModels(context)
                                 engineReady = false
                                 engineStatus = "Nenhum modelo importado."
                             }
@@ -450,40 +458,82 @@ private fun MessageBubble(message: ChatMessage) {
     }
 }
 
+private fun listInstalledModels(context: Context): List<File> {
+    return File(context.filesDir, "models")
+        .listFiles()
+        ?.filter { it.isFile && it.extension.equals("gguf", ignoreCase = true) }
+        ?.sortedByDescending { it.lastModified() }
+        ?: emptyList()
+}
+
 @Composable
 private fun ModelsScreen(
     modelPath: String?,
+    installedModels: List<File>,
     engineStatus: String,
     engineReady: Boolean,
     onImport: () -> Unit,
+    onSelect: (String) -> Unit,
     onUnload: () -> Unit,
     onDelete: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Modelos locais", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Importe um arquivo GGUF uma vez. Ele será copiado para o armazenamento privado do app.", color = Color(0xFF9EAAA2))
+        Text("Os arquivos GGUF importados ficam salvos no aparelho e podem ser reutilizados sem internet.", color = Color(0xFF9EAAA2))
         Card(
             colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("MODELO SELECIONADO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                Text(modelPath?.let { File(it).name } ?: "Nenhum modelo importado", fontWeight = FontWeight.SemiBold)
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("MODELO ATIVO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Text(modelPath?.let { File(it).name } ?: "Nenhum modelo selecionado", fontWeight = FontWeight.SemiBold)
                 Text(engineStatus, color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 if (modelPath != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = onUnload, enabled = engineReady) { Text("Descarregar") }
-                        OutlinedButton(onClick = onDelete) { Text("Excluir") }
+                        OutlinedButton(onClick = onDelete) { Text("Excluir ativo") }
                     }
                 }
             }
         }
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Importar arquivo GGUF") }
+        Text("Modelos neste aparelho", fontWeight = FontWeight.SemiBold)
+        if (installedModels.isEmpty()) {
+            Text("Nenhum modelo importado ainda.", color = Color(0xFF9EAAA2))
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(installedModels, key = { it.absolutePath }) { file ->
+                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(file.name, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "${file.length() / (1024L * 1024L)} MiB",
+                                    color = Color(0xFF9EAAA2),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (file.absolutePath == modelPath) {
+                                Text("Ativo", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold)
+                            } else {
+                                OutlinedButton(onClick = { onSelect(file.absolutePath) }) { Text("Usar") }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         Text(
-            "Modelos pequenos e quantizados exigem menos memória. O tamanho do arquivo não representa sozinho toda a RAM necessária.",
+            "Prefira modelos pequenos e quantizados. A RAM necessária também depende do contexto e dos buffers.",
             color = Color(0xFF9EAAA2),
             style = MaterialTheme.typography.bodySmall
         )
