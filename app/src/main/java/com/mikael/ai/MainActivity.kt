@@ -120,13 +120,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         if (uri != null) {
             scope.launch {
                 try {
-                    val previousPath = modelPath
                     val copiedPath = withContext(Dispatchers.IO) { copyModelToPrivateStorage(context, uri) }
                     LocalInferenceEngine.cancel()
-                    withContext(Dispatchers.IO) {
-                        LocalInferenceEngine.unload()
-                        if (previousPath != null && previousPath != copiedPath) File(previousPath).delete()
-                    }
+                    withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                     preferences.modelPath = copiedPath
                     modelPath = copiedPath
                     tab = AppTab.MODELS
