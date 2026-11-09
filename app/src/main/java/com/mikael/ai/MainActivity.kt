@@ -1,6 +1,7 @@
 package com.mikael.ai
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.app.ActivityManager
@@ -133,6 +134,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var onlineModels by remember { mutableStateOf(emptyList<OnlineModel>()) }
     var selectedOnlineModel by remember { mutableStateOf(preferences.onlineModelId) }
     var remoteConversations by remember { mutableStateOf(emptyList<RemoteConversation>()) }
+    var uploadedFiles by remember { mutableStateOf(emptyList<RemoteFile>()) }
+    var remoteConnectors by remember { mutableStateOf(emptyList<RemoteConnector>()) }
+    var fileBusy by remember { mutableStateOf(false) }
     var remoteConversationId by remember { mutableStateOf<Long?>(null) }
     val onlineApi = remember { OnlineApi() }
 
@@ -169,6 +173,35 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 onlineStatus = loginResult.exceptionOrNull()?.message ?: "Não foi possível reconectar."
             }
             loginBusy = false
+        }
+    }
+
+    val uploadPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            if (!onlineMode || !onlineAuthenticated) {
+                android.widget.Toast.makeText(context, "Entre no modo online para enviar arquivos.", android.widget.Toast.LENGTH_SHORT).show()
+            } else {
+                scope.launch {
+                    fileBusy = true
+                    try {
+                        val uploaded = withContext(Dispatchers.IO) {
+                            val name = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                                val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
+                            } ?: "arquivo"
+                            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                                ?: throw IllegalStateException("Não foi possível abrir o arquivo.")
+                            onlineApi.uploadFile(name, context.contentResolver.getType(uri) ?: "application/octet-stream", bytes)
+                        }
+                        uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
+                        onlineStatus = "Arquivo enviado: ${uploaded.filename}"
+                    } catch (error: Exception) {
+                        onlineStatus = error.message ?: "Falha ao enviar arquivo."
+                    } finally {
+                        fileBusy = false
+                    }
+                }
+            }
         }
     }
 
@@ -401,8 +434,65 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         }
                     )
-                    AppTab.PROJECTS -> ProjectsScreen(onlineMode, onlineAuthenticated)
-                    AppTab.FILES -> FilesScreen(onlineMode, onlineAuthenticated)
+                    AppTab.PROJECTS -> ProjectsScreen(
+                        onlineMode = onlineMode,
+                        onlineAuthenticated = onlineAuthenticated,
+                        connectors = remoteConnectors,
+                        onRefresh = {
+                            scope.launch {
+                                runCatching {
+                                    remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
+                                }.onFailure { onlineStatus = it.message ?: "Não foi possível consultar conectores." }
+                            }
+                        },
+                        onOpenWebSettings = {
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mikael-ai.onrender.com")))
+                            }.onFailure { onlineStatus = "Não foi possível abrir o navegador." }
+                        },
+                        onListRepositories = {
+                            input = "Liste meus repositórios GitHub conectados e mostre os principais detalhes."
+                            tab = AppTab.CHAT
+                        }
+                    )
+                    AppTab.FILES -> FilesScreen(
+                        onlineMode = onlineMode,
+                        onlineAuthenticated = onlineAuthenticated,
+                        files = uploadedFiles,
+                        busy = fileBusy,
+                        onRefresh = {
+                            scope.launch {
+                                runCatching {
+                                    uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
+                                }.onFailure { onlineStatus = it.message ?: "Não foi possível carregar arquivos." }
+                            }
+                        },
+                        onUpload = { uploadPicker.launch(arrayOf("*/*")) },
+                        onAnalyze = { fileId ->
+                            scope.launch {
+                                fileBusy = true
+                                runCatching {
+                                    val analysis = withContext(Dispatchers.IO) { onlineApi.analyzeFile(fileId) }
+                                    messages.clear()
+                                    messages.add(ChatMessage(System.currentTimeMillis(), "assistant", analysis))
+                                    remoteConversationId = null
+                                    tab = AppTab.CHAT
+                                }.onFailure { onlineStatus = it.message ?: "Não foi possível analisar o arquivo." }
+                                fileBusy = false
+                            }
+                        },
+                        onGenerate = { filename, description ->
+                            scope.launch {
+                                fileBusy = true
+                                runCatching {
+                                    withContext(Dispatchers.IO) { onlineApi.generateFile(filename, description) }
+                                    uploadedFiles = withContext(Dispatchers.IO) { onlineApi.files() }
+                                    onlineStatus = "Arquivo gerado e salvo no servidor."
+                                }.onFailure { onlineStatus = it.message ?: "Não foi possível gerar o arquivo." }
+                                fileBusy = false
+                            }
+                        }
+                    )
                     AppTab.SETTINGS -> SettingsScreen(
                         onlineMode = onlineMode,
                         onlineAuthenticated = onlineAuthenticated,
