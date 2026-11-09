@@ -12,7 +12,7 @@ object RecommendedModelDownloader {
     const val MODEL_NAME = "qwen2.5-0.5b-instruct-q4_k_m.gguf"
     const val EXPECTED_BYTES = 491_400_032L
     const val EXPECTED_SHA256 = "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
-    const val MODEL_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"
+    const val MODEL_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/12145bd1d629190a4d44254073650877954d02c9/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"
 
     private val cancelled = AtomicBoolean(false)
 
