@@ -447,6 +447,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     onlineAuthenticated = true
                                     onlineMode = true
                                     preferences.onlineMode = true
+                                    messages.clear()
+                                    remoteConversationId = null
                                     val dataResult = runCatching {
                                         val models = withContext(Dispatchers.IO) { onlineApi.models() }
                                         val conversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
