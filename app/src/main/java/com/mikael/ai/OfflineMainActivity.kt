@@ -81,7 +81,7 @@ private enum class AppTab(val label: String, val symbol: String) {
     SETTINGS("Configurações", "⚙")
 }
 
-class MainActivity : ComponentActivity() {
+class OfflineMainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         super.onCreate(savedInstanceState)
         val preferences = AppPreferences(this)
@@ -315,7 +315,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         models = models,
                         selectedPath = modelPath,
                         status = engineStatus,
-                        busy = busy || downloading,
+                        busy = busy || downloading || generating,
                         downloadProgress = downloadProgress,
                         downloadStatus = downloadStatus,
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
