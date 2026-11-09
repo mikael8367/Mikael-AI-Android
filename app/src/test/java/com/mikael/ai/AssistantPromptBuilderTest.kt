@@ -96,6 +96,22 @@ class AssistantPromptBuilderTest {
     }
 
     @Test
+    fun latestUserMessageIsPreservedWhenHistoryIsTooLarge() {
+        val prompt = AssistantPromptBuilder.build(
+            AssistantMode.DEEP_AUDIT,
+            listOf(
+                "user" to "mensagem antiga ".repeat(1000),
+                "assistant" to "resposta antiga ".repeat(1000),
+                "user" to "MENSAGEM FINAL IMPORTANTE"
+            ),
+            contextTokens = 512
+        )
+
+        assertTrue(prompt.contains("MENSAGEM FINAL IMPORTANTE"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
+    }
+
+    @Test
     fun failedSearchIsReportedWithoutPretendingItWorked() {
         val prompt = AssistantPromptBuilder.build(
             AssistantMode.GENERAL,
