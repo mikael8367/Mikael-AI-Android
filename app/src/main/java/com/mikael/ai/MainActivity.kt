@@ -621,15 +621,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         withContext(Dispatchers.IO) { onlineApi.deleteConnector(connector.id) }
                                         remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
                                         connectorStatus = "Conector removido."
-                                    }.onFailure { connectorStatus = it.message ?: "Não foi possível remover o conector." }
+                                    }.onFailure {
+                                        connectorStatus = it.message ?: "Não foi possível remover o conector."
+                                        if (!onlineApi.isAuthenticated()) {
+                                            onlineAuthenticated = false
+                                            passwordInput = savedPasswordCache.orEmpty()
+                                        }
+                                    }
                                     connectorBusy = false
                                 }
                             }
-                        },
-                        onOpenWebsite = {
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://mikael-ai.onrender.com")))
-                            }.onFailure { connectorStatus = "Não foi possível abrir o navegador." }
                         }
                     )
                     AppTab.PROJECTS -> ProjectsScreen(
