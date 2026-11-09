@@ -65,7 +65,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -133,6 +135,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var isGenerating by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var webSearchEnabled by remember { mutableStateOf(false) }
+    var webSearchInProgress by remember { mutableStateOf(false) }
+    var generationJob by remember { mutableStateOf<Job?>(null) }
     var onlineMode by remember { mutableStateOf(false) }
     var onlineAuthenticated by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
@@ -383,6 +387,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         engineStatus = engineStatus,
                         isGenerating = isGenerating,
                         webSearchEnabled = webSearchEnabled,
+                        webSearchInProgress = webSearchInProgress,
                         onWebSearchChange = { webSearchEnabled = it },
                         onlineMode = false,
                         onlineModels = emptyList(),
@@ -418,6 +423,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         },
                         onCancel = {
+                            generationJob?.cancel()
+                            webSearch.cancel()
                             LocalInferenceEngine.cancel()
                         },
                         onSend = {
