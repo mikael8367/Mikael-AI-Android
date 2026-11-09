@@ -367,10 +367,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                     when {
+                        onlineMode && onlineAuthenticated -> "● ONLINE"
+                        onlineMode -> "○ ONLINE"
                         engineReady -> "● LOCAL"
                         else -> "○ MODELO LOCAL"
                     },
-                    color = if (engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
+                    color = if ((onlineMode && onlineAuthenticated) || (!onlineMode && engineReady)) Color(0xFF54E69C) else Color(0xFFB8C6BD),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                     )
