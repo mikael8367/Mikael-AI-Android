@@ -56,4 +56,18 @@ class MemoryBudgetTest {
     fun negativeAvailableMemoryDoesNotOverflowBudget() {
         assertEquals(0L, MemoryBudget.safeBudgetBytes(Long.MIN_VALUE, 768))
     }
+
+    @Test
+    fun insufficientMemoryErrorShowsEstimateAndSafeBudget() {
+        val mib = 1024L * 1024L
+        val result = MemoryBudget.check(
+            availableBytes = 512L * mib,
+            selectedLimitMiB = 1024,
+            modelBytes = 100L * mib,
+            contextTokens = 512
+        )
+        assertFalse(result.allowed)
+        assertTrue(result.reason.orEmpty().contains("estimativa de"))
+        assertTrue(result.reason.orEmpty().contains("orçamento disponível de"))
+    }
 }
