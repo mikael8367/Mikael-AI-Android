@@ -44,15 +44,13 @@ jobs:
       - name: Run Android lint
         run: gradle :app:lintDebug
 
-      - name: Build native libraries without packaging APK
+      - name: Build native libraries
         run: gradle :app:externalNativeBuildDebug
 
       - name: Build debug APK
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         run: gradle :app:assembleDebug
 
       - name: Upload debug APK
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: mikael-ai-android-debug
