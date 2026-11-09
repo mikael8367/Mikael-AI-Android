@@ -34,7 +34,7 @@ internal object Games {
             else GameReply(null, "Nenhum jogo está em andamento. Digite **/games** para ver os jogos.")
         }
         if (input.startsWith("/games ", ignoreCase = true)) {
-            val choice = input.removePrefix("/games").trim().lowercase()
+            val choice = input.drop("/games".length).trim().lowercase()
             return start(choice)
         }
         if (current == null) return null
