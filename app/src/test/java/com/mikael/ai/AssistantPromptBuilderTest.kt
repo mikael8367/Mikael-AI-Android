@@ -16,7 +16,7 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("compiláveis"))
         assertTrue(prompt.contains("testes reproduzíveis"))
         assertTrue(prompt.contains("Crie uma classe Kotlin"))
-        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.CODING))
+        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.CODING))\n        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.CODING, 2048))
     }
 
     @Test
@@ -31,7 +31,7 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("condição de reprodução"))
         assertTrue(prompt.contains("testes de regressão"))
         assertTrue(prompt.contains("riscos hipotéticos"))
-        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT))
+        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT))\n        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT, 2048))
     }
 
     @Test
