@@ -200,7 +200,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
                             } ?: "arquivo"
                             val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                            val maxBytes = if (mime.startsWith("image/")) 5 * 1024 * 1024 else 8 * 1024 * 1024
+                            val imageExtension = name.substringAfterLast('.', "").lowercase() in setOf("jpg", "jpeg", "png", "webp", "gif")
+                            val maxBytes = if (mime.startsWith("image/") || imageExtension) 5 * 1024 * 1024 else 8 * 1024 * 1024
                             val inputStream = context.contentResolver.openInputStream(uri)
                                 ?: throw IllegalStateException("Não foi possível abrir o arquivo.")
                             val bytes = readLimited(inputStream, maxBytes)
@@ -597,6 +598,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             withContext(Dispatchers.IO) { SecureCredentials.savePassword(context, passwordInput) }
                                             savedPasswordCache = passwordInput
                                         }.onFailure {
+                                            savedPasswordCache = null
+                                            savePassword = false
                                             onlineStatus = "Conectado, mas não foi possível salvar a senha com segurança."
                                         }
                                     } else {
