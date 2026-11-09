@@ -5,6 +5,7 @@ import okhttp3.CookieJar
 import okhttp3.Call
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -17,6 +18,8 @@ data class OnlineModel(val id: String, val name: String, val description: String
 data class RemoteConversation(val id: Long, val title: String, val createdAt: String)
 data class RemoteMessage(val role: String, val content: String)
 data class RemoteChatResult(val conversationId: Long, val reply: String)
+data class RemoteFile(val id: Long, val filename: String, val characters: Int, val isImage: Boolean)
+data class RemoteConnector(val id: Long, val provider: String, val name: String, val account: String, val enabled: Boolean)
 
 class OnlineApi(
     private val baseUrl: String = "https://mikael-ai.onrender.com"
@@ -121,6 +124,63 @@ class OnlineApi(
                 if ((role == "user" || role == "assistant") && content.isNotBlank()) {
                     add(RemoteMessage(role, content))
                 }
+            }
+        }
+    }
+
+    fun files(): List<RemoteFile> {
+        val array = JSONArray(request("/api/files"))
+        return buildList {
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val id = item.optLong("id")
+                if (id > 0L) add(RemoteFile(id, item.optString("filename"), item.optInt("characters"), item.optBoolean("is_image")))
+            }
+        }
+    }
+
+    fun uploadFile(filename: String, mimeType: String, bytes: ByteArray): RemoteFile {
+        require(filename.isNotBlank() && bytes.isNotEmpty()) { "Arquivo vazio ou sem nome." }
+        require(bytes.size <= 8 * 1024 * 1024) { "O arquivo ultrapassa o limite de 8 MB." }
+        if (mimeType.startsWith("image/")) require(bytes.size <= 5 * 1024 * 1024) { "Fotos têm limite de 5 MB." }
+        val media = mimeType.toMediaType()
+        val multipart = MultipartBody.Builder()
+            .setType(MultipartBody.FORM)
+            .addFormDataPart("file", filename, bytes.toRequestBody(media))
+            .build()
+        val item = JSONObject(request("/api/upload", "POST", multipart))
+        val id = item.optLong("id")
+        if (id <= 0L) throw IOException("O servidor não confirmou o envio do arquivo.")
+        return RemoteFile(id, item.optString("filename"), item.optInt("characters"), item.optBoolean("is_image"))
+    }
+
+    fun analyzeFile(id: Long): String {
+        require(id > 0L) { "Arquivo inválido." }
+        val result = JSONObject(request("/api/files/$id/analyze", "POST", JSONObject().toString().toRequestBody(jsonType)))
+        return result.optString("analysis").takeIf { it.isNotBlank() }
+            ?: throw IOException("A análise retornou vazia.")
+    }
+
+    fun generateFile(filename: String, description: String): RemoteFile {
+        val payload = JSONObject().put("filename", filename).put("description", description)
+        val result = JSONObject(request("/api/files/generate", "POST", payload.toString().toRequestBody(jsonType)))
+        val id = result.optLong("id")
+        if (id <= 0L) throw IOException("O servidor não confirmou a criação do arquivo.")
+        return RemoteFile(id, result.optString("filename"), result.optInt("characters"), false)
+    }
+
+    fun connectors(): List<RemoteConnector> {
+        val array = JSONArray(request("/api/connectors"))
+        return buildList {
+            for (i in 0 until array.length()) {
+                val item = array.optJSONObject(i) ?: continue
+                val id = item.optLong("id")
+                if (id > 0L) add(
+                    RemoteConnector(
+                        id, item.optString("provider"), item.optString("name"),
+                        item.optString("account"), item.optBoolean("enabled")
+                    )
+                )
             }
         }
     }
