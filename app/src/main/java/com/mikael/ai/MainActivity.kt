@@ -157,26 +157,34 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             }
             if (loginResult.isSuccess) {
                 onlineAuthenticated = true
-                val dataResult = runCatching {
-                    val models = withContext(Dispatchers.IO) { onlineApi.models() }
-                    val conversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
-                    models to conversations
+                val modelsResult = runCatching {
+                    withContext(Dispatchers.IO) { onlineApi.models() }
                 }
-                dataResult.onSuccess { (models, conversations) ->
+                modelsResult.onSuccess { models ->
                     onlineModels = models
-                    remoteConversations = conversations
                     if (models.none { it.id == selectedOnlineModel }) {
                         selectedOnlineModel = models.firstOrNull()?.id ?: "mikael"
                         preferences.onlineModelId = selectedOnlineModel
                     }
+                }.onFailure {
+                    selectedOnlineModel = "mikael"
+                    preferences.onlineModelId = "mikael"
+                    onlineStatus = "Conectado, mas não foi possível carregar os modelos: ${it.message}"
+                }
+                val conversationsResult = runCatching {
+                    withContext(Dispatchers.IO) { onlineApi.conversations() }
+                }
+                conversationsResult.onSuccess { remoteConversations = it }
+                    .onFailure {
+                        if (!onlineApi.isAuthenticated()) {
+                            onlineAuthenticated = false
+                            passwordInput = savedPasswordCache.orEmpty()
+                        }
+                        onlineStatus = "Conectado, mas não foi possível carregar o histórico: ${it.message}"
+                    }
+                if (onlineApi.isAuthenticated()) {
                     onlineStatus = "Conectado com segurança."
                     passwordInput = ""
-                }.onFailure {
-                    if (!onlineApi.isAuthenticated()) {
-                        onlineAuthenticated = false
-                        passwordInput = savedPasswordCache.orEmpty()
-                    }
-                    onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
                 }
             } else {
                 onlineAuthenticated = false
@@ -609,27 +617,33 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     preferences.onlineMode = true
                                     messages.clear()
                                     remoteConversationId = null
-                                    val dataResult = runCatching {
-                                        val models = withContext(Dispatchers.IO) { onlineApi.models() }
-                                        val conversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
-                                        models to conversations
+                                    val modelsResult = runCatching {
+                                        withContext(Dispatchers.IO) { onlineApi.models() }
                                     }
-                                    dataResult.onSuccess { (models, conversations) ->
+                                    modelsResult.onSuccess { models ->
                                         onlineModels = models
-                                        remoteConversations = conversations
                                         if (models.none { it.id == selectedOnlineModel }) {
                                             selectedOnlineModel = models.firstOrNull()?.id ?: "mikael"
                                             preferences.onlineModelId = selectedOnlineModel
                                         }
-                                        onlineStatus = "Conectado. Modelos online carregados."
                                     }.onFailure {
                                         selectedOnlineModel = "mikael"
                                         preferences.onlineModelId = "mikael"
-                                        if (!onlineApi.isAuthenticated()) {
-                                            onlineAuthenticated = false
-                                            passwordInput = savedPasswordCache.orEmpty()
+                                        onlineStatus = "Conectado, mas não foi possível carregar os modelos: ${it.message}"
+                                    }
+                                    val conversationsResult = runCatching {
+                                        withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                    }
+                                    conversationsResult.onSuccess { remoteConversations = it }
+                                        .onFailure {
+                                            if (!onlineApi.isAuthenticated()) {
+                                                onlineAuthenticated = false
+                                                passwordInput = savedPasswordCache.orEmpty()
+                                            }
+                                            onlineStatus = "Conectado, mas não foi possível carregar o histórico: ${it.message}"
                                         }
-                                        onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
+                                    if (onlineApi.isAuthenticated()) {
+                                        onlineStatus = "Conectado. Modelos online carregados."
                                     }
                                     if (savePassword) {
                                         runCatching {
