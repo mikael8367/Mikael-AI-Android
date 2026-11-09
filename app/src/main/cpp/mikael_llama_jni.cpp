@@ -33,7 +33,8 @@ void unloadLocked() {
 }
 
 jstring errorString(JNIEnv* env, const char* message) {
-    return env->NewStringUTF(message);
+    const std::string tagged = std::string("MIKAEL_NATIVE_ERROR:") + message;
+    return env->NewStringUTF(tagged.c_str());
 }
 
 std::string javaToUtf8(JNIEnv* env, jstring value) {

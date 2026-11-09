@@ -21,7 +21,7 @@ object LocalInferenceEngine {
             contextTokens,
             Runtime.getRuntime().availableProcessors().coerceIn(1, 2)
         )
-        if (nativeError != null) error(nativeError)
+        if (nativeError != null) error(unwrapNativeError(nativeError))
         ready = true
     }
 
@@ -31,6 +31,7 @@ object LocalInferenceEngine {
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
         val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
         if (result == null) error("O motor local não retornou uma resposta.")
+        if (result.startsWith(NATIVE_ERROR_PREFIX)) error(result.removePrefix(NATIVE_ERROR_PREFIX))
         result
     }
 
@@ -43,6 +44,11 @@ object LocalInferenceEngine {
         if (libraryLoaded) nativeUnload()
         ready = false
     }
+
+    private fun unwrapNativeError(value: String): String =
+        if (value.startsWith(NATIVE_ERROR_PREFIX)) value.removePrefix(NATIVE_ERROR_PREFIX) else value
+
+    private const val NATIVE_ERROR_PREFIX = "MIKAEL_NATIVE_ERROR:"
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?

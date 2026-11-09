@@ -292,6 +292,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             LocalInferenceEngine.cancel()
                         },
                         onOpenModels = { tab = AppTab.MODELS },
+                        onReloadModel = { if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
                         onNewChat = {
                             messages.clear()
                             attachments.forEach { File(it.path).delete() }
@@ -300,7 +301,15 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         },
                         onSend = {
                             val prompt = input.trim().ifBlank { if (attachments.isNotEmpty()) "Analise os anexos selecionados." else "" }
-                            if (prompt.isNotEmpty() && engineReady && !generating) {
+                            if (prompt.isNotEmpty() && !generating) {
+                                if (!engineReady) {
+                                    engineStatus = if (modelPath.isNullOrBlank()) {
+                                        "Nenhum modelo selecionado. Abra Modelos, selecione um GGUF e aguarde o carregamento."
+                                    } else {
+                                        "O modelo ainda não está pronto. Confira o status acima ou toque em Tentar carregar novamente."
+                                    }
+                                    return@OfflineChatScreen
+                                }
                                 input = ""
                                 val attachmentContext = attachments.joinToString("\n\n") { it.promptContext }
                                 attachments.forEach { File(it.path).delete() }
@@ -328,8 +337,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         }
                                         if (response.isNotBlank()) {
                                             messages.add(ChatMessage(nextMessageId(), "assistant", response.trim()))
-                                            ConversationStore.save(context, messages)
+                                        } else {
+                                            messages.add(ChatMessage(nextMessageId(), "assistant", "O modelo terminou a geração sem produzir texto. Tente novamente ou reduza o contexto nas Configurações."))
                                         }
+                                        ConversationStore.save(context, messages)
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (error: Exception) {
@@ -502,6 +513,7 @@ private fun OfflineChatScreen(
     generating: Boolean,
     onCancel: () -> Unit,
     onOpenModels: () -> Unit,
+    onReloadModel: () -> Unit,
     onNewChat: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -523,7 +535,9 @@ private fun OfflineChatScreen(
                         color = Color(0xFFFFD18A),
                         style = MaterialTheme.typography.bodySmall
                     )
-                    OutlinedButton(onClick = onOpenModels) { Text("Instalar modelo") }
+                    OutlinedButton(onClick = onOpenModels) { Text("Abrir modelos") }
+                } else if (!ready) {
+                    OutlinedButton(onClick = onReloadModel, enabled = !generating) { Text("Tentar carregar novamente") }
                 }
             }
             OutlinedButton(onClick = onNewChat, enabled = !generating) { Text("Nova conversa") }
@@ -604,7 +618,7 @@ private fun OfflineChatScreen(
                 shape = RoundedCornerShape(20.dp),
                 enabled = !generating,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                keyboardActions = KeyboardActions(onSend = { if (ready) onSend() })
+                keyboardActions = KeyboardActions(onSend = { onSend() })
             )
             Spacer(Modifier.size(8.dp))
             if (generating) {
@@ -612,9 +626,9 @@ private fun OfflineChatScreen(
             } else {
                 Button(
                     onClick = onSend,
-                    enabled = ready && (input.isNotBlank() || attachments.isNotEmpty()),
+                    enabled = !generating && (input.isNotBlank() || attachments.isNotEmpty()),
                     modifier = Modifier.height(54.dp)
-                ) { Text("Enviar") }
+                ) { Text(if (ready) "Enviar" else "Verificar") }
             }
         }
     }
