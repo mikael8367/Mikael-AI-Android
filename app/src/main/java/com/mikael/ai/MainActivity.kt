@@ -455,6 +455,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                     throw cancelled
                                                 } catch (error: Exception) {
                                                     searchError = (error.message ?: "Não foi possível acessar o buscador.").take(240)
+                                                } finally {
+                                                    webSearchInProgress = false
                                                 }
                                             }
                                             val conversationPrompt = buildString {
@@ -967,7 +969,7 @@ private fun ChatScreen(
                     item {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                            Text(if (webSearchInProgress) "  Pesquisando na web e analisando localmente..." else "  Mikael AI está pensando...", color = Color(0xFF9EAAA2))
+                            Text(if (webSearchInProgress) "  Pesquisando na web..." else "  Mikael AI está pensando...", color = Color(0xFF9EAAA2))
                         }
                     }
                 }
