@@ -963,7 +963,7 @@ private fun ModelsScreen(
     onDelete: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
+        modifier = Modifier.fillMaxWidth().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Modelos locais", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -1297,8 +1297,6 @@ private fun FilesScreen(
                 Button(
                     onClick = {
                         onGenerate(filename.trim(), description.trim())
-                        filename = ""
-                        description = ""
                     },
                     enabled = onlineMode && onlineAuthenticated && !busy && filename.isNotBlank() && description.trim().length >= 5,
                     modifier = Modifier.fillMaxWidth()
