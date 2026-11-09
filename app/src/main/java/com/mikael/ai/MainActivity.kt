@@ -354,11 +354,14 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             history = messages.takeLast(6).map { it.role to it.text },
                                             contextTokens = contextTokens
                                         )
+                                        val tokenLimit = AssistantPromptBuilder.maxTokens(selectedMode, contextTokens)
+                                        val startedAt = android.os.SystemClock.elapsedRealtime()
+                                        logEvent(
+                                            "INFO",
+                                            "Inferência local iniciada (modo ${selectedMode.label}; limite $tokenLimit tokens; contexto $contextTokens)"
+                                        )
                                         val response = withContext(Dispatchers.IO) {
-                                            LocalInferenceEngine.generate(
-                                                conversationPrompt,
-                                                AssistantPromptBuilder.maxTokens(selectedMode, contextTokens)
-                                            ).getOrThrow()
+                                            LocalInferenceEngine.generate(conversationPrompt, tokenLimit).getOrThrow()
                                         }
                                         if (response.isNotBlank()) {
                                             messages.add(ChatMessage(nextMessageId(), "assistant", response.trim()))
@@ -366,7 +369,8 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             messages.add(ChatMessage(nextMessageId(), "assistant", "O modelo terminou a geração sem produzir texto. Tente novamente ou reduza o contexto nas Configurações."))
                                         }
                                         ConversationStore.save(context, messages)
-                                        logEvent("INFO", "Geração local concluída com sucesso")
+                                        val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
+                                        logEvent("INFO", "Geração local concluída em ${elapsedMs} ms (${response.length} caracteres)")
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (error: Exception) {
@@ -375,7 +379,11 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             "Erro no motor local: ${error.message ?: "não foi possível gerar a resposta."}"
                                         ))
                                         ConversationStore.save(context, messages)
-                                        logEvent("ERROR", "Falha na geração local: ${error.javaClass.simpleName}")
+                                        val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
+                                        logEvent(
+                                            "ERROR",
+                                            "Falha na geração local após ${elapsedMs} ms: ${error.javaClass.simpleName} • ${error.message ?: "sem detalhes"}"
+                                        )
                                     } finally {
                                         generating = false
                                         generationJob = null
