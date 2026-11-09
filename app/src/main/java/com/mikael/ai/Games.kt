@@ -95,7 +95,7 @@ internal object Games {
         val response = when (result) {
             'O' -> "Eu ganhei desta vez! **O venceu.**"
             'X' -> "Você venceu! **X ganhou.**"
-            else -> if (board.none { it == ' ' }) "Empatamos!" else "Minha jogada foi na casa **\${aiMove + 1}**. Sua vez!"
+            else -> if (board.none { it == ' ' }) "Empatamos!" else "Minha jogada foi na casa **${aiMove + 1}**. Sua vez!"
         }
         val next = if (result == null && board.any { it == ' ' }) state.copy(board = board) else null
         return GameReply(next, response + "\n\n" + boardText(board) + if (next == null) "\nDigite **/games velha** para jogar novamente." else "")
@@ -177,8 +177,8 @@ internal object Games {
         val won = updated.word.all { it in updated.guessedLetters }
         val lost = updated.attemptsLeft <= 0
         val ending = when {
-            won -> "\nVocê descobriu a palavra! A palavra era **\${updated.word}**."
-            lost -> "\nAs tentativas acabaram. A palavra era **\${updated.word}**."
+            won -> "\nVocê descobriu a palavra! A palavra era **${updated.word}**."
+            lost -> "\nAs tentativas acabaram. A palavra era **${updated.word}**."
             letter in state.word -> "\nBoa! A letra existe na palavra."
             else -> "\nEssa letra não aparece na palavra."
         }
@@ -188,7 +188,7 @@ internal object Games {
     private fun hangmanText(state: GameState): String {
         val shown = state.word.map { if (it in state.guessedLetters) it else '_' }.joinToString(" ")
         val tried = state.guessedLetters.sorted().joinToString(", ").ifBlank { "nenhuma" }
-        return "Palavra: **$shown**\nTentativas restantes: **\${state.attemptsLeft}**\nLetras usadas: $tried"
+        return "Palavra: **$shown**\nTentativas restantes: **${state.attemptsLeft}**\nLetras usadas: $tried"
     }
 
     private fun playRps(state: GameState, input: String): GameReply {
@@ -205,21 +205,21 @@ internal object Games {
 
     private fun playQuiz(state: GameState, input: String): GameReply {
         val answer = input.trim().uppercase().removeSuffix(")")
-        val question = questions.getOrNull(state.quizIndex) ?: return GameReply(null, "Quiz finalizado! Sua pontuação: **\${state.quizScore}/\${questions.size}**.")
+        val question = questions.getOrNull(state.quizIndex) ?: return GameReply(null, "Quiz finalizado! Sua pontuação: **${state.quizScore}/${questions.size}**.")
         val selected = when (answer) { "A", "1" -> 0; "B", "2" -> 1; "C", "3" -> 2; "D", "4" -> 3; else -> -1 }
         if (selected !in 0..3) return GameReply(state, "Responda com A, B, C ou D.\n\n" + quizText(state.quizIndex, state.quizScore))
         val correct = selected == question.answer
         val score = state.quizScore + if (correct) 1 else 0
-        val explanation = if (correct) "Correto!" else "Não foi dessa vez. A resposta era **\${'A' + question.answer}) \${question.options[question.answer]}**."
+        val explanation = if (correct) "Correto!" else "Não foi dessa vez. A resposta era **${'A' + question.answer}) ${question.options[question.answer]}**."
         val nextIndex = state.quizIndex + 1
-        if (nextIndex >= questions.size) return GameReply(null, "$explanation\n\${question.explanation}\n\nQuiz concluído! Você fez **$score/\${questions.size}** pontos.\nDigite **/games quiz** para jogar novamente.")
+        if (nextIndex >= questions.size) return GameReply(null, "$explanation\n${question.explanation}\n\nQuiz concluído! Você fez **$score/${questions.size}** pontos.\nDigite **/games quiz** para jogar novamente.")
         val next = state.copy(quizIndex = nextIndex, quizScore = score)
-        return GameReply(next, "$explanation\n\${question.explanation}\n\n" + quizText(nextIndex, score))
+        return GameReply(next, "$explanation\n${question.explanation}\n\n" + quizText(nextIndex, score))
     }
 
     private fun quizText(index: Int, score: Int): String {
         val question = questions[index]
-        val choices = question.options.mapIndexed { i, option -> "\${'A' + i}) $option" }.joinToString("\n")
-        return "**Quiz de programação — Pergunta \${index + 1}/\${questions.size}**\n$score acertos até agora.\n\n\${question.question}\n$choices\n\nResponda com A, B, C ou D."
+        val choices = question.options.mapIndexed { i, option -> "${'A' + i}) $option" }.joinToString("\n")
+        return "**Quiz de programação — Pergunta ${index + 1}/${questions.size}**\n$score acertos até agora.\n\n${question.question}\n$choices\n\nResponda com A, B, C ou D."
     }
 }
