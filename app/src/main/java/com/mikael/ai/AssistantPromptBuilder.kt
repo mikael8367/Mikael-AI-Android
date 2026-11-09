@@ -9,11 +9,12 @@ enum class AssistantMode(val label: String) {
 object AssistantPromptBuilder {
     fun maxTokens(mode: AssistantMode, contextTokens: Int = 512): Int {
         val requested = when (mode) {
-            AssistantMode.GENERAL -> 256
-            AssistantMode.CODING, AssistantMode.DEEP_AUDIT -> 768
+            AssistantMode.GENERAL -> 48
+            AssistantMode.CODING -> 96
+            AssistantMode.DEEP_AUDIT -> 128
         }
         val safeContext = contextTokens.coerceIn(256, 8192)
-        return minOf(requested, (safeContext / 2).coerceAtLeast(64))
+        return minOf(requested, (safeContext / 2).coerceAtLeast(32))
     }
 
     fun build(
