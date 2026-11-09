@@ -273,7 +273,7 @@ fun GitHubConnectorCard(onContextLoaded: (String) -> Unit) {
 
     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
         Column(
-            Modifier.fillMaxWidth().padding(14.dp),
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("Conector GitHub", style = MaterialTheme.typography.titleLarge)
