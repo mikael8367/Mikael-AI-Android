@@ -148,6 +148,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 busy = true
                 try {
                     val imported = withContext(Dispatchers.IO) { importModel(context, uri) }
+                    engineReady = false
                     LocalInferenceEngine.cancel()
                     withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                     modelPath = imported.absolutePath
@@ -261,7 +262,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         mode = mode,
                         onModeChange = { mode = it },
                         status = engineStatus,
-                        ready = engineReady,
+                        ready = engineReady && !busy && !downloading,
                         generating = generating,
                         onCancel = {
                             generationJob?.cancel()
@@ -322,21 +323,27 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
                         onSelect = { path ->
                             if (!generating && !busy) {
+                                engineReady = false
                                 modelPath = path
                                 preferences.modelPath = path
                                 reloadKey++
                             }
                         },
                         onUnload = {
-                            if (!generating) scope.launch {
+                            if (!generating) {
+                                engineReady = false
+                                scope.launch {
                                 LocalInferenceEngine.cancel()
                                 withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                                 engineReady = false
                                 engineStatus = "Modelo descarregado da memória."
+                                }
                             }
                         },
                         onDelete = { path ->
-                            if (!generating && !busy) scope.launch {
+                            if (!generating && !busy) {
+                                if (path == modelPath) engineReady = false
+                                scope.launch {
                                 if (path == modelPath) {
                                     LocalInferenceEngine.cancel()
                                     withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
@@ -350,6 +357,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 } else {
                                     models = installedModels(context)
                                     engineStatus = "Modelo excluído do armazenamento do aplicativo."
+                                }
                                 }
                             }
                         },
@@ -368,6 +376,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                                 }
                                             }
                                         }
+                                        engineReady = false
                                         LocalInferenceEngine.cancel()
                                         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                                         modelPath = downloaded.absolutePath
@@ -393,10 +402,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
                         onMemoryChange = {
+                            engineReady = false
                             memoryLimit = it
                             preferences.memoryLimitMiB = it
                         },
                         onContextChange = {
+                            engineReady = false
                             contextTokens = it
                             preferences.contextTokens = it
                         },
@@ -404,7 +415,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             messages.clear()
                             ConversationStore.clear(context)
                         },
-                        onReload = { if (!generating) reloadKey++ },
+                        onReload = { if (!generating) { engineReady = false; reloadKey++ } },
                         reloadEnabled = !generating,
                         controlsEnabled = !generating
                     )
