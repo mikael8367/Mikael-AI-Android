@@ -80,7 +80,7 @@ class AssistantPromptBuilderTest {
         )
 
         assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 22000)
-        assertTrue(prompt.endsWith("<|im_start|>assistant\\n"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
     }
 
     @Test
