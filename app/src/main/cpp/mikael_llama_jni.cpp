@@ -36,6 +36,46 @@ jstring errorString(JNIEnv* env, const char* message) {
     return env->NewStringUTF(message);
 }
 
+std::string javaToUtf8(JNIEnv* env, jstring value) {
+    if (value == nullptr) return {};
+    const jchar* chars = env->GetStringChars(value, nullptr);
+    if (chars == nullptr) return {};
+    const jsize length = env->GetStringLength(value);
+    std::string output;
+    output.reserve(static_cast<size_t>(length) * 3);
+    for (jsize i = 0; i < length; ++i) {
+        uint32_t cp = chars[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < length) {
+            const uint32_t low = chars[i + 1];
+            if (low >= 0xDC00 && low <= 0xDFFF) {
+                cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                ++i;
+            } else {
+                cp = 0xFFFD;
+            }
+        } else if (cp >= 0xDC00 && cp <= 0xDFFF) {
+            cp = 0xFFFD;
+        }
+        if (cp <= 0x7F) {
+            output.push_back(static_cast<char>(cp));
+        } else if (cp <= 0x7FF) {
+            output.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+            output.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else if (cp <= 0xFFFF) {
+            output.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+            output.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            output.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        } else {
+            output.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+            output.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+            output.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+            output.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+        }
+    }
+    env->ReleaseStringChars(value, chars);
+    return output;
+}
+
 jstring utf8ToJava(JNIEnv* env, const std::string& value) {
     std::vector<jchar> utf16;
     utf16.reserve(value.size());
@@ -65,7 +105,9 @@ jstring utf8ToJava(JNIEnv* env, const std::string& value) {
         for (size_t j = 1; j < count; ++j) {
             if ((static_cast<uint8_t>(value[i + j]) & 0xC0) != 0x80) valid = false;
         }
-        if (!valid || codePoint > 0x10FFFF || (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
+        const uint32_t minimum = count == 2 ? 0x80 : (count == 3 ? 0x800 : (count == 4 ? 0x10000 : 0));
+        if (!valid || codePoint < minimum || codePoint > 0x10FFFF ||
+                (codePoint >= 0xD800 && codePoint <= 0xDFFF)) {
             codePoint = 0xFFFD;
             count = 1;
         }
@@ -90,10 +132,8 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(
         return errorString(env, "Caminho ou tamanho de contexto inválido.");
     }
 
-    const char* pathChars = env->GetStringUTFChars(modelPath, nullptr);
-    if (pathChars == nullptr) return errorString(env, "Não foi possível ler o caminho do modelo.");
-    const std::string path(pathChars);
-    env->ReleaseStringUTFChars(modelPath, pathChars);
+    const std::string path = javaToUtf8(env, modelPath);
+    if (path.empty()) return errorString(env, "Não foi possível ler o caminho do modelo.");
 
     std::lock_guard<std::mutex> lock(g_mutex);
     g_cancel.store(true);
@@ -135,20 +175,18 @@ extern "C" JNIEXPORT jstring JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
         JNIEnv* env, jobject, jstring promptValue, jint maxTokens) {
     if (promptValue == nullptr) return errorString(env, "A mensagem está vazia.");
-    const char* promptChars = env->GetStringUTFChars(promptValue, nullptr);
-    if (promptChars == nullptr) return errorString(env, "Não foi possível ler a mensagem.");
-    const std::string prompt(promptChars);
-    env->ReleaseStringUTFChars(promptValue, promptChars);
+    const std::string prompt = javaToUtf8(env, promptValue);
+    if (prompt.empty()) return errorString(env, "Não foi possível ler a mensagem.");
     if (prompt.empty() || prompt.size() > 24000 || prompt.size() > static_cast<size_t>(INT_MAX)) {
         return errorString(env, "A mensagem precisa ter entre 1 e 24000 bytes.");
     }
 
+    g_cancel.store(false);
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_model == nullptr || g_context == nullptr || g_vocab == nullptr || g_context_size == 0) {
         return errorString(env, "Nenhum modelo local está carregado.");
     }
 
-    g_cancel.store(false);
     llama_memory_clear(llama_get_memory(g_context), true);
 
     const int32_t capacity = static_cast<int32_t>(std::min<size_t>(prompt.size() + 64, INT_MAX));
