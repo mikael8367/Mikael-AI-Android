@@ -292,6 +292,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         onAttach = { logEvent("INFO", "Toque: anexar arquivos"); attachmentPicker.launch(arrayOf("*/*")) },
                         onLog = { level, message -> logEvent(level, message) },
                         onRemoveAttachment = { item ->
+                            logEvent("INFO", "Toque: remover anexo ${item.name}")
                             attachments = attachments - item
                             File(item.path).delete()
                         },
@@ -301,11 +302,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         ready = engineReady && !busy && !downloading,
                         generating = generating,
                         onCancel = {
+                            logEvent("WARN", "Toque: interromper geração")
                             generationJob?.cancel()
                             LocalInferenceEngine.cancel()
                         },
-                        onOpenModels = { tab = AppTab.MODELS },
-                        onReloadModel = { if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
+                        onOpenModels = { logEvent("INFO", "Toque: abrir modelos"); tab = AppTab.MODELS },
+                        onReloadModel = { logEvent("INFO", "Toque: tentar carregar modelo novamente"); if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
                         onNewChat = {
                             logEvent("INFO", "Toque: nova conversa")
                             messages.clear()
