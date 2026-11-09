@@ -16,8 +16,8 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("compiláveis"))
         assertTrue(prompt.contains("testes reproduzíveis"))
         assertTrue(prompt.contains("Crie uma classe Kotlin"))
-        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.CODING))
-        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.CODING, 2048))
+        assertEquals(96, AssistantPromptBuilder.maxTokens(AssistantMode.CODING))
+        assertEquals(96, AssistantPromptBuilder.maxTokens(AssistantMode.CODING, 2048))
     }
 
     @Test
@@ -32,13 +32,13 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("condição de reprodução"))
         assertTrue(prompt.contains("testes de regressão"))
         assertTrue(prompt.contains("riscos hipotéticos"))
-        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT))
-        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT, 2048))
+        assertEquals(128, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT))
+        assertEquals(128, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT, 2048))
     }
 
     @Test
     fun generalModeHasSmallerOutputBudget() {
-        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.GENERAL))
+        assertEquals(48, AssistantPromptBuilder.maxTokens(AssistantMode.GENERAL))
     }
 
     @Test
