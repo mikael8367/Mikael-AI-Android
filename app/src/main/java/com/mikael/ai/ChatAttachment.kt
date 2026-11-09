@@ -88,7 +88,7 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
     }
 }
 
-private fun ensureStorageSpace(context: Context, bytesBeingCopied: Long) {
+private fun ensureStorageSpace(context: Context, @Suppress("UNUSED_PARAMETER") bytesBeingCopied: Long) {
     val stats = StatFs(context.filesDir.absolutePath)
     val freeBytes = stats.availableBytes
     require(freeBytes > MIN_FREE_SPACE_BYTES) {
@@ -103,11 +103,7 @@ private fun extractAttachmentText(context: Context, file: File, mime: String, na
         mime == "application/pdf" || name.endsWith(".pdf", ignoreCase = true) ->
             extractPdfText(context, file, name)
         mime.startsWith("text/") || name.substringAfterLast('.', "").lowercase() in TEXT_EXTENSIONS -> {
-            if (file.length() > MAX_TEXT_BYTES) {
-                file.inputStream().bufferedReader(Charsets.UTF_8).use { reader ->
-                    reader.readText().take(MAX_ANALYSIS_CHARS_PER_FILE)
-                }
-            } else file.readText(Charsets.UTF_8).take(MAX_ANALYSIS_CHARS_PER_FILE)
+            readTextLimited(file, MAX_ANALYSIS_CHARS_PER_FILE)
         }
         else -> "O arquivo foi anexado, mas este formato não possui extrator de texto nesta versão."
     }
@@ -186,6 +182,18 @@ private fun extractPdfText(context: Context, file: File, name: String): String {
         } else "Texto extraído do PDF ($pageCount páginas):\n$text$note"
     }
 }
+
+private fun readTextLimited(file: File, maxChars: Int): String =
+    file.inputStream().bufferedReader(Charsets.UTF_8).use { reader ->
+        val buffer = CharArray(4096)
+        val result = StringBuilder(minOf(maxChars, 4096))
+        while (result.length < maxChars) {
+            val count = reader.read(buffer, 0, minOf(buffer.size, maxChars - result.length))
+            if (count < 0) break
+            result.append(buffer, 0, count)
+        }
+        result.toString()
+    }
 
 private fun decodeSampledBitmap(file: File): Bitmap? {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
