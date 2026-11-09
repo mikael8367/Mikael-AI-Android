@@ -12,7 +12,7 @@ import java.util.Locale
 object AppLogStore {
     private const val PREFS = "mikael_ai_logs"
     private const val KEY_ENTRIES = "entries"
-    private const val MAX_ENTRIES = 500
+    private const val MAX_ENTRIES = 2000
     private val lock = Any()
     private val formatter = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
 
