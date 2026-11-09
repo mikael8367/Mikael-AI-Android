@@ -20,4 +20,16 @@ class AppPreferences(context: Context) {
         set(value) {
             if (value in listOf(512, 1024, 2048, 4096)) prefs.edit().putInt("context_tokens", value).apply()
         }
+
+    var onlineMode: Boolean
+        get() = prefs.getBoolean("online_mode", false)
+        set(value) { prefs.edit().putBoolean("online_mode", value).apply() }
+
+    var onlineModelId: String
+        get() = prefs.getString("online_model_id", "mikael") ?: "mikael"
+        set(value) {
+            if (value in setOf("mikael", "deepseek", "gpt4o_mini", "gemini_flash", "claude_sonnet", "qwen_coder", "gpt5_mini")) {
+                prefs.edit().putString("online_model_id", value).apply()
+            }
+        }
 }
