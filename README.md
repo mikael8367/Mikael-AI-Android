@@ -1,68 +1,50 @@
-# Mikael AI Android
+# Mikael AI Android — v1.1.0
 
-Aplicativo Android nativo com modo offline local e modo online conectado ao serviço Mikael AI.
+Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O projeto é independente do site e mantém a interface móvel inspirada no Mikael AI original.
 
 ## Interface
 - Cinco abas inferiores animadas: Início, Conversas, Projetos, Arquivos e Ajustes.
-- Tema escuro verde alinhado à identidade visual do Mikael AI original.
-- Layout pensado para uso em celular e navegação por toque.
+- Tema escuro verde.
+- Navegação e componentes adaptados para celular.
+- Versão exibida no cabeçalho.
 
 ## Modo online
-- Login com a senha de acesso APP_PASSWORD configurada no servidor Mikael AI.
-- Opção para salvar a senha no aparelho; ela é criptografada com AES-GCM e uma chave mantida pelo Android Keystore.
-- A sessão do servidor usa cookie HttpOnly em memória; ao reabrir o app, a senha salva é usada para autenticar novamente.
-- A chave LLM_API_KEY do provedor permanece exclusivamente no servidor. Ela não deve ser colocada no APK.
-- Conversas e histórico online são obtidos da API do servidor.
-- A conexão requer internet e o serviço online disponível.
+- Login usando a senha APP_PASSWORD configurada no servidor.
+- A opção de salvar senha vem ativada por padrão; a senha é criptografada com AES-GCM e uma chave protegida pelo Android Keystore.
+- A sessão usa cookie HttpOnly mantido em memória. Quando o modo online está ativo e há senha salva, o app tenta autenticar novamente ao abrir.
+- Chat e histórico de conversas usam a API Mikael AI hospedada.
+- Envio de documentos, código e imagens; análise de arquivos e geração de arquivos.
+- Consulta de conectores GitHub/MCP. O gerenciamento e a autorização dos conectores continuam na interface web original.
+- A conexão exige internet e o serviço online disponível.
 
 ## Modo offline
-- Inferência local com llama.cpp via JNI/NDK e modelos GGUF importados pelo seletor de arquivos do Android.
-- O modo offline não envia mensagens ao servidor.
-- A disponibilidade e velocidade dependem do tamanho/quantização do modelo, contexto, RAM e CPU do aparelho.
+- Inferência local com llama.cpp via JNI/NDK.
+- Importação de modelos GGUF pelo seletor de arquivos Android.
+- O chat offline não envia mensagens ao servidor.
+- O modelo precisa ser compatível com ChatML nesta versão.
+- Desempenho depende do tamanho/quantização, contexto, RAM e CPU do aparelho.
 
 ## Modelos online
-A API original oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini. A branch complementar feature/android-model-catalog do repositório Mikael-AI adiciona presets para Gemini 2.5 Flash, Claude Sonnet 4.5, Qwen3 Coder Plus e GPT-5 mini. Esses modelos adicionais só aparecerão quando essa atualização do backend for integrada e publicada no serviço online. A disponibilidade depende da chave e dos modelos liberados no provedor.
+A API atualmente publicada oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini. A branch complementar feature/android-model-catalog do repositório Mikael-AI adiciona Gemini Flash Latest, Claude Sonnet Latest, Qwen3.8 Max Prime, GLM 5.3 Prime, GPT-6 Luna e GPT-6 Sol. Os novos modelos só aparecem depois que a atualização do backend for integrada e publicada no serviço online. A disponibilidade depende da configuração do provedor e pode haver consumo de créditos.
 
 ## Segurança
-- A senha é criptografada no aparelho pelo Android Keystore quando a opção Salvar senha está ativada.
-- O app não armazena a chave do provedor de IA.
+- A senha é criptografada no aparelho pelo Android Keystore; ela não é gravada em texto puro nas preferências.
+- A chave LLM_API_KEY do provedor fica somente no servidor e nunca deve ser incluída no APK.
 - O tráfego online usa HTTPS.
-- O modo offline permanece sem chamadas de chat remotas.
+- Com o modo offline selecionado, o aplicativo não faz chamadas de chat à API remota.
+- O backup Android do app está desativado para evitar copiar credenciais locais.
 
-## Compilação
-O workflow .github/workflows/android-apk.yml executa testes unitários, lint e assembleDebug para main e feature/native-online-hybrid-ui. O APK debug é publicado como artefato do GitHub Actions quando a compilação termina com sucesso.
+## Compilação e testes
+O workflow .github/workflows/android-apk.yml está configurado para executar testes unitários, lint e assembleDebug nas branches main e feature/native-online-hybrid-ui. Quando a execução terminar com sucesso, o APK debug será publicado como artefato do GitHub Actions.
 
-## Estado desta versão
-A interface nativa de cinco abas, login online, persistência protegida da senha, chat online/offline, upload/análise de arquivos, geração de arquivos e consulta de conectores estão implementados nesta branch. A aba Projetos lista conectores e encaminha a administração do GitHub/MCP para a interface web original; ainda não reproduz todas as ações de gerenciamento do site. A geração de arquivos e análise de imagens usam o backend remoto. A compilação e os testes em aparelho precisam ser confirmados antes de considerar a versão pronta.
-
-
-Aplicativo Android nativo da Mikael AI, com foco em inferência local e privacidade.
-
-## Regras do projeto
-
-- O chat e a inferência acontecem no próprio aparelho.
-- Não existe modo Cloud, WebView, Render, OpenRouter ou endpoint remoto de chat.
-- Depois que um modelo GGUF é importado, o uso do chat não precisa de internet.
-- Modelos ficam no armazenamento privado do aplicativo.
-- O primeiro alvo de compilação é Android ARM64 (arm64-v8a).
-- A primeira etapa é texto. Visão, geração de imagens, pesquisa web e ferramentas externas não são anunciadas como recursos disponíveis.
+## Limitações conhecidas
+- O gerenciamento completo de GitHub/MCP ainda é feito no site original.
+- O histórico local offline ainda é uma conversa salva no aparelho; o histórico online usa as conversas do servidor.
+- Download integrado de modelos GGUF, streaming de tokens e visualização/baixar arquivos do servidor ainda não foram implementados.
+- A compilação e o teste em aparelho Android ARM64 ainda precisam ser confirmados. Não considere esta branch pronta até o CI passar e ocorrer um teste real no dispositivo.
 
 ## Requisitos
-
 - Android 9.0 (API 28) ou superior.
-- ABI inicial: ARM64.
-- Um modelo GGUF compatível, baixado pelo usuário e importado pelo seletor de arquivos do Android.
-- Nesta etapa, o prompt usa ChatML; prefira modelos Instruct que aceitem esse formato.
-- A capacidade depende do tamanho do modelo, do contexto e da memória livre. Aparelhos de entrada precisam de modelos pequenos e quantizados.
-
-## Compilar
-
-O projeto usa Gradle, Android NDK e CMake. O workflow GitHub Actions compila o APK de depuração e publica o arquivo como artefato.
-
-    gradle :app:assembleDebug
-
-O APK de depuração fica em app/build/outputs/apk/debug/app-debug.apk.
-
-## Estado atual
-
-A estrutura nativa, o chat local básico, o histórico e o seletor de modelos GGUF estão em implementação. O app ainda precisa passar pelo CI e ser testado em aparelho Android ARM64 real. O download integrado de modelos, streaming de tokens e múltiplas conversas ainda não estão prontos.
+- ABI inicial: ARM64 (arm64-v8a).
+- Internet somente para o modo online, upload/análise de arquivos e atualização dos dados remotos.
+- Para usar offline, importe um modelo GGUF compatível.
