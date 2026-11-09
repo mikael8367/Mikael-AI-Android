@@ -1,4 +1,4 @@
-# Mikael AI Android — v1.1.0
+# Mikael AI Android — v1.2.0
 
 Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O projeto é independente do site e mantém a interface móvel inspirada no Mikael AI original.
 
