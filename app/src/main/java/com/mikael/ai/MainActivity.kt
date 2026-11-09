@@ -1132,7 +1132,7 @@ private fun SettingsScreen(
                     FilterChip(selected = !onlineMode, onClick = { onOnlineModeChange(false) }, label = { Text("Offline") }, enabled = canChangeMode)
                     FilterChip(selected = onlineMode, onClick = { onOnlineModeChange(true) }, label = { Text("Online") }, enabled = canChangeMode)
                 }
-                Text("Online usa a Mikael AI hospedada e precisa de internet. Offline executa um modelo GGUF neste aparelho.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                Text("O chat sempre usa o modelo GGUF neste aparelho. A conexão online é opcional e serve apenas para recursos remotos, como arquivos e conectores.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Color(0xFF26332B))
                 Text(if (onlineAuthenticated) "Conta conectada" else "Entrar na Mikael AI", fontWeight = FontWeight.SemiBold)
                 if (!onlineAuthenticated) {
