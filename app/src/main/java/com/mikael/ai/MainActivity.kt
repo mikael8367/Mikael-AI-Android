@@ -582,7 +582,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         connectorStatus = "Conector ${result.connector.name} adicionado • ${result.tools.size} ferramenta(s) encontrada(s)."
                                     }.onFailure {
                                         connectorStatus = it.message ?: "Não foi possível adicionar o MCP."
-                                        if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
+                                        if (!onlineApi.isAuthenticated()) {
+                                            onlineAuthenticated = false
+                                            passwordInput = savedPasswordCache.orEmpty()
+                                        }
                                     }
                                     connectorBusy = false
                                 }
@@ -596,7 +599,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         withContext(Dispatchers.IO) { onlineApi.setConnectorEnabled(connector.id, enabled) }
                                         remoteConnectors = withContext(Dispatchers.IO) { onlineApi.connectors() }
                                         connectorStatus = if (enabled) "Conector ativado." else "Conector pausado."
-                                    }.onFailure { connectorStatus = it.message ?: "Não foi possível alterar o conector." }
+                                    }.onFailure {
+                                        connectorStatus = it.message ?: "Não foi possível alterar o conector."
+                                        if (!onlineApi.isAuthenticated()) {
+                                            onlineAuthenticated = false
+                                            passwordInput = savedPasswordCache.orEmpty()
+                                        }
+                                    }
                                     connectorBusy = false
                                 }
                             }
@@ -608,7 +617,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     runCatching {
                                         val tools = withContext(Dispatchers.IO) { onlineApi.testConnector(connector.id) }
                                         connectorStatus = "Teste concluído: ${tools.size} ferramenta(s) disponível(is)."
-                                    }.onFailure { connectorStatus = it.message ?: "O teste do conector falhou." }
+                                    }.onFailure {
+                                        connectorStatus = it.message ?: "O teste do conector falhou."
+                                        if (!onlineApi.isAuthenticated()) {
+                                            onlineAuthenticated = false
+                                            passwordInput = savedPasswordCache.orEmpty()
+                                        }
+                                    }
                                     connectorBusy = false
                                 }
                             }
