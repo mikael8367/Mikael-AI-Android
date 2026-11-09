@@ -1,6 +1,7 @@
 package com.mikael.ai
 
 import kotlin.random.Random
+import com.github.bhlangonijr.chesslib.Board
 
 internal data class GameState(
     val type: String,
@@ -10,7 +11,8 @@ internal data class GameState(
     val guessedLetters: Set<Char> = emptySet(),
     val attemptsLeft: Int = 6,
     val quizIndex: Int = 0,
-    val quizScore: Int = 0
+    val quizScore: Int = 0,
+    val chessFen: String = ""
 )
 
 internal data class GameReply(val state: GameState?, val text: String)
@@ -44,6 +46,7 @@ internal object Games {
             "forca" -> playHangman(current, input)
             "rps" -> playRps(current, input)
             "quiz" -> playQuiz(current, input)
+            "xadrez" -> playChess(current, input)
             else -> GameReply(null, "Esse jogo não é reconhecido. Digite **/games** para escolher outro.")
         }
     }
@@ -57,6 +60,7 @@ internal object Games {
         • **/games forca** — Descubra a palavra letra por letra
         • **/games rps** — Pedra, papel e tesoura
         • **/games quiz** — Quiz de programação com 5 perguntas
+        • **/games xadrez** — Xadrez com movimentos legais e resposta da IA
 
         Durante uma partida, digite **/games sair** para encerrar.
     """.trimIndent()
@@ -77,6 +81,11 @@ internal object Games {
         }
         "rps", "pedra", "pedra papel tesoura" -> GameReply(GameState(type = "rps"), "Vamos de **Pedra, papel e tesoura**! Digite pedra, papel ou tesoura.")
         "quiz", "perguntas" -> GameReply(GameState(type = "quiz"), quizText(0, 0))
+        "xadrez", "chess" -> {
+            val board = Board()
+            val state = GameState(type = "xadrez", chessFen = board.getFen())
+            GameReply(state, "Vamos jogar **Xadrez**! Você joga com as brancas e começa. Digite seu lance em coordenadas, por exemplo **e2e4**. Para promoção, use q, r, b ou n no final.\n\n" + board.toStringFromWhiteViewPoint())
+        }
         else -> GameReply(null, "Não reconheci esse jogo.\n\n" + menu())
     }
 
@@ -215,6 +224,37 @@ internal object Games {
         if (nextIndex >= questions.size) return GameReply(null, "$explanation\n${question.explanation}\n\nQuiz concluído! Você fez **$score/${questions.size}** pontos.\nDigite **/games quiz** para jogar novamente.")
         val next = state.copy(quizIndex = nextIndex, quizScore = score)
         return GameReply(next, "$explanation\n${question.explanation}\n\n" + quizText(nextIndex, score))
+    }
+
+    private fun playChess(state: GameState, input: String): GameReply {
+        val board = Board()
+        if (state.chessFen.isNotBlank()) board.loadFromFen(state.chessFen)
+        val normalized = input.trim().lowercase()
+        val playerMove = board.legalMoves().firstOrNull { board.toUci(it).equals(normalized, ignoreCase = true) }
+            ?: return GameReply(state, "Esse lance não é legal nesta posição. Use coordenadas como e2e4, g1f3 ou e7e8q.\n\n" + board.toStringFromWhiteViewPoint())
+        if (!board.doMove(playerMove, true)) {
+            return GameReply(state, "Não consegui aplicar esse lance. Tente novamente.\n\n" + board.toStringFromWhiteViewPoint())
+        }
+        if (board.isMated()) {
+            return GameReply(null, "Xeque-mate! Você venceu!\n\n" + board.toStringFromWhiteViewPoint() + "\nDigite **/games xadrez** para uma nova partida.")
+        }
+        if (board.isStaleMate()) {
+            return GameReply(null, "Empate por afogamento!\n\n" + board.toStringFromWhiteViewPoint() + "\nDigite **/games xadrez** para jogar novamente.")
+        }
+        val aiMove = board.legalMoves().randomOrNull()
+            ?: return GameReply(null, "A partida terminou sem lances disponíveis.\n\n" + board.toStringFromWhiteViewPoint())
+        val aiNotation = board.toUci(aiMove)
+        if (!board.doMove(aiMove, true)) {
+            return GameReply(state, "Ocorreu um problema ao aplicar minha jogada. A partida foi mantida na posição anterior.")
+        }
+        if (board.isMated()) {
+            return GameReply(null, "Xeque-mate! Eu venci desta vez. Minha jogada: **$aiNotation**.\n\n" + board.toStringFromWhiteViewPoint() + "\nDigite **/games xadrez** para revanche.")
+        }
+        if (board.isStaleMate()) {
+            return GameReply(null, "Empate por afogamento! Minha jogada: **$aiNotation**.\n\n" + board.toStringFromWhiteViewPoint() + "\nDigite **/games xadrez** para outra partida.")
+        }
+        val next = state.copy(chessFen = board.getFen())
+        return GameReply(next, "Minha jogada: **$aiNotation**. Agora é sua vez.\n\n" + board.toStringFromWhiteViewPoint())
     }
 
     private fun quizText(index: Int, score: Int): String {
