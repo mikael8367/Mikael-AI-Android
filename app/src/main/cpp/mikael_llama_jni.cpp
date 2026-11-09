@@ -121,7 +121,9 @@ jstring utf8ToJava(JNIEnv* env, const std::string& value) {
         i += count;
     }
     if (utf16.size() > static_cast<size_t>(INT_MAX)) return nullptr;
-    return env->NewString(utf16.data(), static_cast<jsize>(utf16.size()));
+    static const jchar emptyText[] = {0};
+    const jchar* chars = utf16.empty() ? emptyText : utf16.data();
+    return env->NewString(chars, static_cast<jsize>(utf16.size()));
 }
 }
 
@@ -177,7 +179,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     if (promptValue == nullptr) return errorString(env, "A mensagem está vazia.");
     const std::string prompt = javaToUtf8(env, promptValue);
     if (prompt.empty()) return errorString(env, "Não foi possível ler a mensagem.");
-    if (prompt.empty() || prompt.size() > 24000 || prompt.size() > static_cast<size_t>(INT_MAX)) {
+    if (prompt.size() > 24000 || prompt.size() > static_cast<size_t>(INT_MAX)) {
         return errorString(env, "A mensagem precisa ter entre 1 e 24000 bytes.");
     }
 
@@ -219,15 +221,21 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
 
     llama_sampler* sampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
     if (sampler == nullptr) return errorString(env, "Não foi possível iniciar o amostrador.");
-    llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
+    llama_sampler* greedy = llama_sampler_init_greedy();
+    if (greedy == nullptr) {
+        llama_sampler_free(sampler);
+        return errorString(env, "Não foi possível iniciar o amostrador guloso.");
+    }
+    llama_sampler_chain_add(sampler, greedy);
 
     std::string output;
     std::vector<char> piece(4096);
     const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
     const int limit = std::clamp(std::min(static_cast<int>(maxTokens), remainingContext), 1, 512);
+    bool decodeFailed = false;
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
         const llama_token token = llama_sampler_sample(sampler, g_context, -1);
-        if (llama_vocab_is_eog(g_vocab, token)) break;
+        if (token == LLAMA_TOKEN_NULL || llama_vocab_is_eog(g_vocab, token)) break;
 
         int32_t pieceSize = llama_token_to_piece(
                 g_vocab, token, piece.data(), static_cast<int32_t>(piece.size()), 0, true);
@@ -242,10 +250,14 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
 
         llama_token nextToken = token;
         llama_batch batch = llama_batch_get_one(&nextToken, 1);
-        if (llama_decode(g_context, batch) != 0) break;
+        if (llama_decode(g_context, batch) != 0) {
+            decodeFailed = true;
+            break;
+        }
     }
 
     llama_sampler_free(sampler);
+    if (decodeFailed) return errorString(env, "A geração foi interrompida por uma falha no motor local.");
     return utf8ToJava(env, output);
 }
 
