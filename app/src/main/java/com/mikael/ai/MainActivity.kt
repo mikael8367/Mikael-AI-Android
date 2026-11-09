@@ -400,7 +400,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 if (!onlineMode) ConversationStore.save(context, messages)
                                 isGenerating = true
                                 scope.launch {
-                                    if (onlineMode) {
+                                    try {
+                                        if (onlineMode) {
                                         runCatching {
                                             val result = withContext(Dispatchers.IO) {
                                                 onlineApi.sendMessage(prompt, remoteConversationId, selectedOnlineModel)
@@ -411,6 +412,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             runCatching {
                                                 remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
                                             }.onFailure {
+                                                if (!onlineApi.isAuthenticated()) {
+                                                    onlineAuthenticated = false
+                                                    passwordInput = savedPasswordCache.orEmpty()
+                                                }
                                                 onlineStatus = "Resposta recebida; não foi possível atualizar a lista de conversas."
                                             }
                                         }.onFailure { error ->
@@ -431,8 +436,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             }
                                             append("<|im_start|>assistant\n")
                                         }
-                                        val result = withContext(Dispatchers.IO) {
-                                            LocalInferenceEngine.generate(conversationPrompt, 256)
+                                        val result = runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                LocalInferenceEngine.generate(conversationPrompt, 256).getOrThrow()
+                                            }
                                         }
                                         result.fold(
                                             onSuccess = { answer ->
@@ -447,7 +454,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             }
                                         )
                                     }
-                                    isGenerating = false
+                                    } finally {
+                                        isGenerating = false
+                                    }
                                 }
                             } else if (onlineMode && !onlineAuthenticated) {
                                 android.widget.Toast.makeText(context, "Entre na aba Ajustes e conecte sua conta.", android.widget.Toast.LENGTH_SHORT).show()
