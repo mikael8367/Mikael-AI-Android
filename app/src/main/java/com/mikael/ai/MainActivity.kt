@@ -2,6 +2,7 @@ package com.mikael.ai
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
@@ -49,6 +50,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,6 +66,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
@@ -141,6 +144,17 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
     var downloadProgress by remember { mutableStateOf(0f) }
     var downloadStatus by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var attachments by remember { mutableStateOf<List<ChatAttachment>>(emptyList()) }
+    val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) scope.launch {
+            try {
+                val added = withContext(Dispatchers.IO) { importChatAttachments(context, uris) }
+                attachments = (attachments + added).distinctBy { it.path }.take(5)
+            } catch (error: Exception) {
+                engineStatus = error.message ?: "Falha ao anexar arquivos."
+            }
+        }
+    }
 
     val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -260,6 +274,9 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
+                        attachments = attachments,
+                        onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
+                        onRemoveAttachment = { item -> attachments = attachments - item },
                         mode = mode,
                         onModeChange = { mode = it },
                         status = engineStatus,
@@ -277,7 +294,13 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             val prompt = input.trim()
                             if (prompt.isNotEmpty() && engineReady && !generating) {
                                 input = ""
-                                messages.add(ChatMessage(nextMessageId(), "user", prompt))
+                                val attachmentContext = attachments.joinToString("\n\n") { it.promptContext }
+                                val completePrompt = buildString {
+                                    append(prompt)
+                                    if (attachmentContext.isNotBlank()) append("\n\nAnexos selecionados:\n").append(attachmentContext)
+                                }
+                                messages.add(ChatMessage(nextMessageId(), "user", completePrompt))
+                                attachments = emptyList()
                                 ConversationStore.save(context, messages)
                                 generating = true
                                 val selectedMode = mode
@@ -431,6 +454,9 @@ private fun OfflineChatScreen(
     messages: List<ChatMessage>,
     input: String,
     onInputChange: (String) -> Unit,
+    attachments: List<ChatAttachment>,
+    onAttach: () -> Unit,
+    onRemoveAttachment: (ChatAttachment) -> Unit,
     mode: AssistantMode,
     onModeChange: (AssistantMode) -> Unit,
     status: String,
@@ -506,15 +532,27 @@ private fun OfflineChatScreen(
                 )
             }
         }
+        if (attachments.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                attachments.forEach { item ->
+                    AssistChip(onClick = { onRemoveAttachment(item) }, label = { Text("✕ ${item.name}", maxLines = 1) })
+                }
+            }
+        }
         Row(
             Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.Bottom
         ) {
+            OutlinedButton(onClick = onAttach, enabled = !generating && attachments.size < 5, modifier = Modifier.height(54.dp)) { Text("＋") }
+            Spacer(Modifier.size(6.dp))
             OutlinedTextField(
                 value = input,
                 onValueChange = onInputChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Pergunte sobre programação...") },
+                placeholder = { Text("Mensagem ou anexos...") },
                 maxLines = 5,
                 shape = RoundedCornerShape(20.dp),
                 enabled = !generating,
@@ -635,7 +673,7 @@ private fun OfflineSettingsScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Configurações", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Tudo relacionado à geração acontece localmente. A internet é usada apenas se você escolher baixar um modelo.", color = Color(0xFF9EAAA2))
+        Text("A geração acontece no aparelho. A internet só é usada quando você escolhe baixar um modelo ou conectar o GitHub.", color = Color(0xFF9EAAA2))
         Text("Orçamento de memória: $memoryLimit MiB", fontWeight = FontWeight.SemiBold)
         Text("RAM livre informada pelo Android: ${MemoryBudget.mib(availableBytes)} MiB", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         Row(
@@ -669,10 +707,11 @@ private fun OfflineSettingsScreen(
         )
         OutlinedButton(onClick = onReload, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
         OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
+        GitHubConnectorCard()
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
                 Text("Privacidade", fontWeight = FontWeight.Bold)
-                Text("As conversas são salvas somente neste aparelho. Não há login, conta, Render, OpenRouter ou API de chat.", color = Color(0xFF9EAAA2))
+                Text("As conversas e a inferência ficam no aparelho. O conector GitHub só acessa a conta quando você autoriza.", color = Color(0xFF9EAAA2))
             }
         }
     }
