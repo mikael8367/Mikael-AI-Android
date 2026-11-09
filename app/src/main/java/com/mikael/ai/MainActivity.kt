@@ -149,6 +149,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 onlineStatus = "Conectado com segurança."
             }.onFailure {
                 onlineAuthenticated = false
+                SecureCredentials.clear(context)
+                savePassword = false
                 onlineStatus = it.message ?: "Não foi possível reconectar."
             }
             loginBusy = false
@@ -276,6 +278,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     AppTab.HOME -> HomeScreen(
                         onNewChat = {
                             messages.clear()
+                            if (!onlineMode) ConversationStore.clear(context)
                             remoteConversationId = null
                             tab = AppTab.CHAT
                         },
@@ -302,16 +305,17 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onNewConversation = {
                             messages.clear()
                             remoteConversationId = null
-                            ConversationStore.clear(context)
+                            if (!onlineMode) ConversationStore.clear(context)
                         },
                         onOpenConversation = { id ->
                             scope.launch {
                                 try {
                                     val remote = withContext(Dispatchers.IO) { onlineApi.getConversation(id) }
                                     messages.clear()
-                                    remote.forEach { messages.add(ChatMessage(System.nanoTime(), it.role, it.content)) }
+                                    remote.forEachIndexed { index, item ->
+                                        messages.add(ChatMessage(System.currentTimeMillis() + index, item.role, item.content))
+                                    }
                                     remoteConversationId = id
-                                    ConversationStore.save(context, messages)
                                 } catch (error: Exception) {
                                     onlineStatus = error.message ?: "Não foi possível abrir a conversa."
                                 }
@@ -326,7 +330,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 (if (onlineMode) onlineAuthenticated else engineReady)) {
                                 input = ""
                                 messages.add(ChatMessage(System.currentTimeMillis(), "user", prompt))
-                                ConversationStore.save(context, messages)
+                                if (!onlineMode) ConversationStore.save(context, messages)
                                 isGenerating = true
                                 scope.launch {
                                     if (onlineMode) {
@@ -338,12 +342,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             messages.add(ChatMessage(System.currentTimeMillis(), "assistant", result.reply))
                                             remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
                                             onlineStatus = "Resposta recebida do servidor."
-                                            ConversationStore.save(context, messages)
                                         }.onFailure { error ->
                                             messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
                                             onlineStatus = error.message ?: "Falha na conexão online."
                                             if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
-                                            ConversationStore.save(context, messages)
                                         }
                                     } else {
                                         val conversationPrompt = buildString {
@@ -392,9 +394,23 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onlineModels = onlineModels,
                         selectedOnlineModel = selectedOnlineModel,
                         onOnlineModeChange = {
-                            onlineMode = it
-                            preferences.onlineMode = it
-                            if (it && !onlineAuthenticated) tab = AppTab.SETTINGS
+                            if (onlineMode != it) {
+                                onlineMode = it
+                                preferences.onlineMode = it
+                                messages.clear()
+                                remoteConversationId = null
+                                if (it) {
+                                    if (onlineAuthenticated) {
+                                        scope.launch {
+                                            runCatching {
+                                                remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                            }.onFailure { onlineStatus = it.message ?: "Não foi possível carregar o histórico online." }
+                                        }
+                                    }
+                                } else {
+                                    messages.addAll(ConversationStore.load(context))
+                                }
+                            }
                         },
                         onPasswordChange = { passwordInput = it },
                         onSavePasswordChange = {
