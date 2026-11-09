@@ -28,7 +28,7 @@ class AppPreferences(context: Context) {
     var onlineModelId: String
         get() = prefs.getString("online_model_id", "mikael") ?: "mikael"
         set(value) {
-            if (value in setOf("mikael", "deepseek", "gpt4o_mini", "gemini_flash", "claude_sonnet", "qwen_coder", "gpt5_mini")) {
+            if (value.isNotBlank() && value.length <= 128) {
                 prefs.edit().putString("online_model_id", value).apply()
             }
         }
