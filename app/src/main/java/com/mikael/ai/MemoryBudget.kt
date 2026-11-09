@@ -19,6 +19,7 @@ object MemoryBudget {
     fun availableBytes(manager: ActivityManager): Long {
         val info = ActivityManager.MemoryInfo()
         manager.getMemoryInfo(info)
+        if (info.lowMemory) return 0L
         return info.availMem.coerceAtLeast(0L)
     }
 
