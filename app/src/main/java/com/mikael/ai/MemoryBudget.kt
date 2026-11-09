@@ -24,15 +24,22 @@ object MemoryBudget {
 
     fun safeBudgetBytes(availableBytes: Long, selectedLimitMiB: Int): Long {
         if (selectedLimitMiB !in allowedLimitsMiB) return 0L
-        val afterReserve = (availableBytes - SYSTEM_RESERVE_MIB * MIB).coerceAtLeast(0L)
+        val nonNegativeAvailable = availableBytes.coerceAtLeast(0L)
+        val afterReserve = (nonNegativeAvailable - SYSTEM_RESERVE_MIB * MIB).coerceAtLeast(0L)
         return minOf(afterReserve, selectedLimitMiB.toLong() * MIB)
     }
 
     fun estimateRequiredBytes(modelBytes: Long, contextTokens: Int): Long? {
         if (modelBytes <= 0L || contextTokens !in 256..8192) return null
-        val modelWithRuntimeMargin = (modelBytes.toDouble() * 1.25).toLong()
+        val modelMargin = modelBytes / 4L
         val contextEstimate = contextTokens.toLong() * 64L * 1024L
-        return modelWithRuntimeMargin + contextEstimate + ENGINE_OVERHEAD_MIB * MIB
+        val overhead = ENGINE_OVERHEAD_MIB * MIB
+        if (modelBytes > Long.MAX_VALUE - modelMargin) return null
+        val withMargin = modelBytes + modelMargin
+        if (withMargin > Long.MAX_VALUE - contextEstimate) return null
+        val withContext = withMargin + contextEstimate
+        if (withContext > Long.MAX_VALUE - overhead) return null
+        return withContext + overhead
     }
 
     fun check(availableBytes: Long, selectedLimitMiB: Int, modelBytes: Long, contextTokens: Int): MemoryCheck {
