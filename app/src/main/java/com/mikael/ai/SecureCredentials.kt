@@ -44,17 +44,19 @@ object SecureCredentials {
         ) { "O Android não conseguiu salvar a senha criptografada." }
     }
 
-    fun readPassword(context: Context): String? = runCatching {
-        val encoded = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getString(PASSWORD, null) ?: return null
-        val packed = Base64.decode(encoded, Base64.NO_WRAP)
-        require(packed.size > 12) { "Credencial salva inválida." }
-        val iv = packed.copyOfRange(0, 12)
-        val ciphertext = packed.copyOfRange(12, packed.size)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
-        String(cipher.doFinal(ciphertext), Charsets.UTF_8)
-    }.getOrNull()
+    fun readPassword(context: Context): String? {
+        return runCatching {
+            val encoded = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(PASSWORD, null) ?: return@runCatching null
+            val packed = Base64.decode(encoded, Base64.NO_WRAP)
+            require(packed.size > 12) { "Credencial salva inválida." }
+            val iv = packed.copyOfRange(0, 12)
+            val ciphertext = packed.copyOfRange(12, packed.size)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, iv))
+            String(cipher.doFinal(ciphertext), Charsets.UTF_8)
+        }.getOrNull()
+    }
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
