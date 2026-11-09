@@ -11,9 +11,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -79,7 +78,7 @@ fun OfflineLogsScreen(
             ) { Text("Limpar") }
         }
         Row {
-            Text("Registros: ${entries.size}/500", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelMedium)
+            Text("Registros: ${entries.size}/2000", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelMedium)
             Spacer(Modifier.weight(1f))
             Text("Armazenamento local", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
         }
@@ -92,7 +91,7 @@ fun OfflineLogsScreen(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                itemsIndexed(entries.asReversed()) { index, line ->
+                items(entries.asReversed()) { line ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
                         Row(
                             Modifier.fillMaxWidth().padding(start = 10.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
