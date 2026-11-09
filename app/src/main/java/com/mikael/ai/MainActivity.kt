@@ -129,7 +129,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var modelDownloadProgress by remember { mutableStateOf(0f) }
     var modelDownloadStatus by remember { mutableStateOf("") }
     var engineReady by remember { mutableStateOf(false) }
-    var engineStatus by remember { mutableStateOf("Importe um modelo GGUF para começar.") }
+    var engineStatus by remember { mutableStateOf("Vá em Ajustes para baixar o modelo recomendado ou importar um GGUF.") }
     var isGenerating by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var onlineMode by remember { mutableStateOf(false) }
@@ -271,7 +271,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
         val selectedPath = modelPath
         if (selectedPath.isNullOrBlank()) {
-            engineStatus = "Importe um modelo GGUF para começar."
+            engineStatus = "Vá em Ajustes para baixar o modelo recomendado ou importar um GGUF."
             return@LaunchedEffect
         }
         val file = File(selectedPath)
@@ -1031,7 +1031,7 @@ private fun ModelsScreen(
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("MODELO RECOMENDADO PARA USO LOCAL", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
                 Text("Qwen2.5 0.5B Instruct • Q4_K_M • aproximadamente 469 MiB", fontWeight = FontWeight.SemiBold)
-                Text("Download único. Depois de instalado, as respostas são geradas no próprio celular, sem enviar o chat ao Render ou OpenRouter.", color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                Text("Download único de aproximadamente 469 MiB — prefira Wi-Fi. Depois, as respostas são geradas no celular, sem enviar o chat ao Render ou OpenRouter. É um modelo compacto e tem limites em tarefas complexas.", color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
                 Button(onClick = onDownloadRecommendedModel, enabled = !modelDownloadBusy, modifier = Modifier.fillMaxWidth()) {
                     Text(if (modelDownloadBusy) "Baixando..." else "Baixar modelo para este celular")
                 }
