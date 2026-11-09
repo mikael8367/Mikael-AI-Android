@@ -33,7 +33,7 @@ A API original oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini. A branch co
 O workflow .github/workflows/android-apk.yml executa testes unitários, lint e assembleDebug para main e feature/native-online-hybrid-ui. O APK debug é publicado como artefato do GitHub Actions quando a compilação termina com sucesso.
 
 ## Estado desta versão
-A interface nativa de cinco abas, login online, persistência protegida da senha, consulta dos modelos publicados e chat online/offline estão em implementação. As abas Projetos e Arquivos ainda não reproduzem todos os recursos do site original; upload/análise de arquivos e conectores GitHub/MCP precisam de integração nativa adicional. A compilação e os testes em aparelho precisam ser confirmados antes de considerar a versão pronta.
+A interface nativa de cinco abas, login online, persistência protegida da senha, chat online/offline, upload/análise de arquivos, geração de arquivos e consulta de conectores estão implementados nesta branch. A aba Projetos lista conectores e encaminha a administração do GitHub/MCP para a interface web original; ainda não reproduz todas as ações de gerenciamento do site. A geração de arquivos e análise de imagens usam o backend remoto. A compilação e os testes em aparelho precisam ser confirmados antes de considerar a versão pronta.
 
 
 Aplicativo Android nativo da Mikael AI, com foco em inferência local e privacidade.
