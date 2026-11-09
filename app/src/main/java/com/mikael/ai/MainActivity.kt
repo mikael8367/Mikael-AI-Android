@@ -607,7 +607,8 @@ private fun OfflineSettingsScreen(
     onMemoryChange: (Int) -> Unit,
     onContextChange: (Int) -> Unit,
     onClearHistory: () -> Unit,
-    onReload: () -> Unit
+    onReload: () -> Unit,
+    reloadEnabled: Boolean
 ) {
     Column(
         Modifier.fillMaxSize().padding(18.dp),
