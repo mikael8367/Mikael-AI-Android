@@ -84,7 +84,7 @@ object AssistantPromptBuilder {
 
     private fun limitUtf8(value: String, maxBytes: Int): String {
         if (value.toByteArray(Charsets.UTF_8).size <= maxBytes) return value
-        val suffix = "\\n<|im_end|>\\n<|im_start|>assistant\\n"
+        val suffix = "\n<|im_end|>\n<|im_start|>assistant\n"
         val budget = maxBytes - suffix.toByteArray(Charsets.UTF_8).size
         var bytes = 0
         var index = 0
