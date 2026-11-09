@@ -230,7 +230,7 @@ internal object Games {
         val board = Board()
         if (state.chessFen.isNotBlank()) board.loadFromFen(state.chessFen)
         val normalized = input.trim().lowercase()
-        val playerMove = board.legalMoves().firstOrNull { board.toUci(it).equals(normalized, ignoreCase = true) }
+        val playerMove = board.legalMoves().firstOrNull { it.toString().equals(normalized, ignoreCase = true) }
             ?: return GameReply(state, "Esse lance não é legal nesta posição. Use coordenadas como e2e4, g1f3 ou e7e8q.\n\n" + board.toStringFromWhiteViewPoint())
         if (!board.doMove(playerMove, true)) {
             return GameReply(state, "Não consegui aplicar esse lance. Tente novamente.\n\n" + board.toStringFromWhiteViewPoint())
@@ -243,7 +243,7 @@ internal object Games {
         }
         val aiMove = board.legalMoves().randomOrNull()
             ?: return GameReply(null, "A partida terminou sem lances disponíveis.\n\n" + board.toStringFromWhiteViewPoint())
-        val aiNotation = board.toUci(aiMove)
+        val aiNotation = aiMove.toString()
         if (!board.doMove(aiMove, true)) {
             return GameReply(state, "Ocorreu um problema ao aplicar minha jogada. A partida foi mantida na posição anterior.")
         }
