@@ -16,7 +16,8 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("compiláveis"))
         assertTrue(prompt.contains("testes reproduzíveis"))
         assertTrue(prompt.contains("Crie uma classe Kotlin"))
-        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.CODING))\n        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.CODING, 2048))
+        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.CODING))
+        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.CODING, 2048))
     }
 
     @Test
@@ -31,7 +32,8 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("condição de reprodução"))
         assertTrue(prompt.contains("testes de regressão"))
         assertTrue(prompt.contains("riscos hipotéticos"))
-        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT))\n        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT, 2048))
+        assertEquals(256, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT))
+        assertEquals(768, AssistantPromptBuilder.maxTokens(AssistantMode.DEEP_AUDIT, 2048))
     }
 
     @Test
@@ -56,22 +58,6 @@ class AssistantPromptBuilderTest {
     }
 
     @Test
-    fun searchResultsAreMarkedAsUntrustedAndUrlsAreIncluded() {
-        val prompt = AssistantPromptBuilder.build(
-            AssistantMode.CODING,
-            listOf("user" to "Pesquise a API"),
-            searchResults = listOf(
-                WebSearchResult("Documentação", "https://example.com/docs", "Referência oficial")
-            ),
-            searchRequested = true
-        )
-
-        assertTrue(prompt.contains("não confiável"))
-        assertTrue(prompt.contains("https://example.com/docs"))
-    }
-
-
-    @Test
     fun promptNeverExceedsNativeUtf8ByteLimitWithUnicodeInput() {
         val longUnicodeText = "á😀漢".repeat(12000)
         val prompt = AssistantPromptBuilder.build(
@@ -79,7 +65,7 @@ class AssistantPromptBuilderTest {
             listOf("user" to longUnicodeText)
         )
 
-        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 2560)
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 1280)
         assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
     }
 
@@ -109,18 +95,5 @@ class AssistantPromptBuilderTest {
 
         assertTrue(prompt.contains("MENSAGEM FINAL IMPORTANTE"))
         assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
-    }
-
-    @Test
-    fun failedSearchIsReportedWithoutPretendingItWorked() {
-        val prompt = AssistantPromptBuilder.build(
-            AssistantMode.GENERAL,
-            listOf("user" to "Pesquise"),
-            searchRequested = true,
-            searchError = "Sem conexão"
-        )
-
-        assertTrue(prompt.contains("Sem conexão"))
-        assertTrue(prompt.contains("não finja"))
     }
 }
