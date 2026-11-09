@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
@@ -65,9 +66,11 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 private enum class AppTab(val title: String, val symbol: String) {
-    CHAT("Chat", "◉"),
-    MODELS("Modelos", "▤"),
-    SETTINGS("Configurações", "⚙")
+    HOME("Início", "⌂"),
+    CHAT("Conversas", "◌"),
+    PROJECTS("Projetos", "⌘"),
+    FILES("Arquivos", "▤"),
+    SETTINGS("Ajustes", "⚙")
 }
 
 class MainActivity : ComponentActivity() {
@@ -117,6 +120,36 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var engineStatus by remember { mutableStateOf("Importe um modelo GGUF para começar.") }
     var isGenerating by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
+    var onlineMode by remember { mutableStateOf(preferences.onlineMode) }
+    var onlineAuthenticated by remember { mutableStateOf(false) }
+    var passwordInput by remember { mutableStateOf("") }
+    var savePassword by remember { mutableStateOf(SecureCredentials.hasSavedPassword(context)) }
+    var loginBusy by remember { mutableStateOf(false) }
+    var onlineStatus by remember { mutableStateOf("Entre com sua senha para conectar ao servidor.") }
+    var onlineModels by remember { mutableStateOf(emptyList<OnlineModel>()) }
+    var selectedOnlineModel by remember { mutableStateOf(preferences.onlineModelId) }
+    var remoteConversations by remember { mutableStateOf(emptyList<RemoteConversation>()) }
+    var remoteConversationId by remember { mutableStateOf<Long?>(null) }
+    val onlineApi = remember { OnlineApi() }
+
+    LaunchedEffect(Unit) {
+        val saved = SecureCredentials.readPassword(context)
+        if (saved != null) {
+            loginBusy = true
+            onlineStatus = "Reconectando à Mikael AI online..."
+            runCatching {
+                withContext(Dispatchers.IO) { onlineApi.login(saved) }
+                onlineModels = withContext(Dispatchers.IO) { onlineApi.models() }
+                remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                onlineAuthenticated = true
+                onlineStatus = "Conectado com segurança."
+            }.onFailure {
+                onlineAuthenticated = false
+                onlineStatus = it.message ?: "Não foi possível reconectar."
+            }
+            loginBusy = false
+        }
+    }
 
     val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -128,7 +161,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     preferences.modelPath = copiedPath
                     modelPath = copiedPath
                     installedModels = listInstalledModels(context)
-                    tab = AppTab.MODELS
+                    tab = AppTab.SETTINGS
                     engineStatus = "Modelo importado. Verificando memória..."
                 } catch (error: Exception) {
                     engineStatus = error.message ?: "Não foi possível importar o modelo."
@@ -178,7 +211,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = Color(0xFF101713)) {
+            NavigationBar(containerColor = Color(0xFF09150F)) {
                 AppTab.entries.forEach { item ->
                     NavigationBarItem(
                         selected = tab == item,
@@ -208,12 +241,17 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
                 Column(modifier = Modifier.padding(start = 12.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("INTELIGÊNCIA LOCAL", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8BE7B7))
+                    Text("ENGENHARIA DE SOFTWARE", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8BE7B7))
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
-                    if (engineReady) "● LOCAL" else "○ OFFLINE",
-                    color = if (engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
+                    when {
+                        onlineMode && onlineAuthenticated -> "● ONLINE"
+                        onlineMode -> "○ SEM LOGIN"
+                        engineReady -> "● LOCAL"
+                        else -> "○ OFFLINE"
+                    },
+                    color = if (onlineMode && onlineAuthenticated || !onlineMode && engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -225,54 +263,167 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 label = "tab-transition"
             ) { selected ->
                 when (selected) {
+                    AppTab.HOME -> HomeScreen(
+                        onNewChat = {
+                            messages.clear()
+                            remoteConversationId = null
+                            tab = AppTab.CHAT
+                        },
+                        onPrompt = { prompt ->
+                            input = prompt
+                            tab = AppTab.CHAT
+                        }
+                    )
                     AppTab.CHAT -> ChatScreen(
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
-                        engineReady = engineReady,
-                        engineStatus = engineStatus,
+                        canSend = if (onlineMode) onlineAuthenticated else engineReady,
+                        engineStatus = if (onlineMode) onlineStatus else engineStatus,
                         isGenerating = isGenerating,
+                        onlineMode = onlineMode,
+                        onlineModels = onlineModels,
+                        selectedOnlineModel = selectedOnlineModel,
+                        remoteConversations = remoteConversations,
+                        onModelChange = {
+                            selectedOnlineModel = it
+                            preferences.onlineModelId = it
+                        },
+                        onNewConversation = {
+                            messages.clear()
+                            remoteConversationId = null
+                            ConversationStore.clear(context)
+                        },
+                        onOpenConversation = { id ->
+                            scope.launch {
+                                try {
+                                    val remote = withContext(Dispatchers.IO) { onlineApi.getConversation(id) }
+                                    messages.clear()
+                                    remote.forEach { messages.add(ChatMessage(System.nanoTime(), it.role, it.content)) }
+                                    remoteConversationId = id
+                                    ConversationStore.save(context, messages)
+                                } catch (error: Exception) {
+                                    onlineStatus = error.message ?: "Não foi possível abrir a conversa."
+                                }
+                            }
+                        },
                         onCancel = { LocalInferenceEngine.cancel() },
                         onSend = {
                             val prompt = input.trim()
-                            if (prompt.isNotEmpty() && engineReady && !isGenerating) {
+                            if (prompt.isNotEmpty() && !isGenerating &&
+                                (if (onlineMode) onlineAuthenticated else engineReady)) {
                                 input = ""
                                 messages.add(ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 ConversationStore.save(context, messages)
                                 isGenerating = true
                                 scope.launch {
-                                    val conversationPrompt = buildString {
-                                        append("<|im_start|>system\nVocê é Mikael AI, um assistente útil e especializado em programação. Responda em português do Brasil quando apropriado.\n<|im_end|>\n")
-                                        messages.takeLast(12).forEach { message ->
-                                            append(if (message.role == "user") "<|im_start|>user\n" else "<|im_start|>assistant\n")
-                                            append(message.text)
-                                            append("\n<|im_end|>\n")
-                                        }
-                                        append("<|im_start|>assistant\n")
-                                    }
-                                    val result = withContext(Dispatchers.IO) {
-                                        LocalInferenceEngine.generate(conversationPrompt, 256)
-                                    }
-                                    result.fold(
-                                        onSuccess = { answer ->
-                                            if (answer.isNotBlank()) {
-                                                messages.add(ChatMessage(System.currentTimeMillis(), "assistant", answer))
-                                                ConversationStore.save(context, messages)
+                                    if (onlineMode) {
+                                        runCatching {
+                                            val result = withContext(Dispatchers.IO) {
+                                                onlineApi.sendMessage(prompt, remoteConversationId, selectedOnlineModel)
                                             }
-                                        },
-                                        onFailure = { error ->
-                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                                            remoteConversationId = result.conversationId
+                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", result.reply))
+                                            remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                            onlineStatus = "Resposta recebida do servidor."
+                                            ConversationStore.save(context, messages)
+                                        }.onFailure { error ->
+                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
+                                            onlineStatus = error.message ?: "Falha na conexão online."
                                             ConversationStore.save(context, messages)
                                         }
-                                    )
+                                    } else {
+                                        val conversationPrompt = buildString {
+                                            append("<|im_start|>system\nVocê é Mikael AI, um assistente útil e especializado em programação. Responda em português do Brasil quando apropriado.\n<|im_end|>\n")
+                                            messages.takeLast(12).forEach { message ->
+                                                append(if (message.role == "user") "<|im_start|>user\n" else "<|im_start|>assistant\n")
+                                                append(message.text)
+                                                append("\n<|im_end|>\n")
+                                            }
+                                            append("<|im_start|>assistant\n")
+                                        }
+                                        val result = withContext(Dispatchers.IO) {
+                                            LocalInferenceEngine.generate(conversationPrompt, 256)
+                                        }
+                                        result.fold(
+                                            onSuccess = { answer ->
+                                                if (answer.isNotBlank()) {
+                                                    messages.add(ChatMessage(System.currentTimeMillis(), "assistant", answer))
+                                                    ConversationStore.save(context, messages)
+                                                }
+                                            },
+                                            onFailure = { error ->
+                                                messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                                                ConversationStore.save(context, messages)
+                                            }
+                                        )
+                                    }
                                     isGenerating = false
                                 }
+                            } else if (onlineMode && !onlineAuthenticated) {
+                                android.widget.Toast.makeText(context, "Entre na aba Ajustes e conecte sua conta.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (!engineReady) {
                                 android.widget.Toast.makeText(context, engineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
-                    AppTab.MODELS -> ModelsScreen(
+                    AppTab.PROJECTS -> ProjectsScreen(onlineMode, onlineAuthenticated)
+                    AppTab.FILES -> FilesScreen(onlineMode, onlineAuthenticated)
+                    AppTab.SETTINGS -> SettingsScreen(
+                        onlineMode = onlineMode,
+                        onlineAuthenticated = onlineAuthenticated,
+                        password = passwordInput,
+                        savePassword = savePassword,
+                        loginBusy = loginBusy,
+                        onlineStatus = onlineStatus,
+                        onlineModels = onlineModels,
+                        selectedOnlineModel = selectedOnlineModel,
+                        onOnlineModeChange = {
+                            onlineMode = it
+                            preferences.onlineMode = it
+                            if (it && !onlineAuthenticated) tab = AppTab.SETTINGS
+                        },
+                        onPasswordChange = { passwordInput = it },
+                        onSavePasswordChange = { savePassword = it },
+                        onLogin = {
+                            if (passwordInput.isBlank() || loginBusy) return@SettingsScreen
+                            loginBusy = true
+                            onlineStatus = "Conectando..."
+                            scope.launch {
+                                runCatching {
+                                    withContext(Dispatchers.IO) { onlineApi.login(passwordInput) }
+                                    onlineModels = withContext(Dispatchers.IO) { onlineApi.models() }
+                                    remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                    if (savePassword) {
+                                        withContext(Dispatchers.IO) { SecureCredentials.savePassword(context, passwordInput) }
+                                    } else {
+                                        SecureCredentials.clear(context)
+                                    }
+                                    onlineAuthenticated = true
+                                    onlineMode = true
+                                    preferences.onlineMode = true
+                                    passwordInput = ""
+                                    onlineStatus = "Conectado. Modelos online carregados."
+                                }.onFailure {
+                                    onlineAuthenticated = false
+                                    onlineStatus = it.message ?: "Falha no login."
+                                }
+                                loginBusy = false
+                            }
+                        },
+                        onLogout = {
+                            scope.launch(Dispatchers.IO) { onlineApi.logout() }
+                            onlineAuthenticated = false
+                            onlineModels = emptyList()
+                            remoteConversations = emptyList()
+                            remoteConversationId = null
+                            if (savePassword) SecureCredentials.clear(context)
+                            onlineStatus = "Você saiu do modo online."
+                        },
+                        onModelChange = {
+                            selectedOnlineModel = it
+                            preferences.onlineModelId = it
+                        },
                         modelPath = modelPath,
                         installedModels = installedModels,
                         engineStatus = engineStatus,
@@ -280,33 +431,27 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
                         onSelect = { selectedPath ->
                             preferences.modelPath = selectedPath
-                            if (selectedPath == modelPath) {
-                                modelReloadCounter += 1
-                            } else {
-                                modelPath = selectedPath
-                            }
+                            if (selectedPath == modelPath) modelReloadCounter += 1 else modelPath = selectedPath
                         },
                         onLoad = { modelReloadCounter += 1 },
                         onUnload = {
+                            LocalInferenceEngine.cancel()
                             scope.launch(Dispatchers.IO) { LocalInferenceEngine.unload() }
                             engineReady = false
                             engineStatus = "Modelo descarregado."
                         },
                         onDelete = {
                             scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    LocalInferenceEngine.unload()
-                                    modelPath?.let { File(it).delete() }
-                                }
+                                LocalInferenceEngine.cancel()
+                                withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                                modelPath?.let { File(it).delete() }
                                 preferences.modelPath = null
                                 modelPath = null
                                 installedModels = listInstalledModels(context)
                                 engineReady = false
                                 engineStatus = "Nenhum modelo importado."
                             }
-                        }
-                    )
-                    AppTab.SETTINGS -> SettingsScreen(
+                        },
                         memoryLimit = memoryLimit,
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
