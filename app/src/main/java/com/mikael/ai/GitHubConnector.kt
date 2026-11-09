@@ -148,14 +148,14 @@ object GitHubConnector {
     fun listRepositories(token: String): String {
         val json = JSONArray(request(token, "/user/repos?sort=updated&per_page=30"))
         return buildString {
-            append("Seus repositórios (mais recentemente atualizados):\\n")
+            append("Seus repositórios (mais recentemente atualizados):\n")
             for (i in 0 until json.length()) {
                 val item = json.getJSONObject(i)
                 append(item.optString("full_name"))
                     .append(if (item.optBoolean("private")) " [privado]" else " [público]")
-                    .append("\\n")
-                append(item.optString("html_url")).append("\\n")
-                append(item.optString("description").take(180)).append("\\n\\n")
+                    .append("\n")
+                append(item.optString("html_url")).append("\n")
+                append(item.optString("description").take(180)).append("\n\n")
             }
             if (json.length() == 0) append("Nenhum repositório retornado para esta conta.")
         }.take(18000)
@@ -165,15 +165,15 @@ object GitHubConnector {
         validateRepository(repository)
         val json = JSONArray(request(token, "/repos/$repository/commits?per_page=20"))
         return buildString {
-            append("Commits recentes:\\n")
+            append("Commits recentes:\n")
             for (i in 0 until json.length()) {
                 val item = json.getJSONObject(i)
                 val commit = item.optJSONObject("commit")
                 append(item.optString("sha").take(7)).append(" — ")
                     .append(commit?.optString("message").orEmpty().lineSequence().firstOrNull().orEmpty())
-                    .append("\\n")
+                    .append("\n")
                 append(item.optString("html_url"))
-                    .append("\\n")
+                    .append("\n")
             }
             if (json.length() == 0) append("Nenhum commit retornado.")
         }.take(18000)
