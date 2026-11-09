@@ -23,6 +23,12 @@ class WebSearch(
         .followSslRedirects(true)
         .build()
 ) {
+    @Volatile private var activeCall: okhttp3.Call? = null
+
+    fun cancel() {
+        activeCall?.cancel()
+    }
+
     fun search(query: String): List<WebSearchResult> {
         val normalized = query.trim()
         require(normalized.length in 3..200) { "Digite uma pesquisa entre 3 e 200 caracteres." }
@@ -35,26 +41,32 @@ class WebSearch(
             .header("Accept", "text/html,application/xhtml+xml")
             .build()
 
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Pesquisa web falhou (HTTP ${response.code}).")
-            val body = response.body ?: throw IOException("A pesquisa web retornou uma resposta vazia.")
-            if (body.contentLength() > MAX_RESPONSE_BYTES) {
-                throw IOException("A resposta da pesquisa ultrapassou o limite de segurança.")
-            }
-            val html = body.byteStream().use { stream ->
-                val output = java.io.ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                var total = 0
-                while (true) {
-                    val count = stream.read(buffer)
-                    if (count < 0) break
-                    total += count
-                    if (total > MAX_RESPONSE_BYTES) throw IOException("A resposta da pesquisa ultrapassou o limite de segurança.")
-                    output.write(buffer, 0, count)
+        val call = client.newCall(request)
+        activeCall = call
+        try {
+            call.execute().use { response ->
+                if (!response.isSuccessful) throw IOException("Pesquisa web falhou (HTTP ${response.code}).")
+                val body = response.body ?: throw IOException("A pesquisa web retornou uma resposta vazia.")
+                if (body.contentLength() > MAX_RESPONSE_BYTES) {
+                    throw IOException("A resposta da pesquisa ultrapassou o limite de segurança.")
                 }
-                output.toString(StandardCharsets.UTF_8.name())
+                val html = body.byteStream().use { stream ->
+                    val output = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val count = stream.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        if (total > MAX_RESPONSE_BYTES) throw IOException("A resposta da pesquisa ultrapassou o limite de segurança.")
+                        output.write(buffer, 0, count)
+                    }
+                    output.toString(StandardCharsets.UTF_8.name())
+                }
+                return parseResults(html)
             }
-            return parseResults(html)
+        } finally {
+            if (activeCall === call) activeCall = null
         }
     }
 
