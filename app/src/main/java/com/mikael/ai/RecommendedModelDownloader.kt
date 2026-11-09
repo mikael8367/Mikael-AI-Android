@@ -27,7 +27,6 @@ object RecommendedModelDownloader {
         if (destination.isFile && destination.length() == EXPECTED_BYTES &&
             sha256(destination) == EXPECTED_SHA256) return destination
 
-        if (destination.exists()) destination.delete()
         val partial = File(directory, "$MODEL_NAME.part")
         partial.delete()
         val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
