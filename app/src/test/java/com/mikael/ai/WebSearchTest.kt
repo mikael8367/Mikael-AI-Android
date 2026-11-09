@@ -19,6 +19,12 @@ class WebSearchTest {
     }
 
     @Test
+    fun searchQueryMustBeWithinSafeLengthBounds() {
+        assertTrue(runCatching { WebSearch().search("ab") }.isFailure)
+        assertTrue(runCatching { WebSearch().search("x".repeat(201)) }.isFailure)
+    }
+
+    @Test
     fun parsesDuckDuckGoResultsAndResolvesRedirects() {
         val html = """
             <div class="result">
