@@ -27,7 +27,7 @@ object LocalInferenceEngine {
     fun generate(prompt: String, maxTokens: Int = 256): Result<String> = runCatching {
         check(ready) { "Carregue um modelo antes de conversar." }
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
-        require(prompt.length <= 24000) { "A mensagem está muito longa." }
+        require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
         val result = nativeGenerate(prompt, maxTokens)
         if (result == null) error("O motor local não retornou uma resposta.")
         result
