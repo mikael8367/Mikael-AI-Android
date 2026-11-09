@@ -132,7 +132,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var onlineMode by remember { mutableStateOf(preferences.onlineMode) }
     var onlineAuthenticated by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
-    var savePassword by remember { mutableStateOf(SecureCredentials.hasSavedPassword(context)) }
+    var savePassword by remember { mutableStateOf(true) }
     var loginBusy by remember { mutableStateOf(false) }
     var onlineStatus by remember { mutableStateOf("Entre com sua senha para conectar ao servidor.") }
     var onlineModels by remember { mutableStateOf(emptyList<OnlineModel>()) }
@@ -146,7 +146,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     LaunchedEffect(Unit) {
         val saved = SecureCredentials.readPassword(context)
-        if (saved != null) {
+        if (saved != null && onlineMode) {
             loginBusy = true
             onlineStatus = "Reconectando à Mikael AI online..."
             val loginResult = runCatching {
@@ -531,6 +531,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 messages.clear()
                                 remoteConversationId = null
                                 if (it) {
+                                    passwordInput = SecureCredentials.readPassword(context).orEmpty()
                                     if (onlineAuthenticated) {
                                         scope.launch {
                                             runCatching {
