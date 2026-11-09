@@ -1381,7 +1381,7 @@ private fun SettingsScreen(
                     FilterChip(selected = !onlineMode, onClick = { onOnlineModeChange(false) }, label = { Text("Offline") }, enabled = canChangeMode)
                     FilterChip(selected = onlineMode, onClick = { onOnlineModeChange(true) }, label = { Text("Online") }, enabled = canChangeMode)
                 }
-                Text("Offline usa o GGUF selecionado neste aparelho. Online usa o modelo escolhido no servidor; Mikael AI é a opção principal.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                Text("Mikael AI (padrão) é executado no servidor e precisa de internet e login; não é um arquivo GGUF para baixar. Offline usa um modelo GGUF local, como o Qwen.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Color(0xFF26332B))
                 Text(if (onlineAuthenticated) "Conta conectada" else "Entrar na Mikael AI", fontWeight = FontWeight.SemiBold)
                 if (!onlineAuthenticated) {
