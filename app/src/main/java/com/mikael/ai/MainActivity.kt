@@ -139,7 +139,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var assistantMode by remember { mutableStateOf(AssistantMode.CODING) }
     var webSearchInProgress by remember { mutableStateOf(false) }
     var generationJob by remember { mutableStateOf<Job?>(null) }
-    var onlineMode by remember { mutableStateOf(false) }
+    var onlineMode by remember { mutableStateOf(preferences.onlineMode) }
     var onlineAuthenticated by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var savePassword by remember { mutableStateOf(true) }
@@ -160,8 +160,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val webSearch = remember { WebSearch() }
 
     LaunchedEffect(Unit) {
-        // Local inference is the default on every launch; online services remain optional.
-        preferences.onlineMode = false
+        // Restore the last selected connection mode and reconnect only when a saved password exists.
         val saved = withContext(Dispatchers.IO) { SecureCredentials.readPassword(context) }
         savedPasswordCache = saved
         if (saved != null && onlineMode) {
