@@ -18,7 +18,8 @@ object AssistantPromptBuilder {
         history: List<Pair<String, String>>,
         searchResults: List<WebSearchResult> = emptyList(),
         searchRequested: Boolean = false,
-        searchError: String? = null
+        searchError: String? = null,
+        contextTokens: Int = 1024
     ): String = buildString {
         append("<|im_start|>system\n")
         append("Você é Mikael AI, assistente técnico que responde em português do Brasil. ")
@@ -80,7 +81,10 @@ object AssistantPromptBuilder {
             append("\n<|im_end|>\n")
         }
         append("<|im_start|>assistant\n")
-    }.let { prompt -> limitUtf8(prompt, MAX_PROMPT_BYTES) }
+    }.let { prompt ->
+        val contextBudget = (contextTokens.coerceIn(256, 8192) * 5) / 2
+        limitUtf8(prompt, minOf(MAX_PROMPT_BYTES, contextBudget))
+    }
 
     private fun limitUtf8(value: String, maxBytes: Int): String {
         if (value.toByteArray(Charsets.UTF_8).size <= maxBytes) return value
