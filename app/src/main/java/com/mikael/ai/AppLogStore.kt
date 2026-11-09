@@ -19,8 +19,8 @@ object AppLogStore {
     fun add(context: Context, level: String, message: String) {
         val safeLevel = level.uppercase(Locale.ROOT).take(8)
         val safeMessage = redact(message).replace('\n', ' ').replace('\r', ' ').take(700)
-        val line = "${formatter.format(Date())}  [${safeLevel}]  ${safeMessage}"
         synchronized(lock) {
+            val line = "${formatter.format(Date())}  [${safeLevel}]  ${safeMessage}"
             val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val entries = prefs.getString(KEY_ENTRIES, "").orEmpty()
                 .lineSequence().filter { it.isNotBlank() }.toMutableList()
