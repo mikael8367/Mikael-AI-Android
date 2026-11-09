@@ -23,12 +23,12 @@ object RecommendedModelDownloader {
     fun download(directory: File, onProgress: (Long, Long) -> Unit = { _, _ -> }): File {
         cancelled.set(false)
         check(directory.exists() || directory.mkdirs()) { "Não foi possível criar a pasta de modelos." }
-        check(directory.usableSpace >= EXPECTED_BYTES + 32L * 1024L * 1024L) {
-            "Espaço insuficiente. Libere pelo menos 501 MiB para baixar o modelo."
-        }
         val destination = File(directory, MODEL_NAME)
         if (destination.isFile && destination.length() == EXPECTED_BYTES &&
             sha256(destination) == EXPECTED_SHA256) return destination
+        check(directory.usableSpace >= EXPECTED_BYTES + 32L * 1024L * 1024L) {
+            "Espaço insuficiente. Libere pelo menos 501 MiB para baixar o modelo."
+        }
 
         val partial = File(directory, "$MODEL_NAME.part")
         partial.delete()
