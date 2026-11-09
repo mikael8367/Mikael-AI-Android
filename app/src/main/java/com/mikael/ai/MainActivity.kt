@@ -84,7 +84,8 @@ private enum class AppTab(val label: String, val symbol: String) {
     CHAT("Chat", "◌"),
     MODELS("Modelos", "▤"),
     CONNECTORS("Conectores", "⌁"),
-    SETTINGS("Configurações", "⚙")
+    SETTINGS("Ajustes", "⚙"),
+    LOGS("Logs", "≡")
 }
 
 class MainActivity : ComponentActivity() {
@@ -124,6 +125,8 @@ private fun MikaelTheme(content: @Composable () -> Unit) {
 private fun MikaelOfflineApp(preferences: AppPreferences) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val logEvent: (String, String) -> Unit = { level, message -> AppLogStore.add(context, level, message) }
+    LaunchedEffect(Unit) { logEvent("INFO", "Aplicativo iniciado • versão 1.8.2") }
     val activityManager = remember(context) {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     }
@@ -207,6 +210,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
             return@LaunchedEffect
         }
         engineStatus = "Carregando modelo GGUF no aparelho..."
+        logEvent("INFO", "Iniciando carregamento do modelo local")
         val result = withContext(Dispatchers.IO) {
             LocalInferenceEngine.load(file.absolutePath, contextTokens)
         }
@@ -214,10 +218,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
             onSuccess = {
                 engineReady = true
                 engineStatus = "Modelo pronto • inferência 100% local"
+                logEvent("INFO", "Modelo carregado e pronto para uso")
             },
             onFailure = {
                 engineReady = false
                 engineStatus = it.message ?: "Falha ao carregar o modelo."
+                logEvent("ERROR", "Falha ao carregar modelo: ${it.message ?: "erro desconhecido"}")
             }
         )
     }
@@ -228,7 +234,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 AppTab.entries.forEach { item ->
                     NavigationBarItem(
                         selected = tab == item,
-                        onClick = { tab = item },
+                        onClick = { logEvent("INFO", "Toque: aba ${item.label}"); tab = item },
                         icon = { Text(item.symbol, fontWeight = FontWeight.Bold) },
                         label = { Text(item.label, maxLines = 1) }
                     )
@@ -252,7 +258,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 Column(Modifier.padding(start = 11.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("IA LOCAL • PRIVACIDADE NO DISPOSITIVO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                    Text("v1.8.1", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                    Text("v1.8.2", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
@@ -272,18 +278,23 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 label = "offline-tab-transition"
             ) { selected ->
                 when (selected) {
+                    AppTab.LOGS -> OfflineLogsScreen(
+                        context = context,
+                        onLog = { level, message -> logEvent(level, message) }
+                    )
                     AppTab.CHAT -> OfflineChatScreen(
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
                         attachments = attachments,
-                        onAttach = { attachmentPicker.launch(arrayOf("*/*")) },
+                        onAttach = { logEvent("INFO", "Toque: anexar arquivos"); attachmentPicker.launch(arrayOf("*/*")) },
+                        onLog = { level, message -> logEvent(level, message) },
                         onRemoveAttachment = { item ->
                             attachments = attachments - item
                             File(item.path).delete()
                         },
                         mode = mode,
-                        onModeChange = { mode = it },
+                        onModeChange = { mode = it; logEvent("INFO", "Modo do assistente alterado: ${it.label}") },
                         status = engineStatus,
                         ready = engineReady && !busy && !downloading,
                         generating = generating,
@@ -294,6 +305,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         onOpenModels = { tab = AppTab.MODELS },
                         onReloadModel = { if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
                         onNewChat = {
+                            logEvent("INFO", "Toque: nova conversa")
                             messages.clear()
                             attachments.forEach { File(it.path).delete() }
                             attachments = emptyList()
@@ -302,7 +314,9 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         onSend = {
                             val prompt = input.trim().ifBlank { if (attachments.isNotEmpty()) "Analise os anexos selecionados." else "" }
                             if (prompt.isNotEmpty() && !generating) {
+                                logEvent("INFO", "Ação: enviar mensagem (${prompt.length} caracteres; ${attachments.size} anexos)")
                                 if (!engineReady) {
+                                    logEvent("WARN", "Envio bloqueado: modelo local não está pronto")
                                     engineStatus = if (modelPath.isNullOrBlank()) {
                                         "Nenhum modelo selecionado. Abra Modelos, selecione um GGUF e aguarde o carregamento."
                                     } else {
@@ -474,13 +488,16 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             engineReady = false
                             memoryLimit = it
                             preferences.memoryLimitMiB = it
+                            logEvent("INFO", "Configuração alterada: limite de memória = $it MiB")
                         },
                         onContextChange = {
                             engineReady = false
                             contextTokens = it
                             preferences.contextTokens = it
+                            logEvent("INFO", "Configuração alterada: contexto = $it tokens")
                         },
                         onClearHistory = {
+                            logEvent("WARN", "Histórico local apagado pelo usuário")
                             messages.clear()
                             ConversationStore.clear(context)
                         },
