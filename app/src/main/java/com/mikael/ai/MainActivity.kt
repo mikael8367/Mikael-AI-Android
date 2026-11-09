@@ -2,6 +2,8 @@ package com.mikael.ai
 
 import android.app.ActivityManager
 import android.content.Context
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -522,6 +524,7 @@ private fun OfflineChatScreen(
     onInputChange: (String) -> Unit,
     attachments: List<ChatAttachment>,
     onAttach: () -> Unit,
+    onLog: (String, String) -> Unit,
     onRemoveAttachment: (ChatAttachment) -> Unit,
     mode: AssistantMode,
     onModeChange: (AssistantMode) -> Unit,
@@ -557,7 +560,7 @@ private fun OfflineChatScreen(
                     OutlinedButton(onClick = onReloadModel, enabled = !generating) { Text("Tentar carregar novamente") }
                 }
             }
-            OutlinedButton(onClick = onNewChat, enabled = !generating) { Text("Nova conversa") }
+            OutlinedButton(onClick = { onLog("INFO", "Toque: nova conversa"); onNewChat() }, enabled = !generating) { Text("Nova conversa") }
         }
         if (messages.isEmpty()) {
             Column(
@@ -604,7 +607,7 @@ private fun OfflineChatScreen(
             AssistantMode.entries.forEach { item ->
                 FilterChip(
                     selected = mode == item,
-                    onClick = { onModeChange(item) },
+                    onClick = { onLog("INFO", "Toque: modo ${item.label}"); onModeChange(item) },
                     enabled = !generating,
                     label = { Text(item.label, maxLines = 1) }
                 )
@@ -624,7 +627,7 @@ private fun OfflineChatScreen(
             Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-            OutlinedButton(onClick = onAttach, enabled = !generating && attachments.size < 5, modifier = Modifier.height(54.dp)) { Text("＋") }
+            OutlinedButton(onClick = { onLog("INFO", "Toque: anexar arquivos"); onAttach() }, enabled = !generating && attachments.size < 5, modifier = Modifier.height(54.dp)) { Text("＋") }
             Spacer(Modifier.size(6.dp))
             OutlinedTextField(
                 value = input,
@@ -642,7 +645,7 @@ private fun OfflineChatScreen(
                 OutlinedButton(onClick = onCancel, modifier = Modifier.height(54.dp)) { Text("Parar") }
             } else {
                 Button(
-                    onClick = onSend,
+                    onClick = { onLog("INFO", "Toque: botão enviar/verificar"); onSend() },
                     enabled = !generating && (input.isNotBlank() || attachments.isNotEmpty()),
                     modifier = Modifier.height(54.dp)
                 ) { Text(if (ready) "Enviar" else "Verificar") }
@@ -770,7 +773,7 @@ private fun OfflineSettingsScreen(
     onGitHubContextLoaded: (String) -> Unit
 ) {
     Column(
-        Modifier.fillMaxSize().padding(18.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Configurações", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
@@ -806,8 +809,8 @@ private fun OfflineSettingsScreen(
             color = Color(0xFF9EAAA2),
             style = MaterialTheme.typography.bodySmall
         )
-        OutlinedButton(onClick = onReload, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
-        OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
+        OutlinedButton(onClick = { onLog("INFO", "Toque: recarregar modelo"); onReload() }, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
+        OutlinedButton(onClick = { onLog("WARN", "Toque: apagar histórico"); onClearHistory() }, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
         Text("Os conectores ficam na aba Conectores. Eles só acessam a internet quando você aciona uma função.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
