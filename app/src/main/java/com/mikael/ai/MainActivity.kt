@@ -13,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -565,7 +566,7 @@ private fun ChatScreen(
         if (onlineMode && onlineModels.isNotEmpty()) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
                 Text("MODELO ONLINE", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     onlineModels.take(3).forEach { model ->
                         FilterChip(
                             selected = selectedOnlineModel == model.id,
@@ -576,7 +577,7 @@ private fun ChatScreen(
                     }
                 }
                 if (onlineModels.size > 3) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         onlineModels.drop(3).forEach { model ->
                             FilterChip(
                                 selected = selectedOnlineModel == model.id,
