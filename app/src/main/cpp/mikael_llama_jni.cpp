@@ -34,7 +34,7 @@ void unloadLocked() {
 }
 
 void nativeLog(JNIEnv* env, const char* level, const std::string& message) {
-    __android_log_print(ANDROID_LOG_INFO, kTag, "[%s] %s", level, message.c_str());
+    __android_log_print(std::string(level) == "ERROR" ? ANDROID_LOG_ERROR : ANDROID_LOG_INFO, kTag, "[%s] %s", level, message.c_str());
     jclass bridge = env->FindClass("com/mikael/ai/LocalInferenceEngine");
     if (bridge == nullptr) {
         if (env->ExceptionCheck()) env->ExceptionClear();
