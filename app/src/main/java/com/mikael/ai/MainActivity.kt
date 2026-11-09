@@ -1180,7 +1180,7 @@ private fun SettingsScreen(
         HorizontalDivider(color = Color(0xFF26332B))
         Text("Modelos offline", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         ModelsScreen(
-            canLoadLocalModel = !onlineMode,
+            canLoadLocalModel = true,
             modelPath = modelPath,
             installedModels = installedModels,
             engineStatus = engineStatus,
