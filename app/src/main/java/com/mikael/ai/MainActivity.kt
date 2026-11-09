@@ -112,6 +112,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
+    var modelReloadCounter by remember { mutableStateOf(0) }
     var engineReady by remember { mutableStateOf(false) }
     var engineStatus by remember { mutableStateOf("Importe um modelo GGUF para começar.") }
     var isGenerating by remember { mutableStateOf(false) }
@@ -136,7 +137,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
     }
 
-    LaunchedEffect(modelPath, memoryLimit, contextTokens) {
+    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter) {
         engineReady = false
         if (modelPath.isNullOrBlank()) {
             engineStatus = "Importe um modelo GGUF para começar."
@@ -279,8 +280,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
                         onSelect = { selectedPath ->
                             preferences.modelPath = selectedPath
-                            modelPath = selectedPath
+                            if (selectedPath == modelPath) {
+                                modelReloadCounter += 1
+                            } else {
+                                modelPath = selectedPath
+                            }
                         },
+                        onLoad = { modelReloadCounter += 1 },
                         onUnload = {
                             scope.launch(Dispatchers.IO) { LocalInferenceEngine.unload() }
                             engineReady = false
@@ -474,6 +480,7 @@ private fun ModelsScreen(
     engineReady: Boolean,
     onImport: () -> Unit,
     onSelect: (String) -> Unit,
+    onLoad: () -> Unit,
     onUnload: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -493,7 +500,11 @@ private fun ModelsScreen(
                 Text(engineStatus, color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 if (modelPath != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onUnload, enabled = engineReady) { Text("Descarregar") }
+                        if (engineReady) {
+                            OutlinedButton(onClick = onUnload) { Text("Descarregar") }
+                        } else {
+                            OutlinedButton(onClick = onLoad) { Text("Carregar") }
+                        }
                         OutlinedButton(onClick = onDelete) { Text("Excluir ativo") }
                     }
                 }
