@@ -21,7 +21,7 @@ Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O proje
 - Inferência local com llama.cpp via JNI/NDK.
 - Importação de modelos GGUF pelo seletor de arquivos Android.
 - O chat offline não envia mensagens ao servidor.
-- O modelo precisa ser compatível com ChatML nesta versão.
+- O modelo recomendado usa ChatML. Outros modelos importados também precisam ser compatíveis com ChatML nesta versão.\n- O primeiro download do modelo recomendado exige internet; depois de baixado, a geração local não depende de Render, OpenRouter ou créditos.
 - Desempenho depende do tamanho/quantização, contexto, RAM e CPU do aparelho.
 
 ## Modelos online
@@ -35,7 +35,7 @@ A API atualmente publicada oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini.
 - O backup Android do app está desativado para evitar copiar credenciais locais.
 
 ## Compilação e testes
-O workflow .github/workflows/android-apk.yml está configurado para executar testes unitários, lint e assembleDebug nas branches main e feature/native-online-hybrid-ui. Quando a execução terminar com sucesso, o APK debug será publicado como artefato do GitHub Actions.
+O workflow .github/workflows/android-apk.yml executa testes unitários e lint na branch feature/native-online-hybrid-ui. Essa branch não empacota APK automaticamente; o empacotamento ocorre em main ou por execução manual do workflow.
 
 ## Limitações conhecidas
 - O gerenciamento completo de GitHub/MCP ainda é feito no site original.
