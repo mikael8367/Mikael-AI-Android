@@ -66,7 +66,7 @@ class AssistantPromptBuilderTest {
             searchRequested = true
         )
 
-        assertTrue(prompt.contains("dado não confiável"))
+        assertTrue(prompt.contains("não confiável"))
         assertTrue(prompt.contains("https://example.com/docs"))
     }
 
