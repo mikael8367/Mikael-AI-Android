@@ -341,6 +341,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         }.onFailure { error ->
                                             messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
                                             onlineStatus = error.message ?: "Falha na conexão online."
+                                            if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
                                             ConversationStore.save(context, messages)
                                         }
                                     } else {
@@ -395,9 +396,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (it && !onlineAuthenticated) tab = AppTab.SETTINGS
                         },
                         onPasswordChange = { passwordInput = it },
-                        onSavePasswordChange = { savePassword = it },
+                        onSavePasswordChange = {
+                            savePassword = it
+                            if (!it) scope.launch(Dispatchers.IO) { SecureCredentials.clear(context) }
+                        },
                         onLogin = {
-                            if (passwordInput.isBlank() || loginBusy) return@SettingsScreen
                             loginBusy = true
                             onlineStatus = "Conectando..."
                             scope.launch {
@@ -405,16 +408,22 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     withContext(Dispatchers.IO) { onlineApi.login(passwordInput) }
                                     onlineModels = withContext(Dispatchers.IO) { onlineApi.models() }
                                     remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
-                                    if (savePassword) {
-                                        withContext(Dispatchers.IO) { SecureCredentials.savePassword(context, passwordInput) }
-                                    } else {
-                                        SecureCredentials.clear(context)
-                                    }
                                     onlineAuthenticated = true
                                     onlineMode = true
                                     preferences.onlineMode = true
+                                    if (savePassword) {
+                                        runCatching {
+                                            withContext(Dispatchers.IO) { SecureCredentials.savePassword(context, passwordInput) }
+                                        }.onFailure {
+                                            onlineStatus = "Conectado, mas não foi possível salvar a senha com segurança."
+                                        }
+                                    } else {
+                                        withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
+                                    }
                                     passwordInput = ""
-                                    onlineStatus = "Conectado. Modelos online carregados."
+                                    if (onlineStatus != "Conectado, mas não foi possível salvar a senha com segurança.") {
+                                        onlineStatus = "Conectado. Modelos online carregados."
+                                    }
                                 }.onFailure {
                                     onlineAuthenticated = false
                                     onlineStatus = it.message ?: "Falha no login."
@@ -428,7 +437,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             onlineModels = emptyList()
                             remoteConversations = emptyList()
                             remoteConversationId = null
-                            if (savePassword) SecureCredentials.clear(context)
+                            if (savePassword) scope.launch(Dispatchers.IO) { SecureCredentials.clear(context) }
                             onlineStatus = "Você saiu do modo online."
                         },
                         onModelChange = {
@@ -729,32 +738,30 @@ private fun ModelsScreen(
         if (installedModels.isEmpty()) {
             Text("Nenhum modelo importado ainda.", color = Color(0xFF9EAAA2))
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(installedModels, key = { it.absolutePath }) { file ->
-                    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(file.name, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    "${file.length() / (1024L * 1024L)} MiB",
-                                    color = Color(0xFF9EAAA2),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                            }
-                            if (file.absolutePath == modelPath) {
-                                Text("Ativo", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold)
-                            } else {
-                                OutlinedButton(onClick = { onSelect(file.absolutePath) }) { Text("Usar") }
-                            }
+            installedModels.take(12).forEach { file ->
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(file.name, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "${file.length() / (1024L * 1024L)} MiB",
+                                color = Color(0xFF9EAAA2),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        if (file.absolutePath == modelPath) {
+                            Text("Ativo", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold)
+                        } else {
+                            OutlinedButton(onClick = { onSelect(file.absolutePath) }) { Text("Usar") }
                         }
                     }
                 }
+            }
+            if (installedModels.size > 12) {
+                Text("Mostrando os 12 modelos mais recentes.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
             }
         }
         Text(
