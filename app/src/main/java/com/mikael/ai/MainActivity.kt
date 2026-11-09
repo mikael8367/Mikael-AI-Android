@@ -489,7 +489,7 @@ private fun ModelsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Modelos locais", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Os arquivos GGUF importados ficam salvos no aparelho e podem ser reutilizados sem internet.", color = Color(0xFF9EAAA2))
+        Text("Os arquivos GGUF importados ficam salvos no aparelho e podem ser reutilizados sem internet. Nesta versão, o prompt usa o formato ChatML; prefira modelos Instruct compatíveis com ChatML.", color = Color(0xFF9EAAA2))
         Card(
             colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)),
             modifier = Modifier.fillMaxWidth()
@@ -573,7 +573,7 @@ private fun SettingsScreen(
                     FilterChip(
                         selected = memoryLimit == value,
                         onClick = { onMemoryChange(value) },
-                        label = { Text("$value") }
+                        label = { Text("$value MiB") }
                     )
                 }
             }
@@ -582,7 +582,7 @@ private fun SettingsScreen(
                     FilterChip(
                         selected = memoryLimit == value,
                         onClick = { onMemoryChange(value) },
-                        label = { Text("$value") }
+                        label = { Text("$value MiB") }
                     )
                 }
             }
@@ -596,7 +596,16 @@ private fun SettingsScreen(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Tamanho do contexto", fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(512, 1024, 2048, 4096).forEach { value ->
+                listOf(512, 1024).forEach { value ->
+                    FilterChip(
+                        selected = contextTokens == value,
+                        onClick = { onContextChange(value) },
+                        label = { Text("$value") }
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(2048, 4096).forEach { value ->
                     FilterChip(
                         selected = contextTokens == value,
                         onClick = { onContextChange(value) },
