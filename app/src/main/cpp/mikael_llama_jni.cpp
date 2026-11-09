@@ -231,7 +231,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     std::string output;
     std::vector<char> piece(4096);
     const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
-    const int limit = std::clamp(std::min(static_cast<int>(maxTokens), remainingContext), 1, 512);
+    const int limit = std::clamp(std::min(static_cast<int>(maxTokens), remainingContext), 1, 768);
     bool decodeFailed = false;
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
         const llama_token token = llama_sampler_sample(sampler, g_context, -1);
