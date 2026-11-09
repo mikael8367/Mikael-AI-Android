@@ -172,7 +172,7 @@ object GitHubConnector {
                 append(item.optString("sha").take(7)).append(" — ")
                     .append(commit?.optString("message").orEmpty().lineSequence().firstOrNull().orEmpty())
                     .append("\\n")
-                append(item.optJSONObject("html_url")?.optString("html_url").orEmpty())
+                append(item.optString("html_url"))
                     .append("\\n")
             }
             if (json.length() == 0) append("Nenhum commit retornado.")
