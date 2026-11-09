@@ -344,9 +344,13 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                     modelPath = null
                                     preferences.modelPath = null
                                 }
-                                File(path).delete()
-                                models = installedModels(context)
-                                engineStatus = "Modelo excluído do armazenamento do aplicativo."
+                                val target = File(path)
+                                if (target.exists() && !target.delete()) {
+                                    engineStatus = "Não foi possível excluir o arquivo do modelo."
+                                } else {
+                                    models = installedModels(context)
+                                    engineStatus = "Modelo excluído do armazenamento do aplicativo."
+                                }
                             }
                         },
                         onDownload = {
@@ -401,7 +405,8 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             ConversationStore.clear(context)
                         },
                         onReload = { if (!generating) reloadKey++ },
-                        reloadEnabled = !generating
+                        reloadEnabled = !generating,
+                        controlsEnabled = !generating
                     )
                 }
             }
@@ -610,7 +615,8 @@ private fun OfflineSettingsScreen(
     onContextChange: (Int) -> Unit,
     onClearHistory: () -> Unit,
     onReload: () -> Unit,
-    reloadEnabled: Boolean
+    reloadEnabled: Boolean,
+    controlsEnabled: Boolean
 ) {
     Column(
         Modifier.fillMaxSize().padding(18.dp),
@@ -628,6 +634,7 @@ private fun OfflineSettingsScreen(
                 FilterChip(
                     selected = memoryLimit == limit,
                     onClick = { onMemoryChange(limit) },
+                    enabled = controlsEnabled,
                     label = { Text(if (limit >= 1024) "${limit / 1024.0} GB" else "$limit MB") }
                 )
             }
@@ -638,6 +645,7 @@ private fun OfflineSettingsScreen(
                 FilterChip(
                     selected = contextTokens == count,
                     onClick = { onContextChange(count) },
+                    enabled = controlsEnabled,
                     label = { Text(count.toString()) }
                 )
             }
