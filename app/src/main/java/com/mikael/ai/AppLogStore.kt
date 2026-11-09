@@ -41,6 +41,7 @@ object AppLogStore {
     }
 
     private fun redact(value: String): String = value
+        .replace(Regex("(?i)(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})"), "[CREDENCIAL_OCULTA]")
         .replace(Regex("(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+=*")) { match ->
             match.groupValues[1] + "[OCULTO]"
         }
