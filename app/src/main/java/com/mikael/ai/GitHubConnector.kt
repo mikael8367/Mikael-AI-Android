@@ -145,6 +145,40 @@ object GitHubConnector {
         return body.optString("login").also { require(it.isNotBlank()) { "O GitHub não retornou o usuário." } }
     }
 
+    fun listRepositories(token: String): String {
+        val json = JSONArray(request(token, "/user/repos?sort=updated&per_page=30"))
+        return buildString {
+            append("Seus repositórios (mais recentemente atualizados):\\n")
+            for (i in 0 until json.length()) {
+                val item = json.getJSONObject(i)
+                append(item.optString("full_name"))
+                    .append(if (item.optBoolean("private")) " [privado]" else " [público]")
+                    .append("\\n")
+                append(item.optString("html_url")).append("\\n")
+                append(item.optString("description").take(180)).append("\\n\\n")
+            }
+            if (json.length() == 0) append("Nenhum repositório retornado para esta conta.")
+        }.take(18000)
+    }
+
+    fun listCommits(token: String, repository: String): String {
+        validateRepository(repository)
+        val json = JSONArray(request(token, "/repos/$repository/commits?per_page=20"))
+        return buildString {
+            append("Commits recentes:\\n")
+            for (i in 0 until json.length()) {
+                val item = json.getJSONObject(i)
+                val commit = item.optJSONObject("commit")
+                append(item.optString("sha").take(7)).append(" — ")
+                    .append(commit?.optString("message").orEmpty().lineSequence().firstOrNull().orEmpty())
+                    .append("\\n")
+                append(item.optJSONObject("html_url")?.optString("html_url").orEmpty())
+                    .append("\\n")
+            }
+            if (json.length() == 0) append("Nenhum commit retornado.")
+        }.take(18000)
+    }
+
     fun readReadme(token: String, repository: String): String {
         validateRepository(repository)
         val json = JSONObject(request(token, "/repos/$repository/readme"))
@@ -334,8 +368,26 @@ fun GitHubConnectorCard(onContextLoaded: (String) -> Unit) {
             )
             Text("Ações disponíveis", fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = {
+                    val saved = GitHubTokenVault.read(context)
+                    if (saved == null) status = "Conecte sua conta GitHub primeiro."
+                    else {
+                        busy = true
+                        scope.launch {
+                            try {
+                                output = withContext(Dispatchers.IO) { GitHubConnector.listRepositories(saved) }
+                                status = "Seus repositórios foram carregados."
+                            } catch (error: Exception) {
+                                status = error.message ?: "Falha ao listar repositórios."
+                            } finally { busy = false }
+                        }
+                    }
+                }, enabled = !busy) { Text("Meus repos") }
                 OutlinedButton(onClick = { runAction("Lendo README") { t, r -> GitHubConnector.readReadme(t, r) } }, enabled = !busy) { Text("README") }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { runAction("Listando arquivos") { t, r -> GitHubConnector.listFiles(t, r, "") } }, enabled = !busy) { Text("Arquivos") }
+                OutlinedButton(onClick = { runAction("Consultando commits") { t, r -> GitHubConnector.listCommits(t, r) } }, enabled = !busy) { Text("Commits") }
             }
             OutlinedTextField(
                 value = filePath,
