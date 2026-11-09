@@ -157,8 +157,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
             try {
                 val added = withContext(Dispatchers.IO) { importChatAttachments(context, uris) }
                 attachments = (attachments + added).distinctBy { it.path }.take(5)
+                logEvent("INFO", "Anexos importados: ${added.size}")
             } catch (error: Exception) {
                 engineStatus = error.message ?: "Falha ao anexar arquivos."
+                logEvent("ERROR", "Falha ao importar anexos: ${error.javaClass.simpleName}")
             }
         }
     }
@@ -176,10 +178,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                     preferences.modelPath = modelPath
                     models = installedModels(context)
                     engineStatus = "Modelo importado. Preparando o motor local..."
+                    logEvent("INFO", "Modelo GGUF importado e selecionado")
                     tab = AppTab.MODELS
                     reloadKey++
                 } catch (error: Exception) {
                     engineStatus = error.message ?: "Não foi possível importar o modelo."
+                    logEvent("ERROR", "Falha ao importar modelo: ${error.javaClass.simpleName}")
                 } finally {
                     busy = false
                 }
@@ -359,6 +363,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             messages.add(ChatMessage(nextMessageId(), "assistant", "O modelo terminou a geração sem produzir texto. Tente novamente ou reduza o contexto nas Configurações."))
                                         }
                                         ConversationStore.save(context, messages)
+                                        logEvent("INFO", "Geração local concluída com sucesso")
                                     } catch (cancelled: CancellationException) {
                                         throw cancelled
                                     } catch (error: Exception) {
@@ -367,6 +372,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             "Erro no motor local: ${error.message ?: "não foi possível gerar a resposta."}"
                                         ))
                                         ConversationStore.save(context, messages)
+                                        logEvent("ERROR", "Falha na geração local: ${error.javaClass.simpleName}")
                                     } finally {
                                         generating = false
                                         generationJob = null
