@@ -374,7 +374,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                     )
-                    Text("v1.3.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                    Text("v1.4.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
                 }
             }
             AnimatedContent(
