@@ -8,6 +8,19 @@ object LocalInferenceEngine {
     @Volatile
     private var ready = false
 
+    @Volatile
+    private var diagnosticSink: ((String, String) -> Unit)? = null
+
+    fun setDiagnosticSink(sink: ((String, String) -> Unit)?) {
+        diagnosticSink = sink
+    }
+
+    /** JNI callback for native engine stages and error codes. */
+    @JvmStatic
+    fun onNativeLog(level: String, message: String) {
+        runCatching { diagnosticSink?.invoke(level, message) }
+    }
+
     fun isAvailable(): Boolean = libraryLoaded
 
     @Synchronized
@@ -30,7 +43,7 @@ object LocalInferenceEngine {
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
         val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
-        if (result == null) error("O motor local não retornou uma resposta.")
+        if (result == null) error("E_NATIVE_NULL • O motor local não retornou uma resposta.")
         if (result.startsWith(NATIVE_ERROR_PREFIX)) error(result.removePrefix(NATIVE_ERROR_PREFIX))
         result
     }
