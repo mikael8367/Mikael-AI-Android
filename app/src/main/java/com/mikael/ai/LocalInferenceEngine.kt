@@ -15,12 +15,12 @@ object LocalInferenceEngine {
         check(libraryLoaded) { "O motor nativo não foi incluído nesta compilação." }
         check(modelPath.isNotBlank()) { "Selecione um modelo GGUF." }
         check(contextTokens in 256..8192) { "O contexto precisa ficar entre 256 e 8192 tokens." }
-        val error = nativeLoad(
+        val nativeError = nativeLoad(
             modelPath,
             contextTokens,
             Runtime.getRuntime().availableProcessors().coerceIn(1, 4)
         )
-        if (error != null) error(error)
+        if (nativeError != null) error(nativeError)
         ready = true
     }
 
