@@ -19,7 +19,8 @@ data class RemoteConversation(val id: Long, val title: String, val createdAt: St
 data class RemoteMessage(val role: String, val content: String)
 data class RemoteChatResult(val conversationId: Long, val reply: String)
 data class RemoteFile(val id: Long, val filename: String, val characters: Int, val isImage: Boolean)
-data class RemoteConnector(val id: Long, val provider: String, val name: String, val account: String, val enabled: Boolean)
+data class RemoteConnector(val id: Long, val provider: String, val name: String, val account: String, val enabled: Boolean, val endpoint: String = "")
+data class McpConnectorResult(val connector: RemoteConnector, val tools: List<String>)
 
 class OnlineApi(
     private val baseUrl: String = "https://mikael-ai.onrender.com"
@@ -178,11 +179,60 @@ class OnlineApi(
                 if (id > 0L) add(
                     RemoteConnector(
                         id, item.optString("provider"), item.optString("name"),
-                        item.optString("account"), item.optBoolean("enabled")
+                        item.optString("account"), item.optBoolean("enabled"), item.optString("endpoint")
                     )
                 )
             }
         }
+    }
+
+    fun addMcpConnector(name: String, endpoint: String, token: String): McpConnectorResult {
+        require(name.trim().length in 2..120) { "O nome precisa ter entre 2 e 120 caracteres." }
+        require(endpoint.trim().startsWith("https://", ignoreCase = true)) { "O servidor MCP precisa usar HTTPS." }
+        require(endpoint.length <= 2000 && token.length <= 4096) { "Os dados do conector ultrapassam o limite permitido." }
+        val payload = JSONObject()
+            .put("name", name.trim())
+            .put("endpoint", endpoint.trim())
+            .put("token", token.trim())
+        val result = JSONObject(request("/api/connectors/mcp", "POST", payload.toString().toRequestBody(jsonType)))
+        val id = result.optLong("id")
+        if (id <= 0L) throw IOException("O servidor não confirmou a criação do conector MCP.")
+        val tools = result.optJSONArray("tools") ?: JSONArray()
+        val toolNames = buildList {
+            for (i in 0 until tools.length()) {
+                val item = tools.optJSONObject(i) ?: continue
+                val toolName = item.optString("name").ifBlank { item.optString("id") }
+                if (toolName.isNotBlank()) add(toolName)
+            }
+        }
+        return McpConnectorResult(
+            RemoteConnector(id, "mcp", result.optString("name"), result.optString("account"), true, result.optString("endpoint")),
+            toolNames
+        )
+    }
+
+    fun setConnectorEnabled(id: Long, enabled: Boolean) {
+        require(id > 0L) { "Conector inválido." }
+        val payload = JSONObject().put("enabled", enabled)
+        request("/api/connectors/$id/enabled", "PATCH", payload.toString().toRequestBody(jsonType))
+    }
+
+    fun testConnector(id: Long): List<String> {
+        require(id > 0L) { "Conector inválido." }
+        val result = JSONObject(request("/api/connectors/$id/test", "POST", JSONObject().toString().toRequestBody(jsonType)))
+        val tools = result.optJSONArray("tools") ?: JSONArray()
+        return buildList {
+            for (i in 0 until tools.length()) {
+                val item = tools.optJSONObject(i) ?: continue
+                val name = item.optString("name").ifBlank { item.optString("id") }
+                if (name.isNotBlank()) add(name)
+            }
+        }
+    }
+
+    fun deleteConnector(id: Long) {
+        require(id > 0L) { "Conector inválido." }
+        request("/api/connectors/$id", "DELETE")
     }
 
     fun sendMessage(message: String, conversationId: Long?, modelId: String): RemoteChatResult {
@@ -214,6 +264,8 @@ class OnlineApi(
         val builder = Request.Builder().url(url).header("Accept", "application/json")
         when (method) {
             "POST" -> builder.post(body ?: JSONObject().toString().toRequestBody(jsonType))
+            "PATCH" -> builder.patch(body ?: JSONObject().toString().toRequestBody(jsonType))
+            "DELETE" -> builder.delete(body)
             "GET" -> builder.get()
             else -> throw IllegalArgumentException("Método HTTP não permitido.")
         }
