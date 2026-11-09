@@ -381,8 +381,9 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         busy = busy || downloading || generating,
                         downloadProgress = downloadProgress,
                         downloadStatus = downloadStatus,
-                        onImport = { modelPicker.launch(arrayOf("*/*")) },
+                        onImport = { logEvent("INFO", "Toque: importar modelo GGUF"); modelPicker.launch(arrayOf("*/*")) },
                         onSelectRecommended = { path ->
+                            logEvent("INFO", "Toque: selecionar modelo recomendado")
                             if (!generating && !busy && !downloading) {
                                 engineReady = false
                                 modelPath = path
@@ -392,6 +393,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             }
                         },
                         onSelect = { path ->
+                            logEvent("INFO", "Toque: selecionar modelo instalado")
                             if (!generating && !busy) {
                                 engineReady = false
                                 modelPath = path
@@ -400,6 +402,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             }
                         },
                         onUnload = {
+                            logEvent("INFO", "Toque: descarregar modelo")
                             if (!generating) {
                                 engineReady = false
                                 scope.launch {
@@ -411,6 +414,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             }
                         },
                         onDelete = { path ->
+                            logEvent("WARN", "Toque: excluir modelo instalado")
                             if (!generating && !busy) {
                                 if (path == modelPath) engineReady = false
                                 scope.launch {
@@ -432,6 +436,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             }
                         },
                         onDownload = {
+                            logEvent("INFO", "Toque: baixar modelo recomendado")
                             if (!downloading && !generating) {
                                 downloading = true
                                 downloadProgress = 0f
@@ -503,9 +508,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             messages.clear()
                             ConversationStore.clear(context)
                         },
-                        onReload = { if (!generating) { engineReady = false; reloadKey++ } },
+                        onReload = { logEvent("INFO", "Toque: recarregar modelo pelas configurações"); if (!generating) { engineReady = false; reloadKey++ } },
                         reloadEnabled = !generating,
                         controlsEnabled = !generating,
+                        onLog = { level, message -> logEvent(level, message) },
                         onGitHubContextLoaded = { repoContext ->
                             input = repoContext
                             tab = AppTab.CHAT
@@ -770,7 +776,8 @@ private fun OfflineSettingsScreen(
     onReload: () -> Unit,
     reloadEnabled: Boolean,
     controlsEnabled: Boolean,
-    onGitHubContextLoaded: (String) -> Unit
+    onGitHubContextLoaded: (String) -> Unit,
+    onLog: (String, String) -> Unit
 ) {
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
@@ -787,7 +794,7 @@ private fun OfflineSettingsScreen(
             MemoryBudget.allowedLimitsMiB.forEach { limit ->
                 FilterChip(
                     selected = memoryLimit == limit,
-                    onClick = { onMemoryChange(limit) },
+                    onClick = { onLog("INFO", "Toque: limite de memória $limit MiB"); onMemoryChange(limit) },
                     enabled = controlsEnabled,
                     label = { Text(if (limit >= 1024) "${limit / 1024.0} GB" else "$limit MB") }
                 )
@@ -798,7 +805,7 @@ private fun OfflineSettingsScreen(
             listOf(512, 1024, 2048, 4096).forEach { count ->
                 FilterChip(
                     selected = contextTokens == count,
-                    onClick = { onContextChange(count) },
+                    onClick = { onLog("INFO", "Toque: contexto $count tokens"); onContextChange(count) },
                     enabled = controlsEnabled,
                     label = { Text(count.toString()) }
                 )
