@@ -79,7 +79,19 @@ class AssistantPromptBuilderTest {
             listOf("user" to longUnicodeText)
         )
 
-        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 22000)
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 2560)
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
+    }
+
+    @Test
+    fun promptBudgetScalesDownForSmallModelContexts() {
+        val prompt = AssistantPromptBuilder.build(
+            AssistantMode.DEEP_AUDIT,
+            listOf("user" to "código ".repeat(5000)),
+            contextTokens = 512
+        )
+
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 1280)
         assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
     }
 
