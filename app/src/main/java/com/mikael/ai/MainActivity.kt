@@ -1072,34 +1072,140 @@ private fun HomeScreen(onNewChat: () -> Unit, onPrompt: (String) -> Unit) {
 }
 
 @Composable
-private fun ProjectsScreen(onlineMode: Boolean, onlineAuthenticated: Boolean) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun ProjectsScreen(
+    onlineMode: Boolean,
+    onlineAuthenticated: Boolean,
+    connectors: List<RemoteConnector>,
+    onRefresh: () -> Unit,
+    onOpenWebSettings: () -> Unit,
+    onListRepositories: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text("Projetos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Seu espaço de projetos", fontWeight = FontWeight.SemiBold)
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("GitHub e conectores", fontWeight = FontWeight.SemiBold)
                 Text(
-                    if (onlineMode && onlineAuthenticated) "A conta online está conectada. A integração nativa de GitHub e servidores MCP ainda está sendo adaptada para esta versão."
-                    else "Conecte-se ao modo online para preparar o acesso aos projetos e conectores.",
+                    if (onlineMode && onlineAuthenticated) "Consulte os conectores vinculados à sua conta Mikael AI."
+                    else "Para consultar seus projetos, entre no modo online.",
                     color = Color(0xFF9EAAA2)
                 )
+                OutlinedButton(onClick = onOpenWebSettings, modifier = Modifier.fillMaxWidth()) {
+                    Text("Abrir Mikael AI no navegador")
+                }
+                OutlinedButton(onClick = onRefresh, enabled = onlineMode && onlineAuthenticated, modifier = Modifier.fillMaxWidth()) {
+                    Text("Atualizar conectores")
+                }
+                if (connectors.isEmpty()) {
+                    Text("Nenhum conector carregado. Conecte o GitHub nas configurações do site e toque em Atualizar conectores.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                } else {
+                    connectors.forEach { connector ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(connector.name, fontWeight = FontWeight.SemiBold)
+                                Text("${connector.provider} • ${connector.account}", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(if (connector.enabled) "Ativo" else "Pausado", color = if (connector.enabled) Color(0xFF54E69C) else Color(0xFFE6B86C))
+                        }
+                    }
+                }
+                Button(
+                    onClick = onListRepositories,
+                    enabled = onlineMode && onlineAuthenticated && connectors.any { it.provider == "github" && it.enabled },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("Listar meus repositórios") }
             }
         }
+        Text("As permissões e ferramentas de cada conector continuam sendo administradas na interface web original.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
-private fun FilesScreen(onlineMode: Boolean, onlineAuthenticated: Boolean) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+private fun FilesScreen(
+    onlineMode: Boolean,
+    onlineAuthenticated: Boolean,
+    files: List<RemoteFile>,
+    busy: Boolean,
+    onRefresh: () -> Unit,
+    onUpload: () -> Unit,
+    onAnalyze: (Long) -> Unit,
+    onGenerate: (String, String) -> Unit
+) {
+    var filename by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Text("Arquivos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Documentos e código", fontWeight = FontWeight.SemiBold)
-                Text(
-                    if (onlineMode && onlineAuthenticated) "A conexão online está pronta. Upload, análise de fotos e gerenciamento de arquivos ainda precisam ser integrados à interface nativa."
-                    else "A importação de modelos GGUF já está disponível em Ajustes. O envio de documentos será integrado nesta aba.",
-                    color = Color(0xFF9EAAA2)
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("Enviar e analisar", fontWeight = FontWeight.SemiBold)
+                Text("Envie documentos, código ou imagens para análise pela Mikael AI online. Limites do servidor: 8 MB por arquivo e 5 MB por foto.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = onUpload, enabled = onlineMode && onlineAuthenticated && !busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("＋ Enviar arquivo ou foto")
+                }
+                OutlinedButton(onClick = onRefresh, enabled = onlineMode && onlineAuthenticated && !busy, modifier = Modifier.fillMaxWidth()) {
+                    Text("Atualizar lista")
+                }
+            }
+        }
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+            Column(Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Criar arquivo com IA", fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = filename,
+                    onValueChange = { filename = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nome do arquivo") },
+                    placeholder = { Text("Ex.: Main.java") },
+                    singleLine = true,
+                    enabled = !busy
                 )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("O que o arquivo deve fazer?") },
+                    minLines = 3,
+                    enabled = !busy
+                )
+                Button(
+                    onClick = {
+                        onGenerate(filename.trim(), description.trim())
+                        filename = ""
+                        description = ""
+                    },
+                    enabled = onlineMode && onlineAuthenticated && !busy && filename.isNotBlank() && description.trim().length >= 5,
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text(if (busy) "Aguarde..." else "Gerar arquivo") }
+            }
+        }
+        Text("Arquivos salvos no servidor", fontWeight = FontWeight.SemiBold)
+        if (!onlineMode || !onlineAuthenticated) {
+            Text("Entre no modo online para acessar seus arquivos.", color = Color(0xFF9EAAA2))
+        } else if (files.isEmpty()) {
+            Text("Nenhum arquivo carregado. Toque em Atualizar lista.", color = Color(0xFF9EAAA2))
+        } else {
+            files.take(30).forEach { file ->
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text((if (file.isImage) "Imagem · " else "") + file.filename, fontWeight = FontWeight.SemiBold)
+                            Text("${file.characters} caracteres", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                        }
+                        OutlinedButton(onClick = { onAnalyze(file.id) }, enabled = !busy) { Text("Analisar") }
+                    }
+                }
             }
         }
     }
