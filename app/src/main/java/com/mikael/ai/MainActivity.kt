@@ -481,13 +481,15 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         Text("Conectores", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                         Text("Conecte serviços externos quando quiser. A conversa e a inferência continuam locais.", color = Color(0xFF9EAAA2))
                         GitHubConnectorCard(onContextLoaded = { repoContext ->
+                            logEvent("INFO", "Resultado GitHub enviado ao chat")
                             input = repoContext
                             tab = AppTab.CHAT
-                        })
+                        }, onLog = { level, message -> logEvent(level, message) })
                         McpConnectorCard(onContextLoaded = { toolContext ->
+                            logEvent("INFO", "Resultado MCP enviado ao chat")
                             input = toolContext
                             tab = AppTab.CHAT
-                        })
+                        }, onLog = { level, message -> logEvent(level, message) })
                     }
                     AppTab.SETTINGS -> OfflineSettingsScreen(
                         memoryLimit = memoryLimit,
