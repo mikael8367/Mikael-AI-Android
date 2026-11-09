@@ -45,9 +45,11 @@ jobs:
         run: gradle :app:lintDebug
 
       - name: Build debug APK
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         run: gradle :app:assembleDebug
 
       - name: Upload debug APK
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: mikael-ai-android-debug
