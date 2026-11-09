@@ -1,17 +1,17 @@
-name: Android Offline Validation
+name: Android Offline APK
 
 on:
   push:
-    branches: [main, feature/native-online-hybrid-ui, feature/offline-only-local-ai]
+    branches: [feature/offline-only-local-ai]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  validate:
+  validate-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 100
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,5 +44,18 @@ jobs:
       - name: Run Android lint
         run: gradle :app:lintDebug
 
-      - name: Build native libraries
-        run: gradle :app:externalNativeBuildDebug
+      - name: Build debug APK (ARM64)
+        run: gradle :app:assembleDebug
+
+      - name: Verify APK exists
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mikael-AI-Android-debug-arm64
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
