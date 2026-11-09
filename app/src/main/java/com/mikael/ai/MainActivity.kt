@@ -125,11 +125,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
+    var modelDownloadBusy by remember { mutableStateOf(false) }
+    var modelDownloadProgress by remember { mutableStateOf(0f) }
+    var modelDownloadStatus by remember { mutableStateOf("") }
     var engineReady by remember { mutableStateOf(false) }
     var engineStatus by remember { mutableStateOf("Importe um modelo GGUF para começar.") }
     var isGenerating by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
-    var onlineMode by remember { mutableStateOf(preferences.onlineMode) }
+    var onlineMode by remember { mutableStateOf(false) }
     var onlineAuthenticated by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var savePassword by remember { mutableStateOf(true) }
@@ -147,6 +150,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val onlineApi = remember { OnlineApi() }
 
     LaunchedEffect(Unit) {
+        // Local inference is the default on every launch; online services remain optional.
+        preferences.onlineMode = false
         val saved = withContext(Dispatchers.IO) { SecureCredentials.readPassword(context) }
         savedPasswordCache = saved
         if (saved != null && onlineMode) {
@@ -742,6 +747,41 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onClearHistory = {
                             messages.clear()
                             ConversationStore.clear(context)
+                        },
+                        modelDownloadBusy = modelDownloadBusy,
+                        modelDownloadProgress = modelDownloadProgress,
+                        modelDownloadStatus = modelDownloadStatus,
+                        onDownloadRecommendedModel = {
+                            if (!modelDownloadBusy) {
+                                modelDownloadBusy = true
+                                modelDownloadProgress = 0f
+                                modelDownloadStatus = "Preparando download seguro..."
+                                scope.launch {
+                                    try {
+                                        val downloaded = withContext(Dispatchers.IO) {
+                                            RecommendedModelDownloader.download(File(context.filesDir, "models")) { current, total ->
+                                                scope.launch {
+                                                    modelDownloadProgress = current.toFloat() / total.toFloat()
+                                                    modelDownloadStatus = "Baixando modelo: ${(modelDownloadProgress * 100).toInt()}%"
+                                                }
+                                            }
+                                        }
+                                        LocalInferenceEngine.cancel()
+                                        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                                        preferences.modelPath = downloaded.absolutePath
+                                        modelPath = downloaded.absolutePath
+                                        installedModels = listInstalledModels(context)
+                                        onlineMode = false
+                                        preferences.onlineMode = false
+                                        modelReloadCounter++
+                                        modelDownloadStatus = "Modelo baixado e verificado. Carregando no aparelho..."
+                                    } catch (error: Exception) {
+                                        modelDownloadStatus = error.message ?: "Falha ao baixar o modelo."
+                                    } finally {
+                                        modelDownloadBusy = false
+                                    }
+                                }
+                            }
                         }
                     )
                 }
@@ -980,7 +1020,11 @@ private fun ModelsScreen(
     onSelect: (String) -> Unit,
     onLoad: () -> Unit,
     onUnload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modelDownloadBusy: Boolean,
+    modelDownloadProgress: Float,
+    modelDownloadStatus: String,
+    onDownloadRecommendedModel: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(20.dp),
@@ -1010,7 +1054,26 @@ private fun ModelsScreen(
                 }
             }
         }
-        Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Importar arquivo GGUF") }
+        Button(onClick = onImport, modifier = Modifier.fillMaxWidth(), enabled = !modelDownloadBusy) { Text("Importar arquivo GGUF") }
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF123321)), modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("MODELO RECOMENDADO PARA USO LOCAL", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Text("Qwen2.5 0.5B Instruct • Q4_K_M • aproximadamente 469 MiB", fontWeight = FontWeight.SemiBold)
+                Text("Download único. Depois de instalado, as respostas são geradas no próprio celular, sem enviar o chat ao Render ou OpenRouter.", color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = onDownloadRecommendedModel, enabled = !modelDownloadBusy, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (modelDownloadBusy) "Baixando..." else "Baixar modelo para este celular")
+                }
+                if (modelDownloadBusy) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { modelDownloadProgress.coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                if (modelDownloadStatus.isNotBlank()) {
+                    Text(modelDownloadStatus, color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
         Text("Modelos neste aparelho", fontWeight = FontWeight.SemiBold)
         if (installedModels.isEmpty()) {
             Text("Nenhum modelo importado ainda.", color = Color(0xFF9EAAA2))
@@ -1080,7 +1143,11 @@ private fun SettingsScreen(
     availableBytes: Long,
     onMemoryChange: (Int) -> Unit,
     onContextChange: (Int) -> Unit,
-    onClearHistory: () -> Unit
+    onClearHistory: () -> Unit,
+    modelDownloadBusy: Boolean,
+    modelDownloadProgress: Float,
+    modelDownloadStatus: String,
+    onDownloadRecommendedModel: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
@@ -1151,7 +1218,11 @@ private fun SettingsScreen(
             onSelect = onSelect,
             onLoad = onLoad,
             onUnload = onUnload,
-            onDelete = onDelete
+            onDelete = onDelete,
+            modelDownloadBusy = modelDownloadBusy,
+            modelDownloadProgress = modelDownloadProgress,
+            modelDownloadStatus = modelDownloadStatus,
+            onDownloadRecommendedModel = onDownloadRecommendedModel
         )
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
