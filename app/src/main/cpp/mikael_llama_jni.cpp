@@ -179,7 +179,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     if (promptValue == nullptr) return errorString(env, "A mensagem está vazia.");
     const std::string prompt = javaToUtf8(env, promptValue);
     if (prompt.empty()) return errorString(env, "Não foi possível ler a mensagem.");
-    if (prompt.size() > 24000 || prompt.size() > static_cast<size_t>(INT_MAX)) {
+    if (prompt.empty() || prompt.size() > 24000 || prompt.size() > static_cast<size_t>(INT_MAX)) {
         return errorString(env, "A mensagem precisa ter entre 1 e 24000 bytes.");
     }
 
