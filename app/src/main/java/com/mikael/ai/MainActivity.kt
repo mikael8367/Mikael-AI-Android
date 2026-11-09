@@ -454,7 +454,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                 } catch (cancelled: CancellationException) {
                                                     throw cancelled
                                                 } catch (error: Exception) {
-                                                    searchError = error.message ?: "Não foi possível acessar o buscador."
+                                                    searchError = (error.message ?: "Não foi possível acessar o buscador.").take(240)
                                                 }
                                             }
                                             val conversationPrompt = buildString {
@@ -949,7 +949,7 @@ private fun ChatScreen(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        if (onlineMode) "Escolha um modelo e envie sua mensagem." else "Importe um modelo GGUF em Ajustes para começar.",
+                        if (onlineMode) "Escolha um modelo e envie sua mensagem." else "Baixe um modelo GGUF em Ajustes. Ative Pesquisar na web para consultar informações atuais.",
                         modifier = Modifier.padding(top = 12.dp),
                         color = Color(0xFF8BE7B7),
                         textAlign = TextAlign.Center
