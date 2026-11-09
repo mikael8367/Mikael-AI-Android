@@ -984,6 +984,11 @@ private fun ChatScreen(
                     label = { Text(mode.label, maxLines = 1) }
                 )
             }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             FilterChip(
                 selected = webSearchEnabled,
                 onClick = { onWebSearchChange(!webSearchEnabled) },
