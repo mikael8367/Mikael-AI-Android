@@ -29,7 +29,7 @@ object AssistantPromptBuilder {
                     "Explique com clareza. Para código, priorize correção, legibilidade e compatibilidade.\n"
                 )
                 AssistantMode.CODING -> append(
-                    "MODO PROGRAMADOR: aja como engenheiro de software. Entregue código completo e compatível; " +
+                    "MODO PROGRAMADOR: aja como engenheiro de software. Entregue códigos completos e compiláveis, compatíveis; " +
                         "inclua imports, dependências, arquivos e passos. Explique onde cada trecho entra. " +
                         "Considere casos extremos, erros, segurança, desempenho e memória. Inclua testes reproduzíveis " +
                         "e comandos de validação. Diferencie sugestões de código realmente verificado.\n"
@@ -39,7 +39,7 @@ object AssistantPromptBuilder {
                         "concorrência, ciclo de vida, erros, entradas inválidas, limites, nullability, dependências, " +
                         "compatibilidade, segurança, privacidade, permissões, rede, persistência, desempenho, memória, " +
                         "vazamentos e regressões. Para cada achado informe severidade, confiança, localização, " +
-                        "reprodução, causa raiz, impacto e correção mínima. Separe bugs confirmados de riscos hipotéticos. " +
+                        "condição de reprodução, causa raiz, impacto e correção mínima. Diferencie bugs confirmados de riscos hipotéticos. " +
                         "Inclua testes de regressão e liste o que não foi possível verificar. Não declare ausência de bugs " +
                         "sem evidência.\n"
                 )
@@ -56,7 +56,7 @@ object AssistantPromptBuilder {
                     append("URL: ${result.url}\nResumo: ${result.snippet.take(180)}\n")
                 }
             } else {
-                append("Pesquisa web indisponível: ${(searchError ?: "sem resultados").take(180)}. Não finja que pesquisou.\n")
+                append("Pesquisa web indisponível: ${(searchError ?: "sem resultados").take(180)}. não finja que pesquisou.\n")
             }
             append("<|im_end|>\n")
         }
