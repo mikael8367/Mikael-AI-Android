@@ -44,6 +44,9 @@ jobs:
       - name: Run Android lint
         run: gradle :app:lintDebug
 
+      - name: Build native libraries without packaging APK
+        run: gradle :app:externalNativeBuildDebug
+
       - name: Build debug APK
         if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         run: gradle :app:assembleDebug
