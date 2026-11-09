@@ -761,8 +761,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         val downloaded = withContext(Dispatchers.IO) {
                                             RecommendedModelDownloader.download(File(context.filesDir, "models")) { current, total ->
                                                 scope.launch {
-                                                    modelDownloadProgress = current.toFloat() / total.toFloat()
-                                                    modelDownloadStatus = "Baixando modelo: ${(modelDownloadProgress * 100).toInt()}%"
+                                                    if (modelDownloadBusy) {
+                                                        modelDownloadProgress = current.toFloat() / total.toFloat()
+                                                        modelDownloadStatus = "Baixando modelo: ${(modelDownloadProgress * 100).toInt()}%"
+                                                    }
                                                 }
                                             }
                                         }
@@ -770,6 +772,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                                         preferences.modelPath = downloaded.absolutePath
                                         modelPath = downloaded.absolutePath
+                                        if (memoryLimit < 1024) {
+                                            memoryLimit = 1024
+                                            preferences.memoryLimitMiB = 1024
+                                        }
                                         installedModels = listInstalledModels(context)
                                         onlineMode = false
                                         preferences.onlineMode = false
