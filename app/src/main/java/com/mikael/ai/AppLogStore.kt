@@ -41,6 +41,6 @@ object AppLogStore {
     }
 
     private fun redact(value: String): String = value
-        .replace(Regex("(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+=*"), "$1[OCULTO]")
-        .replace(Regex("(?i)(token|api[_-]?key|client[_-]?secret|password)(\\s*[:=]\\s*)[^\\s,;]+"), "$1$2[OCULTO]")
+        .replace(Regex("(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+=*"), "\u0024{\u0027$\u0027}1[OCULTO]")
+        .replace(Regex("(?i)(token|api[_-]?key|client[_-]?secret|password)(\\s*[:=]\\s*)[^\\s,;]+"), "\u0024{\u0027$\u0027}1\u0024{\u0027$\u0027}2[OCULTO]")
 }
