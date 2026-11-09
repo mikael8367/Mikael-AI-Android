@@ -173,8 +173,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
     }
 
-    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter) {
+    LaunchedEffect(onlineMode, modelPath, memoryLimit, contextTokens, modelReloadCounter) {
         engineReady = false
+        if (onlineMode) {
+            LocalInferenceEngine.cancel()
+            withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+            engineStatus = "Modo online selecionado. O modelo local está descarregado."
+            return@LaunchedEffect
+        }
         if (modelPath.isNullOrBlank()) {
             engineStatus = "Importe um modelo GGUF para começar."
             return@LaunchedEffect
@@ -310,7 +316,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 }
                             }
                         },
-                        onCancel = { LocalInferenceEngine.cancel() },
+                        onCancel = {
+                            if (onlineMode) onlineApi.cancelActive() else LocalInferenceEngine.cancel()
+                        },
                         onSend = {
                             val prompt = input.trim()
                             if (prompt.isNotEmpty() && !isGenerating &&
