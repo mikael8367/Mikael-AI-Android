@@ -289,6 +289,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             generationJob?.cancel()
                             LocalInferenceEngine.cancel()
                         },
+                        onOpenModels = { tab = AppTab.MODELS },
                         onNewChat = {
                             messages.clear()
                             attachments.forEach { File(it.path).delete() }
@@ -473,6 +474,7 @@ private fun OfflineChatScreen(
     ready: Boolean,
     generating: Boolean,
     onCancel: () -> Unit,
+    onOpenModels: () -> Unit,
     onNewChat: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -488,6 +490,14 @@ private fun OfflineChatScreen(
             Column(Modifier.weight(1f)) {
                 Text(if (ready) "Modelo carregado" else "Modelo não carregado", fontWeight = FontWeight.SemiBold)
                 Text(status, color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                if (!ready && (status.contains("Nenhum modelo") || status.contains("Importe ou baixe"))) {
+                    Text(
+                        "Nenhum modelo GGUF está instalado. O APK não inclui os pesos do modelo.",
+                        color = Color(0xFFFFD18A),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedButton(onClick = onOpenModels) { Text("Instalar modelo") }
+                }
             }
             OutlinedButton(onClick = onNewChat, enabled = !generating) { Text("Nova conversa") }
         }
@@ -639,7 +649,16 @@ private fun OfflineModelsScreen(
         HorizontalDivider(color = Color(0xFF26332B))
         Text("Instalados: ${models.size}", fontWeight = FontWeight.SemiBold)
         if (models.isEmpty()) {
-            Text("Nenhum modelo importado ainda.", color = Color(0xFF9EAAA2))
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202B25))) {
+                Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Nenhum modelo instalado", fontWeight = FontWeight.Bold, color = Color(0xFFFFD18A))
+                    Text(
+                        "Baixe o Qwen 0.5B recomendado (aproximadamente 469 MiB) ou importe um arquivo GGUF. Depois que o modelo estiver instalado, a conversa poderá funcionar offline.",
+                        color = Color(0xFFCFD8D1),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(models, key = { it.absolutePath }) { file ->
