@@ -21,7 +21,9 @@ Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O proje
 - Inferência local com llama.cpp via JNI/NDK.
 - Importação de modelos GGUF pelo seletor de arquivos Android.
 - O chat local não envia mensagens ao servidor, mesmo quando recursos remotos opcionais estão conectados.
-- O modelo recomendado usa ChatML. Outros modelos importados também precisam ser compatíveis com ChatML nesta versão.\n- O primeiro download do modelo recomendado exige internet; depois de baixado, a geração local não depende de Render, OpenRouter ou créditos.
+- Download integrado do modelo recomendado Qwen2.5 0.5B Instruct Q4_K_M, com verificação SHA-256, ou importação de outros modelos GGUF.
+- O primeiro download exige internet; depois de instalado, a geração local não depende de Render, OpenRouter ou créditos.
+- O modelo recomendado usa ChatML. Outros modelos importados também precisam ser compatíveis com ChatML nesta versão.
 - Desempenho depende do tamanho/quantização, contexto, RAM e CPU do aparelho.
 
 ## Modelos online
