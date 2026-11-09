@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -58,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
@@ -514,9 +517,16 @@ private fun ChatScreen(
     messages: List<ChatMessage>,
     input: String,
     onInputChange: (String) -> Unit,
-    engineReady: Boolean,
+    canSend: Boolean,
     engineStatus: String,
     isGenerating: Boolean,
+    onlineMode: Boolean,
+    onlineModels: List<OnlineModel>,
+    selectedOnlineModel: String,
+    remoteConversations: List<RemoteConversation>,
+    onModelChange: (String) -> Unit,
+    onNewConversation: () -> Unit,
+    onOpenConversation: (Long) -> Unit,
     onCancel: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -525,9 +535,60 @@ private fun ChatScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
-        if (!engineReady) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Conversas", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text(if (onlineMode) "Histórico sincronizado online" else "Histórico salvo neste aparelho", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            }
+            OutlinedButton(onClick = onNewConversation, enabled = !isGenerating) { Text("+ Nova") }
+        }
+        if (onlineMode && onlineModels.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+                Text("MODELO ONLINE", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    onlineModels.take(3).forEach { model ->
+                        FilterChip(
+                            selected = selectedOnlineModel == model.id,
+                            onClick = { onModelChange(model.id) },
+                            label = { Text(model.name, maxLines = 1) },
+                            enabled = !isGenerating
+                        )
+                    }
+                }
+                if (onlineModels.size > 3) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        onlineModels.drop(3).forEach { model ->
+                            FilterChip(
+                                selected = selectedOnlineModel == model.id,
+                                onClick = { onModelChange(model.id) },
+                                label = { Text(model.name, maxLines = 1) },
+                                enabled = !isGenerating
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (onlineMode && remoteConversations.isNotEmpty()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 4.dp)) {
+                Text("RECENTES", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                remoteConversations.take(3).forEach { conversation ->
+                    OutlinedButton(
+                        onClick = { onOpenConversation(conversation.id) },
+                        modifier = Modifier.fillMaxWidth().padding(top = 3.dp),
+                        enabled = !isGenerating
+                    ) {
+                        Text(conversation.title.ifBlank { "Conversa ${conversation.id}" }, maxLines = 1)
+                    }
+                }
+            }
+        }
+        if (!canSend) {
             Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2B22))
             ) {
                 Text(engineStatus, modifier = Modifier.padding(14.dp), color = Color(0xFFB8E8CA))
@@ -535,17 +596,17 @@ private fun ChatScreen(
         }
         if (messages.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        "Sua IA de programação, direto no aparelho.",
+                        if (onlineMode) "Sua IA de programação conectada ao servidor." else "Sua IA de programação, direto no aparelho.",
                         modifier = Modifier.padding(top = 8.dp),
                         color = Color(0xFF9EAAA2),
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        "Importe um modelo GGUF na aba Modelos para começar.",
-                        modifier = Modifier.padding(top = 12.dp, start = 28.dp, end = 28.dp),
+                        if (onlineMode) "Escolha um modelo e envie sua mensagem." else "Importe um modelo GGUF em Ajustes para começar.",
+                        modifier = Modifier.padding(top = 12.dp),
                         color = Color(0xFF8BE7B7),
                         textAlign = TextAlign.Center
                     )
@@ -586,7 +647,7 @@ private fun ChatScreen(
             if (isGenerating) {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.height(54.dp)) { Text("Parar") }
             } else {
-                Button(onClick = onSend, enabled = input.isNotBlank(), modifier = Modifier.height(54.dp)) { Text("Enviar") }
+                Button(onClick = onSend, enabled = input.isNotBlank() && canSend, modifier = Modifier.height(54.dp)) { Text("Enviar") }
             }
         }
     }
@@ -698,6 +759,29 @@ private fun ModelsScreen(
 
 @Composable
 private fun SettingsScreen(
+    onlineMode: Boolean,
+    onlineAuthenticated: Boolean,
+    password: String,
+    savePassword: Boolean,
+    loginBusy: Boolean,
+    onlineStatus: String,
+    onlineModels: List<OnlineModel>,
+    selectedOnlineModel: String,
+    onOnlineModeChange: (Boolean) -> Unit,
+    onPasswordChange: (String) -> Unit,
+    onSavePasswordChange: (Boolean) -> Unit,
+    onLogin: () -> Unit,
+    onLogout: () -> Unit,
+    onModelChange: (String) -> Unit,
+    modelPath: String?,
+    installedModels: List<File>,
+    engineStatus: String,
+    engineReady: Boolean,
+    onImport: () -> Unit,
+    onSelect: (String) -> Unit,
+    onLoad: () -> Unit,
+    onUnload: () -> Unit,
+    onDelete: () -> Unit,
     memoryLimit: Int,
     contextTokens: Int,
     availableBytes: Long,
@@ -706,66 +790,161 @@ private fun SettingsScreen(
     onClearHistory: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Configurações", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("MODO DE CONEXÃO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(selected = !onlineMode, onClick = { onOnlineModeChange(false) }, label = { Text("Offline") })
+                    FilterChip(selected = onlineMode, onClick = { onOnlineModeChange(true) }, label = { Text("Online") })
+                }
+                Text("Online usa a Mikael AI hospedada e precisa de internet. Offline executa um modelo GGUF neste aparelho.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                HorizontalDivider(color = Color(0xFF26332B))
+                Text(if (onlineAuthenticated) "Conta conectada" else "Entrar na Mikael AI", fontWeight = FontWeight.SemiBold)
+                if (!onlineAuthenticated) {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = onPasswordChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Senha de acesso") },
+                        placeholder = { Text("Digite sua senha") },
+                        visualTransformation = PasswordVisualTransformation(),
+                        singleLine = true,
+                        enabled = !loginBusy
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = savePassword, onCheckedChange = onSavePasswordChange, enabled = !loginBusy)
+                        Text("Salvar senha neste aparelho", color = Color(0xFFE2ECE5))
+                    }
+                    Text("Quando ativado, a senha é criptografada com uma chave protegida pelo Android Keystore. A chave da API do provedor nunca fica no aplicativo.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = onLogin, modifier = Modifier.fillMaxWidth(), enabled = password.isNotBlank() && !loginBusy) {
+                        if (loginBusy) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        else Text("Entrar e conectar")
+                    }
+                } else {
+                    Text("Conectado à conta Mikael AI.", color = Color(0xFF54E69C))
+                    OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Sair da conta online") }
+                }
+                Text(onlineStatus, color = if (onlineAuthenticated) Color(0xFF8BE7B7) else Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        if (onlineAuthenticated && onlineModels.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Modelos online", fontWeight = FontWeight.SemiBold)
+                onlineModels.forEach { model ->
+                    FilterChip(
+                        selected = selectedOnlineModel == model.id,
+                        onClick = { onModelChange(model.id) },
+                        label = { Text(model.name) }
+                    )
+                    if (model.description.isNotBlank()) {
+                        Text(model.description, color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        Text("Modelos offline", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        ModelsScreen(
+            modelPath = modelPath,
+            installedModels = installedModels,
+            engineStatus = engineStatus,
+            engineReady = engineReady,
+            onImport = onImport,
+            onSelect = onSelect,
+            onLoad = onLoad,
+            onUnload = onUnload,
+            onDelete = onDelete
+        )
+        HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Orçamento de memória", fontWeight = FontWeight.SemiBold)
             Text("Memória disponível agora: ${MemoryBudget.mib(availableBytes)} MiB", color = Color(0xFF9EAAA2))
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(512, 768, 1024).forEach { value ->
-                    FilterChip(
-                        selected = memoryLimit == value,
-                        onClick = { onMemoryChange(value) },
-                        label = { Text("$value MiB") }
-                    )
+                    FilterChip(selected = memoryLimit == value, onClick = { onMemoryChange(value) }, label = { Text("$value MiB") })
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(1536, 2048).forEach { value ->
-                    FilterChip(
-                        selected = memoryLimit == value,
-                        onClick = { onMemoryChange(value) },
-                        label = { Text("$value MiB") }
-                    )
+                    FilterChip(selected = memoryLimit == value, onClick = { onMemoryChange(value) }, label = { Text("$value MiB") })
                 }
             }
-            Text(
-                "Esse valor é um orçamento estimado para o motor, não um limite absoluto da memória do Android.",
-                color = Color(0xFF9EAAA2),
-                style = MaterialTheme.typography.bodySmall
-            )
+            Text("Esse valor é um orçamento estimado para o motor, não um limite absoluto da memória do Android.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         }
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Tamanho do contexto", fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(512, 1024).forEach { value ->
-                    FilterChip(
-                        selected = contextTokens == value,
-                        onClick = { onContextChange(value) },
-                        label = { Text("$value") }
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(2048, 4096).forEach { value ->
-                    FilterChip(
-                        selected = contextTokens == value,
-                        onClick = { onContextChange(value) },
-                        label = { Text("$value") }
-                    )
+                listOf(512, 1024, 2048, 4096).forEach { value ->
+                    FilterChip(selected = contextTokens == value, onClick = { onContextChange(value) }, label = { Text("$value") })
                 }
             }
         }
-        HorizontalDivider(color = Color(0xFF26332B))
-        OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) {
-            Text("Apagar histórico local")
+        OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
+        Text("A senha de acesso e o modo selecionado são tratados separadamente da chave privada do provedor. A disponibilidade dos modelos online depende da configuração do servidor.", color = Color(0xFF9EAAA2))
+    }
+}
+
+@Composable
+private fun HomeScreen(onNewChat: () -> Unit, onPrompt: (String) -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF123321))) {
+            Column(Modifier.padding(22.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("ASSISTENTE DE DESENVOLVIMENTO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Text("Olá! Vamos construir algo incrível.", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                Text("Analiso código, investigo bugs e ajudo a desenvolver seus projetos.", color = Color(0xFFB8C6BD))
+                Button(onClick = onNewChat, modifier = Modifier.fillMaxWidth()) { Text("Nova conversa") }
+            }
         }
-        Text(
-            "O chat não envia mensagens para servidores. A primeira versão trabalha somente com texto e modelos GGUF locais.",
-            color = Color(0xFF9EAAA2)
-        )
+        Text("Atalhos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        listOf(
+            "Auditar código" to "Faça uma auditoria profunda deste código e procure bugs.",
+            "Entender projeto" to "Explique a arquitetura deste projeto e suas dependências.",
+            "Planejar projeto" to "Crie um plano de implementação com etapas e testes.",
+            "Revisar código" to "Revise este código pensando em segurança e desempenho."
+        ).forEach { (title, prompt) ->
+            OutlinedButton(onClick = { onPrompt(prompt) }, modifier = Modifier.fillMaxWidth()) { Text(title) }
+        }
+    }
+}
+
+@Composable
+private fun ProjectsScreen(onlineMode: Boolean, onlineAuthenticated: Boolean) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Projetos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Seu espaço de projetos", fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (onlineMode && onlineAuthenticated) "A conta online está conectada. A integração nativa de GitHub e servidores MCP ainda está sendo adaptada para esta versão."
+                    else "Conecte-se ao modo online para preparar o acesso aos projetos e conectores.",
+                    color = Color(0xFF9EAAA2)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FilesScreen(onlineMode: Boolean, onlineAuthenticated: Boolean) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Arquivos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Documentos e código", fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (onlineMode && onlineAuthenticated) "A conexão online está pronta. Upload, análise de fotos e gerenciamento de arquivos ainda precisam ser integrados à interface nativa."
+                    else "A importação de modelos GGUF já está disponível em Ajustes. O envio de documentos será integrado nesta aba.",
+                    color = Color(0xFF9EAAA2)
+                )
+            }
+        }
     }
 }
