@@ -61,7 +61,7 @@ class WebSearch(
     companion object {
         private const val MAX_RESPONSE_BYTES = 2 * 1024 * 1024
         private val SEARCH_INTENT = Regex(
-            """\\b(pesquise|pesquisar|pesquisa|busque|buscar|procure|procurar)\\b.{0,40}\\b(web|internet|online)\\b|\\b(web|internet)\\b.{0,30}\\b(pesquisa|pesquisar|busca|buscar)\\b""",
+            """\b(pesquise|pesquisar|pesquisa|busque|buscar|procure|procurar)\b.{0,40}\b(web|internet|online)\b|\b(web|internet)\b.{0,30}\b(pesquisa|pesquisar|busca|buscar)\b""",
             RegexOption.IGNORE_CASE
         )
 
