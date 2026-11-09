@@ -71,6 +71,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.ByteArrayOutputStream
 
+private val chatMessageIds = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() * 1000L)
+private fun nextChatMessageId(): Long = chatMessageIds.incrementAndGet()
+
 private enum class AppTab(val title: String, val symbol: String) {
     HOME("Início", "⌂"),
     CHAT("Conversas", "◌"),
@@ -367,7 +370,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     val remote = withContext(Dispatchers.IO) { onlineApi.getConversation(id) }
                                     messages.clear()
                                     remote.forEachIndexed { index, item ->
-                                        messages.add(ChatMessage(System.currentTimeMillis() + index, item.role, item.content))
+                                        messages.add(ChatMessage(nextChatMessageId(), item.role, item.content))
                                     }
                                     remoteConversationId = id
                                 } catch (error: Exception) {
@@ -383,7 +386,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (prompt.isNotEmpty() && !isGenerating &&
                                 (if (onlineMode) onlineAuthenticated else engineReady)) {
                                 input = ""
-                                messages.add(ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                messages.add(ChatMessage(nextChatMessageId(), "user", prompt))
                                 if (!onlineMode) ConversationStore.save(context, messages)
                                 isGenerating = true
                                 scope.launch {
@@ -393,7 +396,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                 onlineApi.sendMessage(prompt, remoteConversationId, selectedOnlineModel)
                                             }
                                             remoteConversationId = result.conversationId
-                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", result.reply))
+                                            messages.add(ChatMessage(nextChatMessageId(), "assistant", result.reply))
                                             onlineStatus = "Resposta recebida do servidor."
                                             runCatching {
                                                 remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
@@ -401,7 +404,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                 onlineStatus = "Resposta recebida; não foi possível atualizar a lista de conversas."
                                             }
                                         }.onFailure { error ->
-                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
+                                            messages.add(ChatMessage(nextChatMessageId(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
                                             onlineStatus = error.message ?: "Falha na conexão online."
                                             if (!onlineApi.isAuthenticated()) onlineAuthenticated = false
                                         }
@@ -421,12 +424,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         result.fold(
                                             onSuccess = { answer ->
                                                 if (answer.isNotBlank()) {
-                                                    messages.add(ChatMessage(System.currentTimeMillis(), "assistant", answer))
+                                                    messages.add(ChatMessage(nextChatMessageId(), "assistant", answer))
                                                     ConversationStore.save(context, messages)
                                                 }
                                             },
                                             onFailure = { error ->
-                                                messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                                                messages.add(ChatMessage(nextChatMessageId(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
                                                 ConversationStore.save(context, messages)
                                             }
                                         )
@@ -486,7 +489,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 runCatching {
                                     val analysis = withContext(Dispatchers.IO) { onlineApi.analyzeFile(fileId) }
                                     messages.clear()
-                                    messages.add(ChatMessage(System.currentTimeMillis(), "assistant", analysis))
+                                    messages.add(ChatMessage(nextChatMessageId(), "assistant", analysis))
                                     remoteConversationId = null
                                     tab = AppTab.CHAT
                                 }.onFailure {
@@ -514,6 +517,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     AppTab.SETTINGS -> SettingsScreen(
                         onlineMode = onlineMode,
                         onlineAuthenticated = onlineAuthenticated,
+                        canChangeMode = !isGenerating,
                         password = passwordInput,
                         savePassword = savePassword,
                         loginBusy = loginBusy,
@@ -951,6 +955,7 @@ private fun ModelsScreen(
 private fun SettingsScreen(
     onlineMode: Boolean,
     onlineAuthenticated: Boolean,
+    canChangeMode: Boolean,
     password: String,
     savePassword: Boolean,
     loginBusy: Boolean,
@@ -988,8 +993,8 @@ private fun SettingsScreen(
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("MODO DE CONEXÃO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = !onlineMode, onClick = { onOnlineModeChange(false) }, label = { Text("Offline") })
-                    FilterChip(selected = onlineMode, onClick = { onOnlineModeChange(true) }, label = { Text("Online") })
+                    FilterChip(selected = !onlineMode, onClick = { onOnlineModeChange(false) }, label = { Text("Offline") }, enabled = canChangeMode)
+                    FilterChip(selected = onlineMode, onClick = { onOnlineModeChange(true) }, label = { Text("Online") }, enabled = canChangeMode)
                 }
                 Text("Online usa a Mikael AI hospedada e precisa de internet. Offline executa um modelo GGUF neste aparelho.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 HorizontalDivider(color = Color(0xFF26332B))
@@ -1016,7 +1021,7 @@ private fun SettingsScreen(
                     }
                 } else {
                     Text("Conectado à conta Mikael AI.", color = Color(0xFF54E69C))
-                    OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) { Text("Sair da conta online") }
+                    OutlinedButton(onClick = onLogout, enabled = canChangeMode, modifier = Modifier.fillMaxWidth()) { Text("Sair da conta online") }
                 }
                 Text(onlineStatus, color = if (onlineAuthenticated) Color(0xFF8BE7B7) else Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
             }
