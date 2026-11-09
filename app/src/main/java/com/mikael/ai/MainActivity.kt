@@ -250,7 +250,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 Column(Modifier.padding(start = 11.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("IA LOCAL • PRIVACIDADE NO DISPOSITIVO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                    Text("v1.5.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                    Text("v1.6.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
