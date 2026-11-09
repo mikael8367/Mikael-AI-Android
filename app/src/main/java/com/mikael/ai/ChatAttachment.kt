@@ -35,7 +35,9 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
                         val read = input.read(buffer)
                         if (read < 0) break
                         total += read
-                        require(total <= MAX_ATTACHMENT_BYTES) { "$name ultrapassa o limite de 20 MiB." }
+                        require(total <= MAX_ATTACHMENT_BYTES) {
+                            "$name ultrapassa o limite de 1 GB por arquivo."
+                        }
                         output.write(buffer, 0, read)
                     }
                 }
@@ -67,7 +69,7 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
     }
 }
 
-private const val MAX_ATTACHMENT_BYTES = 20L * 1024L * 1024L
+private const val MAX_ATTACHMENT_BYTES = 1024L * 1024L * 1024L
 private const val MAX_TEXT_BYTES = 256L * 1024L
 private val TEXT_EXTENSIONS = setOf(
     "txt", "md", "kt", "java", "kts", "gradle", "xml", "json", "yaml", "yml",
