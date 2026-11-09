@@ -13,7 +13,7 @@ Aplicativo Android nativo da Mikael AI, com foco em inferência local e privacid
 
 ## Requisitos
 
-- Android 8.0 (API 26) ou superior.
+- Android 9.0 (API 28) ou superior.
 - ABI inicial: ARM64.
 - Um modelo GGUF compatível, baixado pelo usuário e importado pelo seletor de arquivos do Android.
 - Nesta etapa, o prompt usa ChatML; prefira modelos Instruct que aceitem esse formato.
