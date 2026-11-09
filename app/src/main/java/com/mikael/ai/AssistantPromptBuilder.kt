@@ -80,7 +80,28 @@ object AssistantPromptBuilder {
             append("\n<|im_end|>\n")
         }
         append("<|im_start|>assistant\n")
-    }.take(MAX_PROMPT_CHARS)
+    }.let { prompt -> limitUtf8(prompt, MAX_PROMPT_BYTES) }
 
-    private const val MAX_PROMPT_CHARS = 18000
+    private fun limitUtf8(value: String, maxBytes: Int): String {
+        if (value.toByteArray(Charsets.UTF_8).size <= maxBytes) return value
+        val suffix = "\\n<|im_end|>\\n<|im_start|>assistant\\n"
+        val budget = maxBytes - suffix.toByteArray(Charsets.UTF_8).size
+        var bytes = 0
+        var index = 0
+        while (index < value.length) {
+            val codePoint = value.codePointAt(index)
+            val encodedBytes = when {
+                codePoint <= 0x7F -> 1
+                codePoint <= 0x7FF -> 2
+                codePoint <= 0xFFFF -> 3
+                else -> 4
+            }
+            if (bytes + encodedBytes > budget) break
+            bytes += encodedBytes
+            index += Character.charCount(codePoint)
+        }
+        return value.substring(0, index).trimEnd() + suffix
+    }
+
+    private const val MAX_PROMPT_BYTES = 22000
 }
