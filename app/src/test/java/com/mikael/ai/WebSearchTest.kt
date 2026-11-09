@@ -6,6 +6,19 @@ import org.junit.Test
 
 class WebSearchTest {
     @Test
+    fun detectsExplicitWebSearchRequestsInPortuguese() {
+        assertTrue(WebSearch.requestsSearch("Pesquise na web as novidades do Kotlin"))
+        assertTrue(WebSearch.requestsSearch("Procure na internet a documentação do Android"))
+        assertTrue(WebSearch.requestsSearch("Buscar online a versão atual do Java"))
+    }
+
+    @Test
+    fun doesNotSearchForOrdinaryProgrammingQuestions() {
+        assertTrue(!WebSearch.requestsSearch("Como criar uma classe Java?"))
+        assertTrue(!WebSearch.requestsSearch("Explique uma função em Kotlin"))
+    }
+
+    @Test
     fun parsesDuckDuckGoResultsAndResolvesRedirects() {
         val html = """
             <div class="result">
