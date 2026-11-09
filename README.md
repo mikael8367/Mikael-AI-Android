@@ -12,10 +12,10 @@ Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O proje
 - Login usando a senha APP_PASSWORD configurada no servidor.
 - A opção de salvar senha vem ativada por padrão; a senha é criptografada com AES-GCM e uma chave protegida pelo Android Keystore.
 - A sessão usa cookie HttpOnly mantido em memória. Quando o modo online está ativo e há senha salva, o app tenta autenticar novamente ao abrir.
-- O chat do assistente não envia mensagens ao servidor: toda geração de texto usa o modelo GGUF local. O modo online fica restrito a recursos remotos opcionais, como conectores e arquivos.
+- O chat do assistente gera respostas com o modelo GGUF local. A opção **Pesquisar na web** consulta o DuckDuckGo usando a conexão de internet do Android, envia somente a pergunta ao buscador e fornece os resultados ao modelo local com URLs de referência. Pedidos explícitos como “pesquise na web” também ativam a busca automaticamente.
 - Envio de documentos, código e imagens; análise de arquivos e geração de arquivos.
 - Consulta de conectores GitHub/MCP. O gerenciamento e a autorização dos conectores continuam na interface web original.
-- A conexão exige internet e o serviço online disponível.
+- A pesquisa web exige conexão Wi-Fi ou dados móveis e disponibilidade do buscador DuckDuckGo; não exige senha da Mikael AI nem chave de API.
 
 ## Modo offline
 - Inferência local com llama.cpp via JNI/NDK.
@@ -31,7 +31,7 @@ A API atualmente publicada oferece Mikael AI, DeepSeek V4.1 Flash e GPT-4o mini.
 - A senha é criptografada no aparelho pelo Android Keystore; ela não é gravada em texto puro nas preferências.
 - A chave LLM_API_KEY do provedor fica somente no servidor e nunca deve ser incluída no APK.
 - O tráfego online usa HTTPS.
-- Com o modo offline selecionado, o aplicativo não faz chamadas de chat à API remota.
+- A geração de respostas continua local; a pesquisa web é a única etapa que envia a pergunta ao buscador externo.
 - O backup Android do app está desativado para evitar copiar credenciais locais.
 
 ## Compilação e testes
@@ -46,5 +46,5 @@ O workflow .github/workflows/android-apk.yml executa testes unitários e lint na
 ## Requisitos
 - Android 9.0 (API 28) ou superior.
 - ABI inicial: ARM64 (arm64-v8a).
-- Internet somente para o modo online, upload/análise de arquivos e atualização dos dados remotos.
+- Internet para a pesquisa web opcional, download inicial do modelo e recursos remotos.
 - Para usar offline, importe um modelo GGUF compatível.
