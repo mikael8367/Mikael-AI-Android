@@ -119,7 +119,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val messages = remember {
         mutableStateListOf<ChatMessage>().apply { addAll(ConversationStore.load(context)) }
     }
-    var tab by remember { mutableStateOf(AppTab.CHAT) }
+    var tab by remember { mutableStateOf(AppTab.HOME) }
     var modelPath by remember { mutableStateOf(preferences.modelPath) }
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
@@ -170,6 +170,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     }
                     onlineStatus = "Conectado com segurança."
                 }.onFailure {
+                    if (!onlineApi.isAuthenticated()) {
+                        onlineAuthenticated = false
+                        passwordInput = savedPasswordCache.orEmpty()
+                    }
                     onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
                 }
             } else {
@@ -242,9 +246,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     LaunchedEffect(onlineMode, modelPath, memoryLimit, contextTokens, modelReloadCounter) {
         engineReady = false
+        LocalInferenceEngine.cancel()
+        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
         if (onlineMode) {
-            LocalInferenceEngine.cancel()
-            withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
             engineStatus = "Modo online selecionado. O modelo local está descarregado."
             return@LaunchedEffect
         }
@@ -252,13 +256,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             engineStatus = "Importe um modelo GGUF para começar."
             return@LaunchedEffect
         }
-        val file = File(modelPath!!)
+        val file = File(modelPath)
         if (!file.isFile || file.length() <= 0L) {
             engineStatus = "O arquivo do modelo não foi encontrado."
             return@LaunchedEffect
         }
-        LocalInferenceEngine.cancel()
-        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
         val check = MemoryBudget.check(
             availableBytes = MemoryBudget.availableBytes(activityManager),
             selectedLimitMiB = memoryLimit,
