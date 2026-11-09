@@ -10,7 +10,7 @@ class AppPreferences(context: Context) {
         set(value) { prefs.edit().putString("model_path", value).apply() }
 
     var memoryLimitMiB: Int
-        get() = prefs.getInt("memory_limit_mib", 768)
+        get() = prefs.getInt("memory_limit_mib", 1024)
         set(value) {
             if (value in MemoryBudget.allowedLimitsMiB) prefs.edit().putInt("memory_limit_mib", value).apply()
         }
