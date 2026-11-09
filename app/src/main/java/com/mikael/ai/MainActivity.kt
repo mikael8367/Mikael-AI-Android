@@ -274,10 +274,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
     }
 
-    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter) {
+    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter, onlineMode) {
         engineReady = false
         LocalInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+        if (onlineMode) {
+            engineStatus = "Modo online ativo. O modelo selecionado será executado no servidor."
+            return@LaunchedEffect
+        }
         val selectedPath = modelPath
         if (selectedPath.isNullOrBlank()) {
             engineStatus = "Vá em Ajustes para baixar o modelo recomendado ou importar um GGUF."
