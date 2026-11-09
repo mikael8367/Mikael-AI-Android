@@ -2,7 +2,7 @@ name: Android APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/native-online-hybrid-ui]
   workflow_dispatch:
 
 permissions:
