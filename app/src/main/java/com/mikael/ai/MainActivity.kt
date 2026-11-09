@@ -523,7 +523,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     AppTab.SETTINGS -> SettingsScreen(
                         onlineMode = onlineMode,
                         onlineAuthenticated = onlineAuthenticated,
-                        canChangeMode = !isGenerating,
+                        canChangeMode = !isGenerating && !fileBusy,
                         password = passwordInput,
                         savePassword = savePassword,
                         loginBusy = loginBusy,
@@ -585,6 +585,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         }
                                         onlineStatus = "Conectado. Modelos online carregados."
                                     }.onFailure {
+                                        selectedOnlineModel = "mikael"
+                                        preferences.onlineModelId = "mikael"
                                         onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
                                     }
                                     if (savePassword) {
@@ -891,6 +893,7 @@ private fun listInstalledModels(context: Context): List<File> {
 
 @Composable
 private fun ModelsScreen(
+    canLoadLocalModel: Boolean,
     modelPath: String?,
     installedModels: List<File>,
     engineStatus: String,
@@ -920,7 +923,9 @@ private fun ModelsScreen(
                         if (engineReady) {
                             OutlinedButton(onClick = onUnload) { Text("Descarregar") }
                         } else {
-                            OutlinedButton(onClick = onLoad) { Text("Carregar") }
+                            OutlinedButton(onClick = onLoad, enabled = canLoadLocalModel) {
+                                Text(if (canLoadLocalModel) "Carregar" else "Use modo Offline")
+                            }
                         }
                         OutlinedButton(onClick = onDelete) { Text("Excluir ativo") }
                     }
@@ -1059,6 +1064,7 @@ private fun SettingsScreen(
         HorizontalDivider(color = Color(0xFF26332B))
         Text("Modelos offline", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         ModelsScreen(
+            canLoadLocalModel = !onlineMode,
             modelPath = modelPath,
             installedModels = installedModels,
             engineStatus = engineStatus,
