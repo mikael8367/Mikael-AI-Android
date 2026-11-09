@@ -1,0 +1,541 @@
+package com.mikael.ai
+
+import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.app.ActivityManager
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+
+private enum class AppTab(val title: String, val symbol: String) {
+    CHAT("Chat", "◉"),
+    MODELS("Modelos", "▤"),
+    SETTINGS("Configurações", "⚙")
+}
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        super.onCreate(savedInstanceState)
+        val preferences = AppPreferences(this)
+        setContent {
+            MikaelAiTheme {
+                MikaelAiApp(preferences)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MikaelAiTheme(content: @Composable () -> Unit) {
+    val scheme = darkColorScheme(
+        primary = Color(0xFF39D98A),
+        onPrimary = Color(0xFF062216),
+        secondary = Color(0xFF8BE7B7),
+        background = Color(0xFF0B100E),
+        surface = Color(0xFF151D19),
+        surfaceVariant = Color(0xFF202B25),
+        onBackground = Color(0xFFF1F5F2),
+        onSurface = Color(0xFFF1F5F2)
+    )
+    MaterialTheme(colorScheme = scheme, content = content)
+}
+
+@Composable
+private fun MikaelAiApp(preferences: AppPreferences) {
+    val context = LocalContext.current
+    val activityManager = remember(context) {
+        context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    }
+    val scope = rememberCoroutineScope()
+    val messages = remember {
+        mutableStateListOf<ChatMessage>().apply { addAll(ConversationStore.load(context)) }
+    }
+    var tab by remember { mutableStateOf(AppTab.CHAT) }
+    var modelPath by remember { mutableStateOf(preferences.modelPath) }
+    var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
+    var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
+    var engineReady by remember { mutableStateOf(false) }
+    var engineStatus by remember { mutableStateOf("Importe um modelo GGUF para começar.") }
+    var isGenerating by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
+
+    val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            scope.launch {
+                try {
+                    val copiedPath = withContext(Dispatchers.IO) { copyModelToPrivateStorage(context, uri) }
+                    preferences.modelPath = copiedPath
+                    modelPath = copiedPath
+                    tab = AppTab.MODELS
+                    engineStatus = "Modelo importado. Verificando memória..."
+                } catch (error: Exception) {
+                    engineStatus = error.message ?: "Não foi possível importar o modelo."
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(modelPath, memoryLimit, contextTokens) {
+        engineReady = false
+        if (modelPath.isNullOrBlank()) {
+            engineStatus = "Importe um modelo GGUF para começar."
+            return@LaunchedEffect
+        }
+        val file = File(modelPath!!)
+        if (!file.isFile || file.length() <= 0L) {
+            engineStatus = "O arquivo do modelo não foi encontrado."
+            return@LaunchedEffect
+        }
+        val check = MemoryBudget.check(
+            availableBytes = MemoryBudget.availableBytes(activityManager),
+            selectedLimitMiB = memoryLimit,
+            modelBytes = file.length(),
+            contextTokens = contextTokens
+        )
+        if (!check.allowed) {
+            engineStatus = check.reason ?: "Memória insuficiente."
+            return@LaunchedEffect
+        }
+        engineStatus = "Carregando modelo..."
+        val loadResult = withContext(Dispatchers.IO) {
+            LocalInferenceEngine.load(file.absolutePath, contextTokens)
+        }
+        loadResult.fold(
+            onSuccess = {
+                engineReady = true
+                engineStatus = "Modelo pronto • orçamento de $memoryLimit MiB"
+            },
+            onFailure = {
+                engineReady = false
+                engineStatus = it.message ?: "Falha ao carregar o modelo."
+            }
+        )
+    }
+
+    Scaffold(
+        bottomBar = {
+            NavigationBar(containerColor = Color(0xFF101713)) {
+                AppTab.entries.forEach { item ->
+                    NavigationBarItem(
+                        selected = tab == item,
+                        onClick = { tab = item },
+                        icon = { Text(item.symbol, fontWeight = FontWeight.Bold) },
+                        label = { Text(item.title) }
+                    )
+                }
+            }
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(padding)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.size(38.dp).background(Color(0xFF173D2B), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("M", color = Color(0xFF54E69C), fontWeight = FontWeight.Black)
+                }
+                Column(modifier = Modifier.padding(start = 12.dp)) {
+                    Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("INTELIGÊNCIA LOCAL", style = MaterialTheme.typography.labelSmall, color = Color(0xFF8BE7B7))
+                }
+                Spacer(Modifier.weight(1f))
+                Text(
+                    if (engineReady) "● LOCAL" else "○ OFFLINE",
+                    color = if (engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            AnimatedContent(
+                targetState = tab,
+                modifier = Modifier.weight(1f),
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "tab-transition"
+            ) { selected ->
+                when (selected) {
+                    AppTab.CHAT -> ChatScreen(
+                        messages = messages,
+                        input = input,
+                        onInputChange = { input = it },
+                        engineReady = engineReady,
+                        engineStatus = engineStatus,
+                        isGenerating = isGenerating,
+                        onCancel = { LocalInferenceEngine.cancel() },
+                        onSend = {
+                            val prompt = input.trim()
+                            if (prompt.isNotEmpty() && engineReady && !isGenerating) {
+                                input = ""
+                                messages.add(ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                ConversationStore.save(context, messages)
+                                isGenerating = true
+                                scope.launch {
+                                    val conversationPrompt = buildString {
+                                        append("<|im_start|>system\nVocê é Mikael AI, um assistente útil e especializado em programação. Responda em português do Brasil quando apropriado.\n<|im_end|>\n")
+                                        messages.takeLast(12).forEach { message ->
+                                            append(if (message.role == "user") "<|im_start|>user\n" else "<|im_start|>assistant\n")
+                                            append(message.text)
+                                            append("\n<|im_end|>\n")
+                                        }
+                                        append("<|im_start|>assistant\n")
+                                    }
+                                    val result = withContext(Dispatchers.IO) {
+                                        LocalInferenceEngine.generate(conversationPrompt, 256)
+                                    }
+                                    result.fold(
+                                        onSuccess = { answer ->
+                                            if (answer.isNotBlank()) {
+                                                messages.add(ChatMessage(System.currentTimeMillis(), "assistant", answer))
+                                                ConversationStore.save(context, messages)
+                                            }
+                                        },
+                                        onFailure = { error ->
+                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                                            ConversationStore.save(context, messages)
+                                        }
+                                    )
+                                    isGenerating = false
+                                }
+                            } else if (!engineReady) {
+                                android.widget.Toast.makeText(context, engineStatus, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                    AppTab.MODELS -> ModelsScreen(
+                        modelPath = modelPath,
+                        engineStatus = engineStatus,
+                        engineReady = engineReady,
+                        onImport = { modelPicker.launch(arrayOf("*/*")) },
+                        onUnload = {
+                            scope.launch(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                            engineReady = false
+                            engineStatus = "Modelo descarregado."
+                        },
+                        onDelete = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    LocalInferenceEngine.unload()
+                                    modelPath?.let { File(it).delete() }
+                                }
+                                preferences.modelPath = null
+                                modelPath = null
+                                engineReady = false
+                                engineStatus = "Nenhum modelo importado."
+                            }
+                        }
+                    )
+                    AppTab.SETTINGS -> SettingsScreen(
+                        memoryLimit = memoryLimit,
+                        contextTokens = contextTokens,
+                        availableBytes = MemoryBudget.availableBytes(activityManager),
+                        onMemoryChange = {
+                            memoryLimit = it
+                            preferences.memoryLimitMiB = it
+                        },
+                        onContextChange = {
+                            contextTokens = it
+                            preferences.contextTokens = it
+                        },
+                        onClearHistory = {
+                            messages.clear()
+                            ConversationStore.clear(context)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
+    val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
+    } ?: "modelo.gguf"
+    require(displayName.lowercase().endsWith(".gguf")) {
+        "Selecione um arquivo com extensão .gguf."
+    }
+    val directory = File(context.filesDir, "models").apply { mkdirs() }
+    val safeName = displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
+    val destination = File(directory, safeName)
+    val temporary = File(directory, "$safeName.importing")
+    context.contentResolver.openInputStream(uri).use { input ->
+        requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
+        temporary.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
+    }
+    require(temporary.length() > 1024L * 1024L) { "O arquivo parece pequeno demais para ser um modelo GGUF válido." }
+    if (destination.exists()) check(destination.delete()) { "Não foi possível substituir o modelo anterior." }
+    check(temporary.renameTo(destination)) { "Não foi possível concluir a cópia do modelo." }
+    return destination.absolutePath
+}
+
+@Composable
+private fun ChatScreen(
+    messages: List<ChatMessage>,
+    input: String,
+    onInputChange: (String) -> Unit,
+    engineReady: Boolean,
+    engineStatus: String,
+    isGenerating: Boolean,
+    onCancel: () -> Unit,
+    onSend: () -> Unit
+) {
+    val listState = rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
+    Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        if (!engineReady) {
+            Card(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1B2B22))
+            ) {
+                Text(engineStatus, modifier = Modifier.padding(14.dp), color = Color(0xFFB8E8CA))
+            }
+        }
+        if (messages.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Mikael AI", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        "Sua IA de programação, direto no aparelho.",
+                        modifier = Modifier.padding(top = 8.dp),
+                        color = Color(0xFF9EAAA2),
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        "Importe um modelo GGUF na aba Modelos para começar.",
+                        modifier = Modifier.padding(top = 12.dp, start = 28.dp, end = 28.dp),
+                        color = Color(0xFF8BE7B7),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(messages, key = { it.id }) { message -> MessageBubble(message) }
+                if (isGenerating) {
+                    item {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Text("  Mikael AI está pensando...", color = Color(0xFF9EAAA2))
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            OutlinedTextField(
+                value = input,
+                onValueChange = onInputChange,
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Pergunte sobre programação...") },
+                maxLines = 5,
+                shape = RoundedCornerShape(22.dp),
+                enabled = !isGenerating
+            )
+            Spacer(Modifier.size(8.dp))
+            if (isGenerating) {
+                OutlinedButton(onClick = onCancel, modifier = Modifier.height(54.dp)) { Text("Parar") }
+            } else {
+                Button(onClick = onSend, enabled = input.isNotBlank(), modifier = Modifier.height(54.dp)) { Text("Enviar") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(message: ChatMessage) {
+    val fromUser = message.role == "user"
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = if (fromUser) Arrangement.End else Arrangement.Start
+    ) {
+        Surface(
+            color = if (fromUser) Color(0xFF1B5B3A) else Color(0xFF1B2420),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth(0.9f)
+        ) {
+            Text(message.text, modifier = Modifier.padding(14.dp), color = Color(0xFFF1F5F2))
+        }
+    }
+}
+
+@Composable
+private fun ModelsScreen(
+    modelPath: String?,
+    engineStatus: String,
+    engineReady: Boolean,
+    onImport: () -> Unit,
+    onUnload: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Text("Modelos locais", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Importe um arquivo GGUF uma vez. Ele será copiado para o armazenamento privado do app.", color = Color(0xFF9EAAA2))
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("MODELO SELECIONADO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
+                Text(modelPath?.let { File(it).name } ?: "Nenhum modelo importado", fontWeight = FontWeight.SemiBold)
+                Text(engineStatus, color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                if (modelPath != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onUnload, enabled = engineReady) { Text("Descarregar") }
+                        OutlinedButton(onClick = onDelete) { Text("Excluir") }
+                    }
+                }
+            }
+        }
+        Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Importar arquivo GGUF") }
+        Text(
+            "Modelos pequenos e quantizados exigem menos memória. O tamanho do arquivo não representa sozinho toda a RAM necessária.",
+            color = Color(0xFF9EAAA2),
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun SettingsScreen(
+    memoryLimit: Int,
+    contextTokens: Int,
+    availableBytes: Long,
+    onMemoryChange: (Int) -> Unit,
+    onContextChange: (Int) -> Unit,
+    onClearHistory: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Text("Configurações", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Orçamento de memória", fontWeight = FontWeight.SemiBold)
+            Text("Memória disponível agora: ${MemoryBudget.mib(availableBytes)} MiB", color = Color(0xFF9EAAA2))
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(512, 768, 1024).forEach { value ->
+                    FilterChip(
+                        selected = memoryLimit == value,
+                        onClick = { onMemoryChange(value) },
+                        label = { Text("$value") }
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(1536, 2048).forEach { value ->
+                    FilterChip(
+                        selected = memoryLimit == value,
+                        onClick = { onMemoryChange(value) },
+                        label = { Text("$value") }
+                    )
+                }
+            }
+            Text(
+                "Esse valor é um orçamento estimado para o motor, não um limite absoluto da memória do Android.",
+                color = Color(0xFF9EAAA2),
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Tamanho do contexto", fontWeight = FontWeight.SemiBold)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(512, 1024, 2048, 4096).forEach { value ->
+                    FilterChip(
+                        selected = contextTokens == value,
+                        onClick = { onContextChange(value) },
+                        label = { Text("$value") }
+                    )
+                }
+            }
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) {
+            Text("Apagar histórico local")
+        }
+        Text(
+            "O chat não envia mensagens para servidores. A primeira versão trabalha somente com texto e modelos GGUF locais.",
+            color = Color(0xFF9EAAA2)
+        )
+    }
+}
