@@ -401,7 +401,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
-                        canSend = activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true) || if (onlineMode) onlineAuthenticated else engineReady,
+                        canSend = activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true) || (if (onlineMode) onlineAuthenticated else engineReady),
                         engineStatus = if (onlineMode) {
                             if (onlineAuthenticated) "Conectado • modelo online: $selectedOnlineModel"
                             else "Entre na conta em Ajustes para usar o modelo Mikael AI online."
@@ -454,6 +454,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onCancel = {
                             generationJob?.cancel()
                             webSearch.cancel()
+                            onlineApi.cancelActive()
                             LocalInferenceEngine.cancel()
                         },
                         onSend = {
