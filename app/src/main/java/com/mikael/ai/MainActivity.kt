@@ -265,14 +265,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
     }
 
-    LaunchedEffect(onlineMode, modelPath, memoryLimit, contextTokens, modelReloadCounter) {
+    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter) {
         engineReady = false
         LocalInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
-        if (onlineMode) {
-            engineStatus = "Modo online selecionado. O modelo local está descarregado."
-            return@LaunchedEffect
-        }
         val selectedPath = modelPath
         if (selectedPath.isNullOrBlank()) {
             engineStatus = "Importe um modelo GGUF para começar."
@@ -347,12 +343,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
                     when {
-                        onlineMode && onlineAuthenticated -> "● ONLINE"
-                        onlineMode -> "○ SEM LOGIN"
                         engineReady -> "● LOCAL"
-                        else -> "○ OFFLINE"
+                        else -> "○ MODELO LOCAL"
                     },
-                    color = if (onlineMode && onlineAuthenticated || !onlineMode && engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
+                    color = if (engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                     )
@@ -370,7 +364,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onNewChat = {
                             messages.clear()
                             activeGame = null
-                            if (!onlineMode) ConversationStore.clear(context)
+                            ConversationStore.clear(context)
                             remoteConversationId = null
                             tab = AppTab.CHAT
                         },
@@ -383,13 +377,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
-                        canSend = (if (onlineMode) onlineAuthenticated else engineReady) || activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true),
-                        engineStatus = if (onlineMode) onlineStatus else engineStatus,
+                        canSend = engineReady || activeGame != null || input.trim().equals("/games", true) || input.trim().startsWith("/games ", true),
+                        engineStatus = engineStatus,
                         isGenerating = isGenerating,
-                        onlineMode = onlineMode,
-                        onlineModels = onlineModels,
+                        onlineMode = false,
+                        onlineModels = emptyList(),
                         selectedOnlineModel = selectedOnlineModel,
-                        remoteConversations = remoteConversations,
+                        remoteConversations = emptyList(),
                         onModelChange = {
                             selectedOnlineModel = it
                             preferences.onlineModelId = it
@@ -420,52 +414,26 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         },
                         onCancel = {
-                            if (onlineMode) onlineApi.cancelActive() else LocalInferenceEngine.cancel()
+                            LocalInferenceEngine.cancel()
                         },
                         onSend = {
                             val prompt = input.trim()
                             val isGameInput = prompt.equals("/games", true) || prompt.startsWith("/games ", true) || activeGame != null
                             if (prompt.isNotEmpty() && !isGenerating &&
-                                (isGameInput || (if (onlineMode) onlineAuthenticated else engineReady))) {
+                                (isGameInput || engineReady)) {
                                 input = ""
                                 messages.add(ChatMessage(nextChatMessageId(), "user", prompt))
                                 val gameReply = Games.handle(activeGame, prompt)
                                 if (gameReply != null) {
                                     activeGame = gameReply.state
                                     messages.add(ChatMessage(nextChatMessageId(), "assistant", gameReply.text))
-                                    if (!onlineMode) ConversationStore.save(context, messages)
+                                    ConversationStore.save(context, messages)
                                 } else {
                                     if (!onlineMode) ConversationStore.save(context, messages)
                                     isGenerating = true
                                     scope.launch {
                                     try {
-                                        if (onlineMode) {
-                                        runCatching {
-                                            val result = withContext(Dispatchers.IO) {
-                                                onlineApi.sendMessage(prompt, remoteConversationId, selectedOnlineModel)
-                                            }
-                                            remoteConversationId = result.conversationId
-                                            messages.add(ChatMessage(nextChatMessageId(), "assistant", result.reply))
-                                            onlineStatus = "Resposta recebida do servidor."
-                                            runCatching {
-                                                remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
-                                            }.onFailure {
-                                                if (!onlineApi.isAuthenticated()) {
-                                                    onlineAuthenticated = false
-                                                    passwordInput = savedPasswordCache.orEmpty()
-                                                }
-                                                onlineStatus = "Resposta recebida; não foi possível atualizar a lista de conversas."
-                                            }
-                                        }.onFailure { error ->
-                                            messages.add(ChatMessage(nextChatMessageId(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
-                                            onlineStatus = error.message ?: "Falha na conexão online."
-                                            if (!onlineApi.isAuthenticated()) {
-                                                onlineAuthenticated = false
-                                                passwordInput = savedPasswordCache.orEmpty()
-                                            }
-                                        }
-                                    } else {
-                                        val conversationPrompt = buildString {
+ {
                                             append("<|im_start|>system\nVocê é Mikael AI, um assistente útil e especializado em programação. Responda em português do Brasil quando apropriado.\n<|im_end|>\n")
                                             messages.takeLast(12).forEach { message ->
                                                 append(if (message.role == "user") "<|im_start|>user\n" else "<|im_start|>assistant\n")
@@ -491,7 +459,6 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                 ConversationStore.save(context, messages)
                                             }
                                         )
-                                    }
                                     } finally {
                                         isGenerating = false
                                     }
