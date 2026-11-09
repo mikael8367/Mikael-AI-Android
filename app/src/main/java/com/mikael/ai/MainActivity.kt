@@ -145,6 +145,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             engineStatus = "O arquivo do modelo não foi encontrado."
             return@LaunchedEffect
         }
+        LocalInferenceEngine.cancel()
+        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
         val check = MemoryBudget.check(
             availableBytes = MemoryBudget.availableBytes(activityManager),
             selectedLimitMiB = memoryLimit,
