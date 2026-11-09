@@ -12,7 +12,7 @@ Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O proje
 - Login usando a senha APP_PASSWORD configurada no servidor.
 - A opção de salvar senha vem ativada por padrão; a senha é criptografada com AES-GCM e uma chave protegida pelo Android Keystore.
 - A sessão usa cookie HttpOnly mantido em memória. Quando o modo online está ativo e há senha salva, o app tenta autenticar novamente ao abrir.
-- Chat e histórico de conversas usam a API Mikael AI hospedada.
+- O chat do assistente não envia mensagens ao servidor: toda geração de texto usa o modelo GGUF local. O modo online fica restrito a recursos remotos opcionais, como conectores e arquivos.
 - Envio de documentos, código e imagens; análise de arquivos e geração de arquivos.
 - Consulta de conectores GitHub/MCP. O gerenciamento e a autorização dos conectores continuam na interface web original.
 - A conexão exige internet e o serviço online disponível.
@@ -20,7 +20,7 @@ Aplicativo Android nativo da Mikael AI com dois modos: online e offline. O proje
 ## Modo offline
 - Inferência local com llama.cpp via JNI/NDK.
 - Importação de modelos GGUF pelo seletor de arquivos Android.
-- O chat offline não envia mensagens ao servidor.
+- O chat local não envia mensagens ao servidor, mesmo quando recursos remotos opcionais estão conectados.
 - O modelo recomendado usa ChatML. Outros modelos importados também precisam ser compatíveis com ChatML nesta versão.\n- O primeiro download do modelo recomendado exige internet; depois de baixado, a geração local não depende de Render, OpenRouter ou créditos.
 - Desempenho depende do tamanho/quantização, contexto, RAM e CPU do aparelho.
 
