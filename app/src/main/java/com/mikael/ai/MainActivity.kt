@@ -133,6 +133,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var onlineAuthenticated by remember { mutableStateOf(false) }
     var passwordInput by remember { mutableStateOf("") }
     var savePassword by remember { mutableStateOf(true) }
+    var savedPasswordCache by remember { mutableStateOf<String?>(null) }
     var loginBusy by remember { mutableStateOf(false) }
     var onlineStatus by remember { mutableStateOf("Entre com sua senha para conectar ao servidor.") }
     var onlineModels by remember { mutableStateOf(emptyList<OnlineModel>()) }
@@ -145,7 +146,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val onlineApi = remember { OnlineApi() }
 
     LaunchedEffect(Unit) {
-        val saved = SecureCredentials.readPassword(context)
+        val saved = withContext(Dispatchers.IO) { SecureCredentials.readPassword(context) }
+        savedPasswordCache = saved
         if (saved != null && onlineMode) {
             loginBusy = true
             onlineStatus = "Reconectando à Mikael AI online..."
@@ -173,6 +175,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             } else {
                 onlineAuthenticated = false
                 withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
+                savedPasswordCache = null
                 savePassword = false
                 onlineStatus = loginResult.exceptionOrNull()?.message ?: "Não foi possível reconectar."
             }
@@ -534,7 +537,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 messages.clear()
                                 remoteConversationId = null
                                 if (it) {
-                                    passwordInput = SecureCredentials.readPassword(context).orEmpty()
+                                    passwordInput = savedPasswordCache.orEmpty()
                                     if (onlineAuthenticated) {
                                         scope.launch {
                                             runCatching {
@@ -550,7 +553,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onPasswordChange = { passwordInput = it },
                         onSavePasswordChange = {
                             savePassword = it
-                            if (!it) scope.launch(Dispatchers.IO) { SecureCredentials.clear(context) }
+                            if (!it) {
+                                savedPasswordCache = null
+                                scope.launch(Dispatchers.IO) { SecureCredentials.clear(context) }
+                            }
                         },
                         onLogin = {
                             loginBusy = true
@@ -584,11 +590,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     if (savePassword) {
                                         runCatching {
                                             withContext(Dispatchers.IO) { SecureCredentials.savePassword(context, passwordInput) }
+                                            savedPasswordCache = passwordInput
                                         }.onFailure {
                                             onlineStatus = "Conectado, mas não foi possível salvar a senha com segurança."
                                         }
                                     } else {
                                         withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
+                                        savedPasswordCache = null
                                     }
                                     passwordInput = ""
                                 } else {
@@ -605,6 +613,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             remoteConversations = emptyList()
                             remoteConversationId = null
                             if (savePassword) scope.launch(Dispatchers.IO) { SecureCredentials.clear(context) }
+                            savedPasswordCache = null
                             onlineStatus = "Você saiu do modo online."
                         },
                         onModelChange = {
