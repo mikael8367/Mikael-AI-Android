@@ -2,6 +2,7 @@ package com.mikael.ai
 
 import okhttp3.Cookie
 import okhttp3.CookieJar
+import okhttp3.Call
 import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -45,15 +46,22 @@ class OnlineApi(
         .build()
 
     @Volatile private var authenticated = false
+    @Volatile private var activeCall: Call? = null
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
     @Synchronized
     fun login(password: String) {
         require(password.isNotBlank()) { "Digite a senha de acesso." }
         val body = JSONObject().put("password", password).toString().toRequestBody(jsonType)
-        request("/api/login", "POST", body, authRequired = false)
-        authenticated = true
-        me()
+        try {
+            request("/api/login", "POST", body, authRequired = false)
+            authenticated = true
+            me()
+        } catch (error: Exception) {
+            authenticated = false
+            cookieJar.clear()
+            throw error
+        }
     }
 
     @Synchronized
@@ -64,6 +72,10 @@ class OnlineApi(
     }
 
     fun isAuthenticated(): Boolean = authenticated
+
+    fun cancelActive() {
+        activeCall?.cancel()
+    }
 
     fun models(): List<OnlineModel> {
         val array = JSONArray(request("/api/models"))
@@ -116,7 +128,7 @@ class OnlineApi(
     fun sendMessage(message: String, conversationId: Long?, modelId: String): RemoteChatResult {
         require(message.isNotBlank()) { "A mensagem está vazia." }
         require(message.length <= 20000) { "A mensagem ultrapassa o limite de 20.000 caracteres." }
-        require(modelId in setOf("mikael", "deepseek", "gpt4o_mini")) { "Modelo online inválido." }
+        require(modelId in setOf("mikael", "deepseek", "gpt4o_mini", "gemini_flash", "claude_sonnet", "qwen_coder", "gpt5_mini")) { "Modelo online inválido." }
         val payload = JSONObject().put("message", message).put("model_id", modelId)
         if (conversationId != null && conversationId > 0L) payload.put("conversation_id", conversationId)
         val result = JSONObject(request("/api/chat", "POST", payload.toString().toRequestBody(jsonType)))
@@ -145,21 +157,31 @@ class OnlineApi(
             "GET" -> builder.get()
             else -> throw IllegalArgumentException("Método HTTP não permitido.")
         }
-        client.newCall(builder.build()).execute().use { response ->
-            val text = response.body?.string().orEmpty()
-            if (!response.isSuccessful) {
-                val detail = runCatching { JSONObject(text).optString("detail") }.getOrNull().orEmpty()
-                val message = detail.ifBlank {
-                    when (response.code) {
-                        401 -> "Senha incorreta ou sessão expirada."
-                        429 -> "Muitas solicitações. Aguarde um pouco."
-                        502, 503 -> "O serviço de IA está indisponível no momento."
-                        else -> "Falha online (HTTP ${response.code})."
+        val call = client.newCall(builder.build())
+        activeCall = call
+        try {
+            call.execute().use { response ->
+                val text = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    if (response.code == 401) {
+                        authenticated = false
+                        cookieJar.clear()
                     }
+                    val detail = runCatching { JSONObject(text).optString("detail") }.getOrNull().orEmpty()
+                    val message = detail.ifBlank {
+                        when (response.code) {
+                            401 -> "Senha incorreta ou sessão expirada."
+                            429 -> "Muitas solicitações. Aguarde um pouco."
+                            502, 503 -> "O serviço de IA está indisponível no momento."
+                            else -> "Falha online (HTTP ${response.code})."
+                        }
+                    }
+                    throw IOException(message)
                 }
-                throw IOException(message)
+                return text
             }
-            return text
+        } finally {
+            if (activeCall === call) activeCall = null
         }
     }
 }
