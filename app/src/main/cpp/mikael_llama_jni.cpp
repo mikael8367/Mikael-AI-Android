@@ -287,11 +287,12 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     const int limit = std::clamp(std::min(requestedOutput, remainingContext), 1, 256);
     bool decodeFailed = false;
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
-        nativeLog(env, "INFO", "SAMPLE_BEGIN • next_token=" + std::to_string(generatedTokens + 1));
+        const bool traceToken = generatedTokens == 0 || (generatedTokens + 1) % 8 == 0;
+        if (traceToken) nativeLog(env, "INFO", "SAMPLE_BEGIN • next_token=" + std::to_string(generatedTokens + 1));
         const auto sampleStart = std::chrono::steady_clock::now();
         const llama_token token = llama_sampler_sample(sampler, g_context, -1);
         ++generatedTokens;
-        nativeLog(env, "INFO", "SAMPLE_DONE • token=" + std::to_string(generatedTokens) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - sampleStart).count()));
+        if (traceToken) nativeLog(env, "INFO", "SAMPLE_DONE • token=" + std::to_string(generatedTokens) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - sampleStart).count()));
         if (generatedTokens == 1 || generatedTokens % 8 == 0) nativeLog(env, "INFO", "GEN_PROGRESS • token=" + std::to_string(generatedTokens) + "/" + std::to_string(limit));
         if (token == LLAMA_TOKEN_NULL || llama_vocab_is_eog(g_vocab, token)) break;
 
@@ -308,10 +309,10 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
 
         llama_token nextToken = token;
         llama_batch batch = llama_batch_get_one(&nextToken, 1);
-        nativeLog(env, "INFO", "GEN_DECODE_BEGIN • token=" + std::to_string(generatedTokens));
+        if (traceToken) nativeLog(env, "INFO", "GEN_DECODE_BEGIN • token=" + std::to_string(generatedTokens));
         const auto decodeStart = std::chrono::steady_clock::now();
         const int decodeResult = llama_decode(g_context, batch);
-        nativeLog(env, decodeResult == 0 ? "INFO" : "ERROR", "GEN_DECODE_END • token=" + std::to_string(generatedTokens) + " • llama_decode_rc=" + std::to_string(decodeResult) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - decodeStart).count()));
+        if (traceToken || decodeResult != 0) nativeLog(env, decodeResult == 0 ? "INFO" : "ERROR", "GEN_DECODE_END • token=" + std::to_string(generatedTokens) + " • llama_decode_rc=" + std::to_string(decodeResult) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - decodeStart).count()));
         if (decodeResult != 0) {
             decodeFailed = true;
             break;
