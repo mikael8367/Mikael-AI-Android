@@ -15,7 +15,8 @@ Aplicativo Android nativo da Mikael AI, com foco em inferência local e privacid
 
 - Android 8.0 (API 26) ou superior.
 - ABI inicial: ARM64.
-- Um modelo GGUF compatível, importado pelo seletor de arquivos do Android.
+- Um modelo GGUF compatível, baixado pelo usuário e importado pelo seletor de arquivos do Android.
+- Nesta etapa, o prompt usa ChatML; prefira modelos Instruct que aceitem esse formato.
 - A capacidade depende do tamanho do modelo, do contexto e da memória livre. Aparelhos de entrada precisam de modelos pequenos e quantizados.
 
 ## Compilar
@@ -28,4 +29,4 @@ O APK de depuração fica em app/build/outputs/apk/debug/app-debug.apk.
 
 ## Estado atual
 
-A estrutura nativa e o pipeline de compilação estão sendo montados. A integração completa de inferência, persistência de conversas e gerenciamento de modelos será validada em etapas. Não considere o app pronto até o CI passar e ocorrer um teste em aparelho Android ARM64 real.
+A estrutura nativa, o chat local básico, o histórico e o seletor de modelos GGUF estão em implementação. O app ainda precisa passar pelo CI e ser testado em aparelho Android ARM64 real. O download integrado de modelos, streaming de tokens e múltiplas conversas ainda não estão prontos.
