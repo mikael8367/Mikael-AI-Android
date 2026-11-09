@@ -226,6 +226,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onlineStatus = "Arquivo enviado: ${uploaded.filename}"
                         android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_SHORT).show()
                     } catch (error: Exception) {
+                        if (!onlineApi.isAuthenticated()) {
+                            onlineAuthenticated = false
+                            passwordInput = savedPasswordCache.orEmpty()
+                        }
                         onlineStatus = error.message ?: "Falha ao enviar arquivo."
                         android.widget.Toast.makeText(context, onlineStatus, android.widget.Toast.LENGTH_LONG).show()
                     } finally {
@@ -398,6 +402,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     }
                                     remoteConversationId = id
                                 } catch (error: Exception) {
+                                    if (!onlineApi.isAuthenticated()) {
+                                        onlineAuthenticated = false
+                                        passwordInput = savedPasswordCache.orEmpty()
+                                    }
                                     onlineStatus = error.message ?: "Não foi possível abrir a conversa."
                                 }
                             }
