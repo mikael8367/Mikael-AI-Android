@@ -45,4 +45,14 @@ class MemoryBudgetTest {
     fun rejectsInvalidContext() {
         assertEquals(null, MemoryBudget.estimateRequiredBytes(1000L, 99))
     }
+
+    @Test
+    fun rejectsOverflowingModelEstimate() {
+        assertEquals(null, MemoryBudget.estimateRequiredBytes(Long.MAX_VALUE, 2048))
+    }
+
+    @Test
+    fun negativeAvailableMemoryDoesNotOverflowBudget() {
+        assertEquals(0L, MemoryBudget.safeBudgetBytes(Long.MIN_VALUE, 768))
+    }
 }
