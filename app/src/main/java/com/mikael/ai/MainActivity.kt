@@ -141,17 +141,32 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         if (saved != null) {
             loginBusy = true
             onlineStatus = "Reconectando à Mikael AI online..."
-            runCatching {
+            val loginResult = runCatching {
                 withContext(Dispatchers.IO) { onlineApi.login(saved) }
-                onlineModels = withContext(Dispatchers.IO) { onlineApi.models() }
-                remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+            }
+            if (loginResult.isSuccess) {
                 onlineAuthenticated = true
-                onlineStatus = "Conectado com segurança."
-            }.onFailure {
+                val dataResult = runCatching {
+                    val models = withContext(Dispatchers.IO) { onlineApi.models() }
+                    val conversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                    models to conversations
+                }
+                dataResult.onSuccess { (models, conversations) ->
+                    onlineModels = models
+                    remoteConversations = conversations
+                    if (models.none { it.id == selectedOnlineModel }) {
+                        selectedOnlineModel = models.firstOrNull()?.id ?: "mikael"
+                        preferences.onlineModelId = selectedOnlineModel
+                    }
+                    onlineStatus = "Conectado com segurança."
+                }.onFailure {
+                    onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
+                }
+            } else {
                 onlineAuthenticated = false
-                SecureCredentials.clear(context)
+                withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
                 savePassword = false
-                onlineStatus = it.message ?: "Não foi possível reconectar."
+                onlineStatus = loginResult.exceptionOrNull()?.message ?: "Não foi possível reconectar."
             }
             loginBusy = false
         }
@@ -340,8 +355,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             }
                                             remoteConversationId = result.conversationId
                                             messages.add(ChatMessage(System.currentTimeMillis(), "assistant", result.reply))
-                                            remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
                                             onlineStatus = "Resposta recebida do servidor."
+                                            runCatching {
+                                                remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                            }.onFailure {
+                                                onlineStatus = "Resposta recebida; não foi possível atualizar a lista de conversas."
+                                            }
                                         }.onFailure { error ->
                                             messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro online: ${error.message ?: "não foi possível conectar."}"))
                                             onlineStatus = error.message ?: "Falha na conexão online."
@@ -421,13 +440,29 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             loginBusy = true
                             onlineStatus = "Conectando..."
                             scope.launch {
-                                runCatching {
+                                val loginResult = runCatching {
                                     withContext(Dispatchers.IO) { onlineApi.login(passwordInput) }
-                                    onlineModels = withContext(Dispatchers.IO) { onlineApi.models() }
-                                    remoteConversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                }
+                                if (loginResult.isSuccess) {
                                     onlineAuthenticated = true
                                     onlineMode = true
                                     preferences.onlineMode = true
+                                    val dataResult = runCatching {
+                                        val models = withContext(Dispatchers.IO) { onlineApi.models() }
+                                        val conversations = withContext(Dispatchers.IO) { onlineApi.conversations() }
+                                        models to conversations
+                                    }
+                                    dataResult.onSuccess { (models, conversations) ->
+                                        onlineModels = models
+                                        remoteConversations = conversations
+                                        if (models.none { it.id == selectedOnlineModel }) {
+                                            selectedOnlineModel = models.firstOrNull()?.id ?: "mikael"
+                                            preferences.onlineModelId = selectedOnlineModel
+                                        }
+                                        onlineStatus = "Conectado. Modelos online carregados."
+                                    }.onFailure {
+                                        onlineStatus = "Conectado, mas não foi possível carregar modelos e histórico: ${it.message}"
+                                    }
                                     if (savePassword) {
                                         runCatching {
                                             withContext(Dispatchers.IO) { SecureCredentials.savePassword(context, passwordInput) }
@@ -438,12 +473,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
                                     }
                                     passwordInput = ""
-                                    if (onlineStatus != "Conectado, mas não foi possível salvar a senha com segurança.") {
-                                        onlineStatus = "Conectado. Modelos online carregados."
-                                    }
-                                }.onFailure {
+                                } else {
                                     onlineAuthenticated = false
-                                    onlineStatus = it.message ?: "Falha no login."
+                                    onlineStatus = loginResult.exceptionOrNull()?.message ?: "Falha no login."
                                 }
                                 loginBusy = false
                             }
