@@ -54,7 +54,7 @@ fun OfflineLogsScreen(
     ) {
         Text("Logs do aplicativo", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "Registro local das ações, toques, mudanças de configuração, carregamento do modelo e erros. Atualiza automaticamente.",
+            "Registro local com etapas do motor, códigos de erro, retornos llama_decode e rastros de exceção. Não inclui mensagens da conversa. Atualiza automaticamente.",
             color = Color(0xFF9EAAA2),
             style = MaterialTheme.typography.bodySmall
         )
@@ -102,6 +102,7 @@ fun OfflineLogsScreen(
                                 Modifier.weight(1f).padding(vertical = 5.dp),
                                 color = when {
                                     line.contains("[ERROR]") -> Color(0xFFFF8A80)
+                                    line.contains("[TRACE]") -> Color(0xFFB8A8FF)
                                     line.contains("[WARN]") -> Color(0xFFFFD18A)
                                     else -> Color(0xFFD6E2DA)
                                 },
