@@ -198,11 +198,13 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         val path = modelPath
         if (path.isNullOrBlank()) {
             engineStatus = "Nenhum modelo selecionado. Importe um GGUF ou baixe o modelo recomendado."
+            logEvent("WARN", "Motor local aguardando seleção de modelo")
             return@LaunchedEffect
         }
         val file = File(path)
         if (!file.isFile || file.length() <= 0L) {
             engineStatus = "O arquivo selecionado não existe mais. Importe ou selecione outro modelo."
+            logEvent("ERROR", "Arquivo GGUF selecionado não foi encontrado")
             return@LaunchedEffect
         }
         val check = MemoryBudget.check(
@@ -213,6 +215,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         )
         if (!check.allowed) {
             engineStatus = check.reason ?: "Memória insuficiente para carregar o modelo."
+            logEvent("WARN", "Carregamento cancelado pelo orçamento de memória")
             return@LaunchedEffect
         }
         engineStatus = "Carregando modelo GGUF no aparelho..."
@@ -418,6 +421,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
                                 engineReady = false
                                 engineStatus = "Modelo descarregado da memória."
+                                logEvent("INFO", "Modelo descarregado da memória RAM")
                                 }
                             }
                         },
@@ -439,6 +443,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 } else {
                                     models = installedModels(context)
                                     engineStatus = "Modelo excluído do armazenamento do aplicativo."
+                                    logEvent("WARN", "Arquivo GGUF excluído do armazenamento local")
                                 }
                                 }
                             }
@@ -471,8 +476,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         }
                                         reloadKey++
                                         downloadStatus = "Download concluído e SHA-256 validado. O modelo foi salvo e selecionado."
+                                        logEvent("INFO", "Download do modelo concluído e SHA-256 validado")
                                     } catch (error: Exception) {
                                         downloadStatus = error.message ?: "Falha no download."
+                                        logEvent("ERROR", "Falha no download do modelo: ${error.javaClass.simpleName}")
                                     } finally {
                                         downloading = false
                                     }
