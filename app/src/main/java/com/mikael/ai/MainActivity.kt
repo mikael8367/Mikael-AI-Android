@@ -174,10 +174,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
             } else {
                 onlineAuthenticated = false
-                withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
-                savedPasswordCache = null
-                savePassword = false
-                onlineStatus = loginResult.exceptionOrNull()?.message ?: "Não foi possível reconectar."
+                val loginError = loginResult.exceptionOrNull()?.message ?: "Não foi possível reconectar."
+                if (loginError.contains("senha incorreta", ignoreCase = true)) {
+                    withContext(Dispatchers.IO) { SecureCredentials.clear(context) }
+                    savedPasswordCache = null
+                    savePassword = false
+                }
+                onlineStatus = loginError
             }
             loginBusy = false
         }
