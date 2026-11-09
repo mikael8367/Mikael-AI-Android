@@ -435,9 +435,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     try {
                                         val conversationPrompt = buildString {
                                             append("<|im_start|>system\nVocê é Mikael AI, um assistente útil e especializado em programação. Responda em português do Brasil quando apropriado.\n<|im_end|>\n")
-                                            messages.takeLast(12).forEach { message ->
+                                            // Keep the prompt bounded for the compact on-device context.
+                                            messages.takeLast(4).forEach { message ->
                                                 append(if (message.role == "user") "<|im_start|>user\n" else "<|im_start|>assistant\n")
-                                                append(message.text)
+                                                append(message.text.take(400))
                                                 append("\n<|im_end|>\n")
                                             }
                                             append("<|im_start|>assistant\n")
