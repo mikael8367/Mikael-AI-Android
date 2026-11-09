@@ -29,7 +29,7 @@ object AssistantPromptBuilder {
                     "Explique com clareza. Para código, priorize correção, legibilidade e compatibilidade.\n"
                 )
                 AssistantMode.CODING -> append(
-                    "MODO PROGRAMADOR: aja como engenheiro de software. Entregue código completo e compilável, com imports e dependências. " +
+                    "MODO PROGRAMADOR: aja como engenheiro de software. Entregue códigos completos e compiláveis, com imports e dependências. " +
                         "Considere erros, segurança, desempenho e memória. Inclua testes reproduzíveis e validação quando fizer sentido. " +
                         "Nunca diga que executou algo sem evidência.\n"
                 )
