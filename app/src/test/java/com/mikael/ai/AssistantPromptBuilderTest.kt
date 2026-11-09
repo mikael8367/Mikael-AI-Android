@@ -70,6 +70,19 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("https://example.com/docs"))
     }
 
+
+    @Test
+    fun promptNeverExceedsNativeUtf8ByteLimitWithUnicodeInput() {
+        val longUnicodeText = "á😀漢".repeat(12000)
+        val prompt = AssistantPromptBuilder.build(
+            AssistantMode.DEEP_AUDIT,
+            listOf("user" to longUnicodeText)
+        )
+
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 22000)
+        assertTrue(prompt.endsWith("<|im_start|>assistant\\n"))
+    }
+
     @Test
     fun failedSearchIsReportedWithoutPretendingItWorked() {
         val prompt = AssistantPromptBuilder.build(
