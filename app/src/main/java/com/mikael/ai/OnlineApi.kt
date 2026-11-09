@@ -188,7 +188,7 @@ class OnlineApi(
     fun sendMessage(message: String, conversationId: Long?, modelId: String): RemoteChatResult {
         require(message.isNotBlank()) { "A mensagem está vazia." }
         require(message.length <= 20000) { "A mensagem ultrapassa o limite de 20.000 caracteres." }
-        require(modelId in setOf("mikael", "deepseek", "gpt4o_mini", "gemini_flash", "claude_sonnet", "qwen_coder", "gpt5_mini")) { "Modelo online inválido." }
+        require(modelId.isNotBlank() && modelId.length <= 128) { "Modelo online inválido." }
         val payload = JSONObject().put("message", message).put("model_id", modelId)
         if (conversationId != null && conversationId > 0L) payload.put("conversation_id", conversationId)
         val result = JSONObject(request("/api/chat", "POST", payload.toString().toRequestBody(jsonType)))
