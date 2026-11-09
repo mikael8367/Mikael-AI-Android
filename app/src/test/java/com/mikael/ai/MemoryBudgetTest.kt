@@ -3,6 +3,7 @@ package com.mikael.ai
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -43,12 +44,12 @@ class MemoryBudgetTest {
 
     @Test
     fun rejectsInvalidContext() {
-        assertEquals(null, MemoryBudget.estimateRequiredBytes(1000L, 99))
+        assertNull(MemoryBudget.estimateRequiredBytes(1000L, 99))
     }
 
     @Test
     fun rejectsOverflowingModelEstimate() {
-        assertEquals(null, MemoryBudget.estimateRequiredBytes(Long.MAX_VALUE, 2048))
+        assertNull(MemoryBudget.estimateRequiredBytes(Long.MAX_VALUE, 2048))
     }
 
     @Test
