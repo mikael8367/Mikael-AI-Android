@@ -844,6 +844,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             onlineAuthenticated = false
                             onlineModels = emptyList()
                             remoteConversations = emptyList()
+                            remoteConnectors = emptyList()
+                            uploadedFiles = emptyList()
                             remoteConversationId = null
                             if (savePassword) scope.launch(Dispatchers.IO) { SecureCredentials.clear(context) }
                             savedPasswordCache = null
