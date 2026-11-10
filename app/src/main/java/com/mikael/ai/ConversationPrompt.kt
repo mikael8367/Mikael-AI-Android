@@ -47,8 +47,38 @@ Se faltar dado essencial, pergunte em vez de adivinhar.
         return if (technicalSignals.any { text.contains(it) }) 192 else 128
     }
 
-    fun build(
+    /** Prompt compacto para MKAI v1: o contexto desse checkpoint é medido em bytes, não tokens GGUF. */
+    fun buildMkai(
         messages: List<ChatMessage>,
+        contextCapacityBytes: Int,
+        reserveOutputBytes: Int = 64
+    ): String {
+        require(contextCapacityBytes >= 128) { "O contexto do Mikael AI precisa ter pelo menos 128 bytes." }
+        val system = "<|im_start|>system\\nVocê é Mikael AI. Responda em português do Brasil, com clareza e de forma breve.\\n<|im_end|>\\n"
+        val assistantPrefix = "<|im_start|>assistant\\n"
+        val outputReserve = reserveOutputBytes.coerceIn(16, contextCapacityBytes / 2)
+        val promptBudget = (contextCapacityBytes - outputReserve - assistantPrefix.toByteArray(Charsets.UTF_8).size).coerceAtLeast(0)
+        val current = messages.lastOrNull()?.takeIf { it.role == "user" }
+            ?: error("Digite uma mensagem antes de enviar.")
+        val systemBudget = minOf(system.toByteArray(Charsets.UTF_8).size, promptBudget / 2)
+        val safeSystem = fitUtf8(system, systemBudget)
+        var remaining = (promptBudget - safeSystem.toByteArray(Charsets.UTF_8).size).coerceAtLeast(0)
+        val currentBlock = formatMessage(current)
+        val safeCurrent = fitUtf8(currentBlock, remaining)
+        remaining = (remaining - safeCurrent.toByteArray(Charsets.UTF_8).size).coerceAtLeast(0)
+        val history = messages.dropLast(1).asReversed()
+            .filter { it.role == "user" || it.role == "assistant" }
+            .take(2)
+            .map { fitUtf8(formatMessage(it), minOf(remaining, 64)) }
+            .asReversed().joinToString("")
+        val result = safeSystem + history + safeCurrent + assistantPrefix
+        check(result.toByteArray(Charsets.UTF_8).size <= contextCapacityBytes - outputReserve) {
+            "O prompt ultrapassou o contexto disponível do Mikael AI."
+        }
+        return result
+    }
+
+    fun build(\n        messages: List<ChatMessage>,
         githubContext: String,
         contextCapacityTokens: Int,
         reserveOutputTokens: Int = 160,
