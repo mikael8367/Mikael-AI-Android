@@ -16,6 +16,8 @@ class ThinkingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            LocalInferenceEngine.cancel()
+            LlamaInferenceEngine.cancel()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
