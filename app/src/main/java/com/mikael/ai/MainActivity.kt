@@ -1111,6 +1111,7 @@ private fun SettingsScreen(
     val context = LocalContext.current
     var storageRefresh by remember { mutableStateOf(0) }
     var showCacheConfirmation by remember { mutableStateOf(false) }
+    var showHistoryConfirmation by remember { mutableStateOf(false) }
     var storageMessage by remember { mutableStateOf("") }
     val modelStorageBytes = remember(storageRefresh) { StorageManager.installedModelBytes(context) }
     val cacheBytes = remember(storageRefresh) { StorageManager.cacheBytes(context) }
@@ -1221,7 +1222,7 @@ private fun SettingsScreen(
             }
         }
         HorizontalDivider(color = Color(0xFF26332B))
-        OutlinedButton(onClick = onClearHistory, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = { showHistoryConfirmation = true }, enabled = !storageBusy, modifier = Modifier.fillMaxWidth()) {
             Text("Apagar histórico local")
         }
         Text(
@@ -1243,6 +1244,20 @@ private fun SettingsScreen(
                 }) { Text("Limpar") }
             },
             dismissButton = { TextButton(onClick = { showCacheConfirmation = false }) { Text("Cancelar") } }
+        )
+    }
+    if (showHistoryConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showHistoryConfirmation = false },
+            title = { Text("Apagar histórico local?") },
+            text = { Text("Todas as conversas serão removidas deste aparelho. A memória do usuário e os modelos instalados não serão apagados.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearHistory()
+                    showHistoryConfirmation = false
+                }) { Text("Apagar histórico") }
+            },
+            dismissButton = { TextButton(onClick = { showHistoryConfirmation = false }) { Text("Cancelar") } }
         )
     }
 }
