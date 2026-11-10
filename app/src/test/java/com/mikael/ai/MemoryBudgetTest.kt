@@ -88,4 +88,17 @@ class MemoryBudgetTest {
     fun negativeAvailableMemoryDoesNotOverflowBudget() {
         assertEquals(0L, MemoryBudget.safeBudgetBytes(Long.MIN_VALUE, 768))
     }
+    @Test
+    fun modelSpecificMinimumMemoryCannotBeBypassedBySmallFileSize() {
+        val result = MemoryBudget.check(
+            availableBytes = 4L * 1024L * 1024L * 1024L,
+            selectedLimitMiB = 2_048,
+            modelBytes = 622_000_000L,
+            contextTokens = 1_024,
+            minimumEstimatedBytes = 3_000_000_000L
+        )
+        assertFalse(result.allowed)
+        assertEquals(3_000_000_000L, result.estimatedBytes)
+    }
+
 }
