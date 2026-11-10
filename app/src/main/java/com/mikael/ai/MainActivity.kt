@@ -223,8 +223,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 try {
                     val imported = withContext(Dispatchers.IO) { importModel(context, uri) }
                     engineReady = false
-                    LocalInferenceEngine.cancel()
-                    withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                    withModelOperation {
+                        LocalInferenceEngine.cancel()
+                        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                    }
                     modelPath = imported.absolutePath
                     preferences.modelPath = modelPath
                     models = installedModels(context)
@@ -239,6 +241,8 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                     busy = false
                 }
             }
+        } else {
+            busy = false
         }
     }
 
@@ -524,10 +528,22 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         busy = busy || downloading || generating,
                         downloadProgress = downloadProgress,
                         downloadStatus = downloadStatus,
-                        onImport = { logEvent("INFO", "Toque: importar modelo GGUF"); modelPicker.launch(arrayOf("*/*")) },
+                        onImport = {
+                            if (!busy && !downloading && !generating) {
+                                busy = true
+                                logEvent("INFO", "Toque: importar modelo GGUF")
+                                runCatching { modelPicker.launch(arrayOf("*/*")) }
+                                    .onFailure { error ->
+                                        busy = false
+                                        engineStatus = error.message ?: "Não foi possível abrir o seletor de modelos."
+                                        logEvent("ERROR", "Falha ao abrir seletor de modelos: ${error.javaClass.simpleName}")
+                                    }
+                            }
+                        },
                         onSelectRecommended = { path ->
                             logEvent("INFO", "Toque: selecionar modelo recomendado")
                             if (!generating && !busy && !downloading) {
+                                busy = true
                                 engineReady = false
                                 modelPath = path
                                 preferences.modelPath = path
@@ -537,7 +553,8 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         },
                         onSelect = { path ->
                             logEvent("INFO", "Toque: selecionar modelo instalado")
-                            if (!generating && !busy) {
+                            if (!generating && !busy && !downloading) {
+                                busy = true
                                 engineReady = false
                                 modelPath = path
                                 preferences.modelPath = path
@@ -546,43 +563,62 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         },
                         onUnload = {
                             logEvent("INFO", "Toque: descarregar modelo")
-                            if (!generating) {
+                            if (!generating && !busy && !downloading) {
+                                busy = true
                                 engineReady = false
                                 scope.launch {
-                                LocalInferenceEngine.cancel()
-                                withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
-                                engineReady = false
-                                engineStatus = "Modelo descarregado da memória."
-                                logEvent("INFO", "Modelo descarregado da memória RAM")
+                                    try {
+                                        withModelOperation {
+                                            LocalInferenceEngine.cancel()
+                                            withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                                        }
+                                        engineStatus = "Modelo descarregado da memória."
+                                        logEvent("INFO", "Modelo descarregado da memória RAM")
+                                    } catch (error: Exception) {
+                                        engineStatus = error.message ?: "Não foi possível descarregar o modelo."
+                                        logEvent("ERROR", "Falha ao descarregar modelo: ${error.javaClass.simpleName}")
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
                             }
                         },
                         onDelete = { path ->
                             logEvent("WARN", "Toque: excluir modelo instalado")
-                            if (!generating && !busy) {
+                            if (!generating && !busy && !downloading) {
+                                busy = true
                                 if (path == modelPath) engineReady = false
                                 scope.launch {
-                                if (path == modelPath) {
-                                    LocalInferenceEngine.cancel()
-                                    withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
-                                    engineReady = false
-                                    modelPath = null
-                                    preferences.modelPath = null
-                                }
-                                val target = File(path)
-                                if (target.exists() && !target.delete()) {
-                                    engineStatus = "Não foi possível excluir o arquivo do modelo."
-                                } else {
-                                    models = installedModels(context)
-                                    engineStatus = "Modelo excluído do armazenamento do aplicativo."
-                                    logEvent("WARN", "Arquivo GGUF excluído do armazenamento local")
-                                }
+                                    try {
+                                        if (path == modelPath) {
+                                            withModelOperation {
+                                                LocalInferenceEngine.cancel()
+                                                withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                                            }
+                                            engineReady = false
+                                            modelPath = null
+                                            preferences.modelPath = null
+                                        }
+                                        val target = File(path)
+                                        if (target.exists() && !target.delete()) {
+                                            engineStatus = "Não foi possível excluir o arquivo do modelo."
+                                        } else {
+                                            models = installedModels(context)
+                                            engineStatus = "Modelo excluído do armazenamento do aplicativo."
+                                            logEvent("WARN", "Arquivo GGUF excluído do armazenamento local")
+                                        }
+                                    } catch (error: Exception) {
+                                        engineStatus = error.message ?: "Não foi possível excluir o modelo."
+                                        logEvent("ERROR", "Falha ao excluir modelo: ${error.javaClass.simpleName}")
+                                    } finally {
+                                        busy = false
+                                    }
                                 }
                             }
                         },
                         onDownload = {
                             logEvent("INFO", "Toque: baixar modelo recomendado")
-                            if (!downloading && !generating) {
+                            if (!downloading && !generating && !busy) {
                                 downloading = true
                                 downloadProgress = 0f
                                 downloadStatus = "Preparando download do modelo recomendado..."
@@ -597,8 +633,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             }
                                         }
                                         engineReady = false
-                                        LocalInferenceEngine.cancel()
-                                        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                                        withModelOperation {
+                                            LocalInferenceEngine.cancel()
+                                            withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                                        }
                                         modelPath = downloaded.absolutePath
                                         preferences.modelPath = modelPath
                                         models = installedModels(context)
@@ -641,12 +679,14 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
                         onMemoryChange = {
+                            busy = true
                             engineReady = false
                             memoryLimit = it
                             preferences.memoryLimitMiB = it
                             logEvent("INFO", "Configuração alterada: limite de memória = $it MiB")
                         },
                         onContextChange = {
+                            busy = true
                             engineReady = false
                             contextTokens = it
                             preferences.contextTokens = it
@@ -657,9 +697,16 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             messages.clear()
                             ConversationStore.clear(context)
                         },
-                        onReload = { logEvent("INFO", "Toque: recarregar modelo pelas configurações"); if (!generating) { engineReady = false; reloadKey++ } },
-                        reloadEnabled = !generating,
-                        controlsEnabled = !generating,
+                        onReload = {
+                            logEvent("INFO", "Toque: recarregar modelo pelas configurações")
+                            if (!generating && !busy && !downloading) {
+                                busy = true
+                                engineReady = false
+                                reloadKey++
+                            }
+                        },
+                        reloadEnabled = !generating && !busy && !downloading,
+                        controlsEnabled = !generating && !busy && !downloading,
                         onLog = { level, message -> logEvent(level, message) },
                         onGitHubContextLoaded = { repoContext ->
                             input = repoContext
