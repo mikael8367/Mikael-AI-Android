@@ -21,8 +21,11 @@ object OnlineSearchClient {
     private const val PREFS = "mikael_online_search_session"
     private const val KEY_COOKIE = "encrypted_session_cookie"
 
-    fun hasSession(context: Context): Boolean =
-        !context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_COOKIE, null).isNullOrBlank()
+    fun hasSession(context: Context): Boolean {
+        val stored = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_COOKIE, null)
+            ?: return false
+        return runCatching { SecureLocalStorage.decrypt(stored).startsWith("mikael_session=") }.getOrDefault(false)
+    }
 
     suspend fun login(context: Context, password: String) = withContext(Dispatchers.IO) {
         require(password.isNotBlank() && password.length <= 256) { "Informe a senha do serviço Mikael AI." }
