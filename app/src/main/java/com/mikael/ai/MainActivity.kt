@@ -139,8 +139,9 @@ private fun MikaelTheme(content: @Composable () -> Unit) {
 @Composable
 private fun MikaelOfflineApp(preferences: AppPreferences) {
     val context = LocalContext.current
+    val appContext = context.applicationContext
     val scope = rememberCoroutineScope()
-    val logEvent: (String, String) -> Unit = { level, message -> AppLogStore.add(context, level, message) }
+    val logEvent: (String, String) -> Unit = { level, message -> AppLogStore.add(appContext, level, message) }
     LaunchedEffect(Unit) {
         LocalInferenceEngine.setDiagnosticSink { level, message ->
             AppLogStore.add(context, level, message)
@@ -371,7 +372,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 attachments = emptyList()
                                 val assistantMessageId = nextMessageId()
                                 messages.add(ChatMessage(assistantMessageId, "assistant", ""))
-                                ConversationStore.save(context, messages)
+                                ConversationStore.save(appContext, messages)
                                 generating = true
                                 val selectedMode = mode
                                 ConversationSession.generationJob = ConversationSession.scope.launch {
@@ -430,7 +431,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         }
                                         ConversationStore.save(context, messages)
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
-                                        AppLogStore.addThrowable(context, "Falha na geração local após ${elapsedMs} ms", error)
+                                        AppLogStore.addThrowable(appContext, "Falha na geração local após ${elapsedMs} ms", error)
                                         logEvent(
                                             "ERROR",
                                             "Falha na geração local após ${elapsedMs} ms: ${error.javaClass.name} • ${error.message ?: "sem detalhes"}"
