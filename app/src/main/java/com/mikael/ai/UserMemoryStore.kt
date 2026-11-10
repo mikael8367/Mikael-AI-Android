@@ -42,6 +42,7 @@ object UserMemoryStore {
                 tokenSimilarity(normalize(old.text), normalized) >= DUPLICATE_THRESHOLD) {
                 items[duplicateIndex] = old.copy(text = fact, topic = classifyTopic(fact))
                 write(context, items)
+                return true
             }
             return false
         }
@@ -131,7 +132,7 @@ object UserMemoryStore {
     private fun read(context: Context): List<UserMemoryItem> = runCatching {
         val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ITEMS, "[]") ?: "[]"
         val json = JSONArray(raw)
-        buildList {
+        val parsed = buildList {
             for (i in 0 until json.length()) {
                 val value = json.opt(i)
                 val item = if (value is JSONObject) {
@@ -145,6 +146,19 @@ object UserMemoryStore {
                 }
                 if (item != null) add(item)
             }
-        }.distinctBy { normalize(it.text) }.takeLast(MAX_ITEMS)
+        }
+        val deduplicated = mutableListOf<UserMemoryItem>()
+        parsed.forEach { item ->
+            val normalized = normalize(item.text)
+            val duplicateIndex = deduplicated.indexOfFirst { existing ->
+                val candidate = normalize(existing.text)
+                candidate == normalized || tokenSimilarity(candidate, normalized) >= DUPLICATE_THRESHOLD
+            }
+            if (duplicateIndex < 0) deduplicated.add(item)
+            else if (item.text.length > deduplicated[duplicateIndex].text.length) {
+                deduplicated[duplicateIndex] = item
+            }
+        }
+        deduplicated.takeLast(MAX_ITEMS)
     }.getOrDefault(emptyList())
 }
