@@ -14,8 +14,8 @@ class AppPreferences(context: Context) {
         set(value) = updateSettings { put("model_path", value ?: JSONObject.NULL) }
 
     var selectedCatalogModelId: String
-        get() = readSettings().optString("selected_catalog_model_id", "mikael-base")
-            .takeIf { it in MODEL_IDS } ?: "mikael-base"
+        get() = readSettings().optString("selected_catalog_model_id", "qwen-0.5b")
+            .takeIf { it in MODEL_IDS } ?: "qwen-0.5b"
         set(value) {
             if (value in MODEL_IDS) updateSettings { put("selected_catalog_model_id", value) }
         }
@@ -86,7 +86,7 @@ class AppPreferences(context: Context) {
     private companion object {
         const val PREFS = "mikael_ai_settings"
         const val KEY_SECURE = "settings_secure_v1"
-        val MODEL_IDS = setOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")
+        val MODEL_IDS = setOf("qwen-0.5b")
         val CONTEXT_OPTIONS = setOf(512, 1024, 2048)
         val LEGACY_KEYS = listOf(
             "model_path",
