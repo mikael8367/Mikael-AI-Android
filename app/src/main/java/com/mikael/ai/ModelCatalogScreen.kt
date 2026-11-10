@@ -203,6 +203,8 @@ fun ModelCatalogScreen(
                     Text("Download estimado se os arquivos estiverem ausentes: ${formatModelBytes(teamDownloadBytes)}")
                     Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
                     Text("Espaço necessário estimado: ${formatModelBytes(teamRequiredSpace)}")
+                    Text("RAM disponível agora: ${formatModelBytes(availableMemoryBytes)} • orçamento configurado: $memoryLimitMiB MiB")
+                    Text("TinyLlama 1.1B Q4_K_M tem referência pública de até ~3,17 GB de RAM em certas condições. No Galaxy A12, a verificação pode recusá-lo; ele não será contado como participante se não puder carregar.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                     Text("Os arquivos serão baixados um por vez. Nenhum peso será baixado antes da confirmação. Se a verificação encontrar um arquivo corrompido, o app exigirá espaço para baixar somente esse arquivo novamente.")
                     Text("O uso de RAM é avaliado separadamente para cada modelo; ter espaço de armazenamento não garante que o TinyLlama consiga carregar.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                     if (missingTeamModels.any { it.license == "Licença não declarada" }) {
