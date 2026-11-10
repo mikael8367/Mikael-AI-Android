@@ -51,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -134,6 +135,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var engineReady by remember { mutableStateOf(false) }
     var engineStatus by remember { mutableStateOf("Importe um modelo autoral .mkai para começar.") }
     var isGenerating by remember { mutableStateOf(false) }
+    val serviceIsRunning by ThinkingService.isRunning.collectAsState()
     var input by remember { mutableStateOf("") }
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
     var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
@@ -182,6 +184,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         if (modelPath.isNullOrBlank() && catalogInstalled.isEmpty()) {
             tab = AppTab.MODELS
         }
+    }
+
+    LaunchedEffect(serviceIsRunning) {
+        isGenerating = serviceIsRunning
+        pendingTask = PendingTaskStore.load(context)
     }
 
     LaunchedEffect(pendingTask?.completedResponse) {
@@ -337,10 +344,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val activeEngineStatus = if (selectedCatalogModelId == "mikael-base") engineStatus else llamaStatus
 
     fun launchGeneration(prompt: String) {
-        if (ThinkingService.hasActiveTask()) {
-            isGenerating = true
-            return
-        }
+        if (ThinkingService.hasActiveTask()) return
         val modelId = selectedCatalogModelId
         val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), githubContext)
         PendingTaskStore.save(context, task)
@@ -405,10 +409,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     fun resumePendingTask() {
         val task = pendingTask ?: return
-        if (isGenerating || ThinkingService.hasActiveTask()) {
-            isGenerating = true
-            return
-        }
+        if (isGenerating || ThinkingService.hasActiveTask()) return
         if (selectedCatalogModelId != task.modelId) {
             selectedCatalogModelId = task.modelId
             preferences.selectedCatalogModelId = task.modelId
