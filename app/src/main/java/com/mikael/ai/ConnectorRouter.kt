@@ -11,7 +11,7 @@ internal data class ConnectorProposal(val kind: ConnectorKind, val query: String
 
 /** Roteador único de ferramentas, independente do modelo de linguagem ativo. */
 internal object ConnectorRouter {
-    private val githubRepo = Regex("(?i)(?:github\\.com/)?([A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100})")
+    private val githubRepo = Regex("(?i)(?:github\\.com/|github\\s+|reposit[oó]rio\\s+)([A-Za-z0-9_.-]{1,100}/[A-Za-z0-9_.-]{1,100})")
     fun detect(request: String): ConnectorProposal? {
         val text = request.trim()
         if (text.length < 2) return null
@@ -22,7 +22,7 @@ internal object ConnectorRouter {
             if (!path.isNullOrBlank() && !path.contains("..")) return ConnectorProposal(ConnectorKind.GITHUB_FILE, "$repo|$path", "Ler um arquivo específico do repositório GitHub.")
         }
         if (repo != null && hasAny(lower, "procure no código", "pesquise no código", "buscar no código", "search code")) {
-            val query = text.substringAfter(repo, "").replace(Regex("(?i)github|repositório|repositorio|no código|no codigo|procure|pesquise|buscar"), " ").trim()
+            val query = text.substringAfter(repo, "").replace(Regex("(?i)github|repositório|repositorio|no código|no codigo|procure|pesquise|buscar|por|para|sobre"), " ").trim()
             return ConnectorProposal(ConnectorKind.GITHUB_CODE_SEARCH, "$repo|$query", "Pesquisar símbolos e arquivos no código do repositório.")
         }
         if (repo != null && hasAny(lower, "issues", "pull request", "pull requests", "problemas abertos", "bugs abertos")) {
