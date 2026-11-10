@@ -60,6 +60,9 @@ object ModelInstaller {
             val remoteSha256 = ModelIntegrity.normalizeExpectedSha256(
                 connection.getHeaderField("X-Linked-Etag")
             )
+            check(remoteSha256 != null) {
+                "O servidor não forneceu um SHA-256 verificável. O download foi cancelado por segurança."
+            }
             val requiredSpace = (if (expected > 0) expected else model.approximateBytes) +
                 32L * 1024 * 1024
             check(directory.usableSpace > requiredSpace) {
