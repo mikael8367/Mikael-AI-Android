@@ -73,6 +73,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -81,6 +83,17 @@ import java.io.File
 
 private val messageIds = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() * 1000L)
 private fun nextMessageId(): Long = messageIds.incrementAndGet()
+
+/**
+ * Process-scoped chat state keeps an in-flight native generation alive when
+ * Android recreates MainActivity for rotation or another configuration change.
+ */
+private object ConversationSession {
+    val messages = mutableStateListOf<ChatMessage>()
+    val generating = mutableStateOf(false)
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    var generationJob: Job? = null
+}
 
 private enum class AppTab(val label: String, val symbol: String) {
     CHAT("Chat", "◌"),
@@ -138,7 +151,9 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     }
     val messages = remember {
-        mutableStateListOf<ChatMessage>().apply { addAll(ConversationStore.load(context)) }
+        ConversationSession.messages.apply {
+            if (isEmpty()) addAll(ConversationStore.load(context))
+        }
     }
     var tab by remember { mutableStateOf(AppTab.CHAT) }
     var input by remember { mutableStateOf("") }
@@ -149,8 +164,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
     var reloadKey by remember { mutableStateOf(0) }
     var engineReady by remember { mutableStateOf(false) }
     var engineStatus by remember { mutableStateOf("Importe ou baixe um modelo GGUF para começar.") }
-    var generating by remember { mutableStateOf(false) }
-    var generationJob by remember { mutableStateOf<Job?>(null) }
+    var generating by ConversationSession.generating
     var mode by remember { mutableStateOf(AssistantMode.CODING) }
     var downloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
@@ -197,10 +211,15 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
     }
 
     LaunchedEffect(modelPath, memoryLimit, contextTokens, reloadKey) {
+        val path = modelPath
+        if (!path.isNullOrBlank() && LocalInferenceEngine.isReadyFor(path, contextTokens)) {
+            engineReady = true
+            engineStatus = "Modelo pronto • inferência 100% local"
+            return@LaunchedEffect
+        }
         engineReady = false
         LocalInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
-        val path = modelPath
         if (path.isNullOrBlank()) {
             engineStatus = "Nenhum modelo selecionado. Importe um GGUF ou baixe o modelo recomendado."
             logEvent("WARN", "Motor local aguardando seleção de modelo")
@@ -316,7 +335,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         generating = generating,
                         onCancel = {
                             logEvent("WARN", "Toque: interromper geração")
-                            generationJob?.cancel()
+                            ConversationSession.generationJob?.cancel()
                             LocalInferenceEngine.cancel()
                         },
                         onOpenModels = { logEvent("INFO", "Toque: abrir modelos"); tab = AppTab.MODELS },
@@ -355,7 +374,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 ConversationStore.save(context, messages)
                                 generating = true
                                 val selectedMode = mode
-                                generationJob = scope.launch {
+                                ConversationSession.generationJob = ConversationSession.scope.launch {
                                     val startedAt = android.os.SystemClock.elapsedRealtime()
                                     try {
                                         val conversationPrompt = AssistantPromptBuilder.build(
@@ -370,7 +389,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         )
                                         val response = withContext(Dispatchers.IO) {
                                             LocalInferenceEngine.generate(conversationPrompt, tokenLimit) { piece ->
-                                                scope.launch(Dispatchers.Main.immediate) {
+                                                ConversationSession.scope.launch(Dispatchers.Main.immediate) {
                                                     val index = messages.indexOfFirst { it.id == assistantMessageId }
                                                     if (index >= 0) {
                                                         val current = messages[index]
@@ -418,7 +437,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         )
                                     } finally {
                                         generating = false
-                                        generationJob = null
+                                        ConversationSession.generationJob = null
                                     }
                                 }
                             }
