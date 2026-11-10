@@ -114,4 +114,32 @@ class ConversationPromptTest {
         assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= (512 - 160) * 3)
         assertTrue(!prompt.endsWith("\uFFFD"))
     }
+
+    @Test
+    fun mkaiPromptFitsByteContextForSimpleGreeting() {
+        val prompt = ConversationPrompt.buildMkai(
+            messages = listOf(ChatMessage(1L, "user", "oi")),
+            contextCapacityBytes = 512,
+            reserveOutputBytes = 64
+        )
+        assertTrue(prompt.contains("oi"))
+        assertTrue(prompt.contains("<|im_start|>assistant"))
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 448)
+    }
+
+    @Test
+    fun mkaiPromptPrioritizesCurrentMessageAndBoundsHistory() {
+        val prompt = ConversationPrompt.buildMkai(
+            messages = listOf(
+                ChatMessage(1L, "user", "A".repeat(200)),
+                ChatMessage(2L, "assistant", "B".repeat(200)),
+                ChatMessage(3L, "user", "mensagem atual")
+            ),
+            contextCapacityBytes = 512,
+            reserveOutputBytes = 64
+        )
+        assertTrue(prompt.contains("mensagem atual"))
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 448)
+    }
+
 }
