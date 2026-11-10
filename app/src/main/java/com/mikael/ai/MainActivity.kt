@@ -208,6 +208,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             llamaStatus = "Instale este modelo no catálogo antes de selecioná-lo."
             return@LaunchedEffect
         }
+        val checksumValid = ModelInstaller.verifyInstalledFile(file)
+        if (!checksumValid) {
+            llamaStatus = "Checksum SHA-256 inválido ou ausente. Reinstale este modelo pelo catálogo."
+            return@LaunchedEffect
+        }
         LlamaInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LlamaInferenceEngine.unload() }
         LocalInferenceEngine.cancel()
@@ -386,7 +391,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onDelete = { model ->
                             scope.launch(Dispatchers.IO) {
                                 val file = catalogInstalled[model.id]
-                                if (file != null) file.delete()
+                                if (file != null) {
+                                    file.delete()
+                                    File(file.parentFile, "${file.name}.sha256").delete()
+                                }
                                 withContext(Dispatchers.Main) {
                                     catalogInstalled = catalogInstalled - model.id
                                     if (selectedCatalogModelId == model.id) {
