@@ -32,7 +32,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -111,9 +110,6 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var tab by remember { mutableStateOf(AppTab.CHAT) }
     var modelPath by remember { mutableStateOf(preferences.modelPath) }
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
-    var activeDownloadId by remember { mutableStateOf<String?>(null) }
-    var downloadProgress by remember { mutableStateOf(0f) }
-    var downloadStatus by remember { mutableStateOf("") }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
@@ -288,40 +284,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         installedModels = installedModels,
                         engineStatus = engineStatus,
                         engineReady = engineReady,
-                        activeDownloadId = activeDownloadId,
-                        downloadProgress = downloadProgress,
-                        downloadStatus = downloadStatus,
                         onImport = { modelPicker.launch(arrayOf("application/octet-stream")) },
-                        onDownload = { model ->
-                            if (activeDownloadId == null) {
-                                scope.launch {
-                                    activeDownloadId = model.id
-                                    downloadProgress = 0f
-                                    downloadStatus = "Preparando download..."
-                                    try {
-                                        ModelDownloader.download(context, model) { received, total ->
-                                            downloadProgress = (received.toFloat() / total.toFloat()).coerceIn(0f, 1f)
-                                            downloadStatus = "Baixando ${(downloadProgress * 100).toInt()}% — ${model.name}"
-                                        }
-                                        installedModels = listInstalledModels(context)
-                                        downloadStatus = "${model.name} instalado e verificado."
-                                        android.widget.Toast.makeText(context, "Modelo instalado. Escolha Usar para carregá-lo.", android.widget.Toast.LENGTH_LONG).show()
-                                    } catch (error: Exception) {
-                                        downloadStatus = error.message ?: "Falha ao baixar o modelo."
-                                    } finally {
-                                        activeDownloadId = null
-                                        downloadProgress = 0f
-                                    }
-                                }
-                            }
-                        },
                         onSelect = { selectedPath ->
                             preferences.modelPath = selectedPath
-                            if (selectedPath == modelPath) {
-                                modelReloadCounter += 1
-                            } else {
-                                modelPath = selectedPath
-                            }
+                            if (selectedPath == modelPath) modelReloadCounter += 1
+                            else modelPath = selectedPath
                         },
                         onLoad = { modelReloadCounter += 1 },
                         onUnload = {
@@ -526,11 +493,7 @@ private fun ModelsScreen(
     installedModels: List<File>,
     engineStatus: String,
     engineReady: Boolean,
-    activeDownloadId: String?,
-    downloadProgress: Float,
-    downloadStatus: String,
     onImport: () -> Unit,
-    onDownload: (CatalogModel) -> Unit,
     onSelect: (String) -> Unit,
     onLoad: () -> Unit,
     onUnload: () -> Unit,
@@ -540,9 +503,9 @@ private fun ModelsScreen(
         modifier = Modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Modelos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Motor e modelos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "Importe um modelo Mikael AI (.mkai) treinado com pesos próprios. O motor não aceita GGUF nem modelos de terceiros.",
+            "O motor próprio aceita somente arquivos .mkai. Modelos GGUF e pesos de terceiros não são compatíveis.",
             color = Color(0xFF9EAAA2)
         )
         Card(
@@ -565,77 +528,25 @@ private fun ModelsScreen(
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
             Text("Importar modelo próprio (.mkai)")
         }
-        if (activeDownloadId != null) {
-            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202B25))) {
-                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(downloadStatus, style = MaterialTheme.typography.bodySmall)
-                    Text("${(downloadProgress * 100).toInt()}% concluído", color = Color(0xFF8BE7B7))
-                    CircularProgressIndicator(
-                        progress = { downloadProgress },
-                        modifier = Modifier.size(22.dp),
-                        strokeWidth = 2.dp
-                    )
-                }
-            }
-        } else if (downloadStatus.isNotBlank()) {
-            Text(downloadStatus, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
-        }
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             item {
-                Text("Mikael AI — modelo próprio", fontWeight = FontWeight.Bold)
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF173024)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text("Mikael AI Base", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
-                        Text("Modelo autoral em desenvolvimento. A proposta é criar arquitetura, tokenizer, dados de treinamento e pesos próprios, sem reaproveitar os pesos do Qwen ou de outro modelo.")
-                        Text("Status: pesquisa e preparação do treinamento. Ainda não existe um arquivo de pesos pronto para instalar.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                        Text("Motor Transformer próprio implementado. O modelo ainda precisa receber tokenizer treinado e pesos treinados do zero.")
+                        Text("Estado: motor experimental; não há pesos oficiais para conversar com qualidade ainda.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
-            item { Text("Modelos autorais", fontWeight = FontWeight.Bold) }
-            items(ModelCatalog.models, key = { it.id }) { model ->
-                val installed = installedModels.firstOrNull { it.name == model.fileName }
-                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
-                    Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text(model.name, fontWeight = FontWeight.SemiBold)
-                                Text(model.category + " • " + model.sizeLabel + " • " + model.license,
-                                    color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
-                            }
-                            if (installed != null) {
-                                Text("Instalado", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Text(model.description, color = Color(0xFFB6C2BA), style = MaterialTheme.typography.bodySmall)
-                        if (installed != null) {
-                            if (installed.absolutePath == modelPath) {
-                                Text("Este modelo está selecionado.", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                OutlinedButton(onClick = { onSelect(installed.absolutePath) }) { Text("Usar modelo") }
-                            }
-                        } else {
-                            Button(
-                                onClick = { onDownload(model) },
-                                enabled = activeDownloadId == null,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(if (activeDownloadId == model.id) "Baixando..." else "Baixar e instalar")
-                            }
-                        }
-                    }
-                }
-            }
-            item {
-                Text("Modelos instalados neste aparelho", fontWeight = FontWeight.Bold)
-            }
+            item { Text("Modelos instalados neste aparelho", fontWeight = FontWeight.Bold) }
             if (installedModels.isEmpty()) {
-                item { Text("Nenhum modelo .mkai instalado. O modelo autoral ainda precisa ser treinado e exportado.", color = Color(0xFF9EAAA2)) }
+                item { Text("Nenhum modelo .mkai instalado. Os pesos próprios ainda precisam ser treinados e exportados.", color = Color(0xFF9EAAA2)) }
             } else {
                 items(installedModels, key = { it.absolutePath }) { file ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
@@ -662,7 +573,7 @@ private fun ModelsScreen(
             }
             item {
                 Text(
-                    "O tamanho do arquivo não representa toda a RAM necessária. O contexto e os buffers também consomem memória. Modelos maiores podem não funcionar bem em celulares com pouca RAM.",
+                    "O tamanho do arquivo não representa toda a RAM necessária. O contexto e os buffers também consomem memória.",
                     color = Color(0xFF9EAAA2),
                     style = MaterialTheme.typography.bodySmall
                 )
