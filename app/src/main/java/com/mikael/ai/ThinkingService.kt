@@ -14,8 +14,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlin.coroutines.coroutineContext
 
 /** Mantém prioridade de processo e notificação visível durante inferência local iniciada pelo usuário. */
 class ThinkingService : Service() {
@@ -70,12 +70,16 @@ class ThinkingService : Service() {
         private const val CHANNEL_ID = "mikael_ai_thinking"
         private const val NOTIFICATION_ID = 7301
         private val taskScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+        @Volatile private var activeJob: Job? = null
 
         /** Escopo do processo, não vinculado à composição da tela do chat. */
-        fun launchTask(block: suspend CoroutineScope.() -> Unit): Job = taskScope.launch(block = block)
+        fun launchTask(block: suspend CoroutineScope.() -> Unit): Job = taskScope.launch {
+            activeJob = coroutineContext[Job]
+            try { block() } finally { activeJob = null }
+        }
 
         private fun cancelTask() {
-            taskScope.coroutineContext.cancel()
+            activeJob?.cancel()
         }
     }
 }
