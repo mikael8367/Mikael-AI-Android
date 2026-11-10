@@ -13,16 +13,33 @@ object UserMemoryStore {
     private const val KEY_ITEMS = "items"
     private const val KEY_ITEMS_SECURE = "items_secure_v1"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_ENABLED_SECURE = "enabled_secure_v1"
     const val MAX_ITEMS = 100
     const val MAX_ITEM_CHARS = 300
     const val MAX_CONTEXT_CHARS = 2400
     private const val DUPLICATE_THRESHOLD = 0.75
 
-    fun isEnabled(context: Context): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true)
+    fun isEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encrypted = prefs.getString(KEY_ENABLED_SECURE, null)
+        val decrypted = encrypted?.let { runCatching { SecureLocalStorage.decrypt(it) }.getOrNull() }
+        if (decrypted != null) return runCatching { JSONObject(decrypted).optBoolean("enabled", true) }.getOrDefault(true)
+        val legacy = prefs.getBoolean(KEY_ENABLED, true)
+        runCatching {
+            val payload = SecureLocalStorage.encrypt(JSONObject().put("enabled", legacy).toString())
+            val stored = prefs.edit().putString(KEY_ENABLED_SECURE, payload).commit()
+            if (stored) prefs.edit().remove(KEY_ENABLED).commit()
+        }
+        return legacy
+    }
 
     fun setEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val payload = SecureLocalStorage.encrypt(JSONObject().put("enabled", enabled).toString())
+        check(prefs.edit().putString(KEY_ENABLED_SECURE, payload).commit()) {
+            "Não foi possível salvar a configuração de memória criptografada."
+        }
+        prefs.edit().remove(KEY_ENABLED).commit()
     }
 
     fun load(context: Context): List<UserMemoryItem> = read(context)
