@@ -105,6 +105,7 @@ class MikaelTokenizer private constructor(
         private const val HEADER_BYTES = 24
         private const val DIGEST_BYTES = 32
         private const val MAX_MERGES = 4096
+        private const val MAX_TRAINING_MERGES = 128
         private const val MAX_CORPUS_BYTES = 256L * 1024L
         private const val MAX_DECODE_BYTES = 1024L * 1024L
         private val MAGIC = byteArrayOf(77, 75, 84, 79, 75, 48, 48, 49) // MKTOK001
@@ -118,8 +119,8 @@ class MikaelTokenizer private constructor(
             targetVocabularySize: Int = 1024,
             minimumPairFrequency: Int = 2
         ): MikaelTokenizer {
-            require(targetVocabularySize in BASE_VOCAB_SIZE..(BASE_VOCAB_SIZE + MAX_MERGES)) {
-                "O vocabulário deve ficar entre 256 e ${BASE_VOCAB_SIZE + MAX_MERGES} tokens."
+            require(targetVocabularySize in BASE_VOCAB_SIZE..(BASE_VOCAB_SIZE + MAX_TRAINING_MERGES)) {
+                "O treinamento no celular aceita de 256 a ${BASE_VOCAB_SIZE + MAX_TRAINING_MERGES} tokens; arquivos importados podem ter até ${BASE_VOCAB_SIZE + MAX_MERGES}."
             }
             require(minimumPairFrequency >= 2) { "A frequência mínima precisa ser pelo menos 2." }
             require(corpus.isNotEmpty()) { "O corpus de treinamento está vazio." }
@@ -128,7 +129,7 @@ class MikaelTokenizer private constructor(
                 require(text.length.toLong() <= MAX_CORPUS_BYTES) { "Uma amostra do corpus excede o limite de 256 KiB." }
                 val bytes = text.toByteArray(Charsets.UTF_8)
                 totalBytes += bytes.size
-                require(totalBytes <= MAX_CORPUS_BYTES) { "Corpus maior que 16 MiB; divida o treinamento em conjuntos menores." }
+                require(totalBytes <= MAX_CORPUS_BYTES) { "Corpus maior que 256 KiB; divida o treinamento em conjuntos menores." }
                 IntArray(bytes.size) { bytes[it].toInt() and 0xFF }
             }.filter { it.isNotEmpty() }.toMutableList()
             require(sequences.isNotEmpty()) { "O corpus não contém texto UTF-8." }
@@ -165,7 +166,7 @@ class MikaelTokenizer private constructor(
                 val mergedLength = leftBytes.size.toLong() + rightBytes.size.toLong()
                 totalTokenBytes += mergedLength
                 require(mergedLength <= MAX_DECODE_BYTES && totalTokenBytes <= MAX_DECODE_BYTES) {
-                    "O vocabulário treinado excede o limite de memória de 16 MiB."
+                    "O vocabulário treinado excede o limite de memória de 1 MiB."
                 }
                 tokenBytes.add(leftBytes + rightBytes)
                 for (index in sequences.indices) sequences[index] = replacePair(sequences[index], left, right, newId)
