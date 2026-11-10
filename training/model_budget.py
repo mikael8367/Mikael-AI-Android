@@ -117,7 +117,7 @@ def main() -> int:
     try:
         config.validate()
         file_bytes = config.weight_file_bytes(args.dtype)
-        kv_bytes = config.kv_cache_bytes(args.kv_context or args.context, args.batch)
+        kv_bytes = config.kv_cache_bytes(args.kv_context if args.kv_context is not None else args.context, args.batch)
     except ValueError as error:
         parser.error(str(error))
 
