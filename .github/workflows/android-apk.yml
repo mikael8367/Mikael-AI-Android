@@ -1,4 +1,4 @@
-name: Android APK
+name: Mikael AI Native Android APK
 
 on:
   push:
