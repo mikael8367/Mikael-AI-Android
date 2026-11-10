@@ -146,7 +146,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         LocalInferenceEngine.setDiagnosticSink { level, message ->
             AppLogStore.add(appContext, level, message)
         }
-        logEvent("INFO", "Aplicativo iniciado • versão 1.8.3")
+        logEvent("INFO", "Aplicativo iniciado • versão 1.9.0")
     }
     val activityManager = remember(context) {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -293,7 +293,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                 Column(Modifier.padding(start = 11.dp)) {
                     Text("Mikael AI", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text("IA LOCAL • PRIVACIDADE NO DISPOSITIVO", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
-                    Text("v1.8.2", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
+                    Text("v1.9.0", color = Color(0xFF718779), style = MaterialTheme.typography.labelSmall)
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
