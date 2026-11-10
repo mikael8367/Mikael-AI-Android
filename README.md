@@ -63,7 +63,7 @@ gradle :app:lintDebug
 gradle :app:assembleDebug
 ```
 
-A CI da branch executa compilação nativa ARM64, testes unitários e Android Lint. A geração de APK é uma etapa separada e condicional. Build bem-sucedido não prova que o modelo foi carregado ou que gerou resposta em um Galaxy A12; isso requer teste físico.
+A CI da branch executa compilação nativa ARM64, testes unitários e Android Lint. A geração de APK é uma etapa separada e condicional; esta revisão solicita um único APK debug para medir o pacote e permitir teste manual. Build bem-sucedido não prova que o modelo foi carregado ou que gerou resposta em um Galaxy A12; isso requer teste físico.
 
 ## Licenças de terceiros
 
