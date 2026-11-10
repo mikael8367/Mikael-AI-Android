@@ -13,7 +13,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -81,7 +80,6 @@ fun ModelCatalogScreen(
                                     Text(if (percent != null) "Baixando..." else "Instalar")
                                 }
                             }
-                            OutlinedButton(onClick = { /* Source is shown below for accessibility */ }, enabled = false) { Text("GGUF") }
                         }
                         Text("Fonte: Hugging Face • ${model.sourceUrl}", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
                     }
