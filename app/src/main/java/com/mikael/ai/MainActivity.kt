@@ -115,7 +115,10 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         if (isFinishing) {
             LocalInferenceEngine.cancel()
-            Thread { LocalInferenceEngine.unload() }.start()
+            // Use the process-scoped coroutine scope instead of an unmanaged thread.
+            ConversationSession.scope.launch(Dispatchers.IO) {
+                LocalInferenceEngine.unload()
+            }
         }
         super.onDestroy()
     }
