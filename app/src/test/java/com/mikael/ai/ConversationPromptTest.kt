@@ -55,8 +55,41 @@ class ConversationPromptTest {
 
     @Test
     fun programmingRequestsReceiveLargerAnswerBudget() {
-        assertTrue(ConversationPrompt.responseTokenBudget("Corrija este bug em Kotlin") == 192)
+        assertTrue(ConversationPrompt.responseTokenBudget("Corrija este bug em Kotlin") == 256)
         assertTrue(ConversationPrompt.responseTokenBudget("Explique o que é uma variável") == 128)
+    }
+
+    @Test
+    fun debugRequestsReceiveDiagnosticWorkflow() {
+        val prompt = ConversationPrompt.build(
+            listOf(ChatMessage(1, "user", "Meu app apresenta crash, encontre o erro")),
+            "",
+            1024
+        )
+        assertTrue(prompt.contains("MODO DE DEPURAÇÃO"))
+        assertTrue(prompt.contains("testes de regressão"))
+    }
+
+    @Test
+    fun implementationRequestsReceiveCompleteProjectGuidance() {
+        val prompt = ConversationPrompt.build(
+            listOf(ChatMessage(1, "user", "Crie uma API em Kotlin")),
+            "",
+            1024
+        )
+        assertTrue(prompt.contains("MODO DE IMPLEMENTAÇÃO"))
+        assertTrue(prompt.contains("dependências, integração"))
+    }
+
+    @Test
+    fun reviewRequestsReceiveAuditGuidance() {
+        val prompt = ConversationPrompt.build(
+            listOf(ChatMessage(1, "user", "Faça uma auditoria deste código")),
+            "",
+            1024
+        )
+        assertTrue(prompt.contains("MODO DE REVISÃO"))
+        assertTrue(prompt.contains("Priorize achados por gravidade"))
     }
 
     @Test
