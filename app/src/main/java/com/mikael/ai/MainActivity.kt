@@ -484,7 +484,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         check(ModelInstaller.verifyInstalledFile(file)) {
                                             "Arquivo de ${participant.name} corrompido. Reinstale o modelo."
                                         }
-                                        val modelContext = 2048
+                                        val modelContext = TeamConversationCoordinator.contextTokensFor(
+                                            prompt = sharedPrompt,
+                                            outputTokens = tokenLimit,
+                                            preferredTokens = contextTokens
+                                        )
                                         val memory = MemoryBudget.check(
                                             availableBytes = MemoryBudget.availableBytes(activityManager),
                                             selectedLimitMiB = memoryLimit,
