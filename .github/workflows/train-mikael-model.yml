@@ -5,6 +5,7 @@ on:
     branches: ["fix/**"]
     paths:
       - "training/corpus.txt"
+      - "training/train_mikai.py"
   workflow_dispatch:
     inputs:
       corpus_path:
