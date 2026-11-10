@@ -34,6 +34,14 @@ internal object TeamConversationCoordinator {
     const val MAX_CALLS = 5
     const val MAX_ORIGINAL_PROMPT_BYTES = 3_000
 
+    /** Estima contexto GGUF sem alocar sempre o máximo em aparelhos com pouca RAM. */
+    internal fun contextTokensFor(prompt: String, outputTokens: Int, preferredTokens: Int): Int {
+        val promptBytes = prompt.toByteArray(Charsets.UTF_8).size
+        val estimatedTokens = (promptBytes * 2) / 5 + outputTokens + 64
+        return maxOf(1_024, preferredTokens.coerceIn(512, 2_048), estimatedTokens)
+            .coerceAtMost(2_048)
+    }
+
     suspend fun run(
         originalPrompt: String,
         chatContext: String,
