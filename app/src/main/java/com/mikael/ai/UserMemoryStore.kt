@@ -2,7 +2,6 @@ package com.mikael.ai
 
 import android.content.Context
 import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * Memória explícita e local. Só guarda fatos quando o usuário usa "Lembre:".
