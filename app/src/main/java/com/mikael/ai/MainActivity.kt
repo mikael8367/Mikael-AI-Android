@@ -391,14 +391,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
                                 input = ""
                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
-                                if (UserMemoryStore.rememberFromUserMessage(context, prompt)) {
+                                val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
+                                    UserMemoryStore.forgetFromUserMessage(context, prompt)
+                                if (memoryChanged) {
                                     userMemoryItems = UserMemoryStore.load(context)
                                     userMemoryCount = userMemoryItems.size
                                 }
                                 persistActiveConversation()
                                 isGenerating = true
                                 ContextCompat.startForegroundService(context, Intent(context, ThinkingService::class.java))
-                                scope.launch {
+                                ThinkingService.launchTask {
                                     try {
                                     val activeContext = if (selectedCatalogModelId == "mikael-base") {
                                         LocalInferenceEngine.contextCapacityTokens()
@@ -546,6 +548,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             UserMemoryStore.clear(context)
                             userMemoryItems = emptyList()
                             userMemoryCount = 0
+                        },
+                        onRemoveUserMemory = { item ->
+                            UserMemoryStore.remove(context, item)
+                            userMemoryItems = UserMemoryStore.load(context)
+                            userMemoryCount = userMemoryItems.size
                         },
                         allowOnlineFeatures = allowOnlineFeatures,
                         onAllowOnlineFeaturesChange = {
@@ -889,6 +896,7 @@ private fun SettingsScreen(
     userMemoryItems: List<String>,
     onUserMemoryEnabledChange: (Boolean) -> Unit,
     onClearUserMemory: () -> Unit,
+    onRemoveUserMemory: (String) -> Unit,
     allowOnlineFeatures: Boolean,
     onAllowOnlineFeaturesChange: (Boolean) -> Unit,
     memoryLimit: Int,
@@ -933,7 +941,13 @@ private fun SettingsScreen(
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Memória do usuário", fontWeight = FontWeight.SemiBold)
-            Text("$userMemoryCount lembranças salvas neste aparelho. Para guardar algo, comece a mensagem com \"Lembre: \". Exemplo: Lembre: prefiro respostas em português.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            Text("$userMemoryCount lembranças salvas neste aparelho. Use \"Lembre: ...\" para guardar e \"Esqueça: ...\" para remover uma lembrança pelo chat.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            userMemoryItems.forEach { item ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(item, modifier = Modifier.weight(1f), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { onRemoveUserMemory(item) }) { Text("Remover") }
+                }
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Usar memória nas respostas", modifier = Modifier.weight(1f))
                 Switch(checked = userMemoryEnabled, onCheckedChange = onUserMemoryEnabledChange)
