@@ -373,7 +373,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     val mikaelTeamFile = modelPath?.let(::File)
     val teamModelsReady = mikaelTeamFile?.let { it.isFile && MikaelModelInstaller.isValidMkai(it) } == true &&
-        ModelCatalog.models.filter { it.engine == ModelEngine.LLAMA_CPP }.all { catalogInstalled[it.id]?.isFile == true }
+        ModelCatalog.models.filter { it.engine == ModelEngine.LLAMA_CPP }.any { catalogInstalled[it.id]?.isFile == true }
     val activeEngineReady = when (selectedCatalogModelId) {
         ModelCatalog.TEAM_MODEL_ID -> teamModelsReady
         "mikael-base" -> engineReady
@@ -381,9 +381,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     }
     val activeEngineStatus = when (selectedCatalogModelId) {
         ModelCatalog.TEAM_MODEL_ID -> if (teamModelsReady) {
-            teamStatus.ifBlank { "Equipe local pronta. Os quatro modelos serão carregados um por vez." }
+            teamStatus.ifBlank { "Equipe local pronta com os modelos instalados. Modelos ausentes serão ignorados." }
         } else {
-            "Instale os quatro modelos na aba Modelos para iniciar a equipe local."
+            "Instale o Mikael AI e pelo menos um modelo GGUF (Qwen ou SmolLM2) para iniciar a equipe."
         }
         "mikael-base" -> engineStatus
         else -> llamaStatus
@@ -441,7 +441,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         TeamConversationCoordinator.run(
                             originalPrompt = prompt,
                             chatContext = teamChatContext,
-                            participants = ModelCatalog.teamParticipants,
+                            participants = ModelCatalog.teamParticipants.filter { participant ->
+                                participant.id == "mikael-base" || catalogInstalled[participant.id]?.isFile == true
+                            },
                             generate = { participant, sharedPrompt, tokenLimit ->
                                 runCatching {
                                     LocalInferenceEngine.cancel()
