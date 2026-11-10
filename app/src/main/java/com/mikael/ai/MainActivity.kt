@@ -212,6 +212,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         withContext(Dispatchers.IO) { LlamaInferenceEngine.unload() }
         LocalInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+        val memoryCheck = MemoryBudget.check(
+            availableBytes = MemoryBudget.availableBytes(activityManager),
+            selectedLimitMiB = memoryLimit,
+            modelBytes = file.length(),
+            contextTokens = contextTokens.coerceIn(128, 2048)
+        )
+        if (!memoryCheck.allowed) {
+            llamaStatus = memoryCheck.reason ?: "Memória insuficiente para carregar este GGUF."
+            return@LaunchedEffect
+        }
         llamaStatus = "Carregando GGUF no llama.cpp..."
         val result = withContext(Dispatchers.IO) {
             LlamaInferenceEngine.load(file.absolutePath, contextTokens.coerceIn(128, 2048))
