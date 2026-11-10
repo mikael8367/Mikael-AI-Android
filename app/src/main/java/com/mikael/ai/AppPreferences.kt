@@ -29,6 +29,10 @@ class AppPreferences(context: Context) {
             if (value in listOf(512, 1024, 2048, 4096)) prefs.edit().putInt("context_tokens", value).apply()
         }
 
+    var allowOnlineFeatures: Boolean
+        get() = prefs.getBoolean("allow_online_features", false)
+        set(value) { prefs.edit().putBoolean("allow_online_features", value).apply() }
+
     var githubClientId: String
         get() = prefs.getString("github_client_id", "") ?: ""
         set(value) { prefs.edit().putString("github_client_id", value.trim()).apply() }
