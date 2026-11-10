@@ -47,7 +47,7 @@ fun ModelCatalogScreen(
                 modifier = Modifier.padding(vertical = 8.dp)
             ) {
                 Text("Modelos disponíveis", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Mikael AI Assistente, Mikael AI autoral e três modelos GGUF.", color = Color(0xFF9EAAA2))
+                Text("Mikael AI autoral e três modelos GGUF opcionais.", color = Color(0xFF9EAAA2))
                 Text(
                     "Escolha um modelo, instale-o e toque em Usar modelo. O carregamento acontece automaticamente.",
                     color = Color(0xFF9EAAA2),
@@ -146,7 +146,7 @@ fun ModelCatalogScreen(
         item {
             Spacer(Modifier.size(8.dp))
             Text(
-                "Os modelos são executados localmente. Em aparelhos com pouca RAM, comece pelo SmolLM2 360M ou por um MKAI pequeno.",
+                "Os modelos GGUF de terceiros são opcionais. O Mikael AI autoral será instalado quando o primeiro checkpoint próprio estiver treinado e validado.",
                 color = Color(0xFF9EAAA2),
                 style = MaterialTheme.typography.bodySmall
             )
