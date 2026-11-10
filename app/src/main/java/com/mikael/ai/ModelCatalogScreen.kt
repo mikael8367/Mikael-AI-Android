@@ -81,7 +81,7 @@ fun ModelCatalogScreen(
                     if (isMikael) {
                         Text(
                             if (mikaelAvailable) "Checkpoint MKAI instalado neste aparelho."
-                            else "Primeiro, adicione training/corpus.txt com pelo menos 4 KiB de exemplos originais/licenciados. Ao salvar na branch de correções, o GitHub treina e publica o checkpoint; depois baixe por este botão.",
+                            else "O checkpoint autoral MKAI v1 já está publicado. Toque em Baixar e instalar para usar. Também é possível treinar uma versão futura com seu próprio corpus.",
                             color = if (mikaelAvailable) Color(0xFF54E69C) else Color(0xFFFFD28A),
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -100,7 +100,7 @@ fun ModelCatalogScreen(
                             Text(if (percent != null) "Baixando..." else "Baixar e instalar Mikael AI")
                         }
                         OutlinedButton(onClick = onTrainMkai, modifier = Modifier.fillMaxWidth()) {
-                            Text("Adicionar corpus e treinar no GitHub")
+                            Text("Treinar uma nova versão do Mikael AI")
                         }
                         OutlinedButton(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) {
                             Text("Importar arquivo .mkai manualmente")
