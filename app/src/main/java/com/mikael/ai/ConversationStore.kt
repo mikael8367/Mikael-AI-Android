@@ -55,6 +55,11 @@ object ConversationStore {
         }
     }.takeLast(MAX_MESSAGES_PER_CONVERSATION)
 
+    fun append(messages: MutableList<ChatMessage>, message: ChatMessage) {
+        messages.add(message)
+        while (messages.size > MAX_MESSAGES_PER_CONVERSATION) messages.removeAt(0)
+    }
+
     fun saveAll(context: Context, conversations: List<ChatConversation>) {
         val json = JSONArray()
         conversations.sortedByDescending { it.updatedAt }.take(MAX_CONVERSATIONS).forEach { conversation ->
