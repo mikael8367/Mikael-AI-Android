@@ -17,10 +17,11 @@ data class TeamRunResult(
     val finalizer: String,
     val attemptCount: Int,
     val finalizationFallback: Boolean,
-    val finalizationError: String?
+    val finalizationError: String?,
+    val participantCount: Int = contributions.size
 ) {
     val participatedCount: Int get() = contributions.size
-    val allParticipated: Boolean get() = contributions.size == 4 && failedParticipants.isEmpty()
+    val allParticipated: Boolean get() = contributions.size == participantCount && failedParticipants.isEmpty()
 }
 
 /**
@@ -55,7 +56,7 @@ internal object TeamConversationCoordinator {
         require(originalPrompt.toByteArray(Charsets.UTF_8).size <= MAX_ORIGINAL_PROMPT_BYTES) {
             "A mensagem excede 3.000 bytes. Divida o pedido em mensagens menores para usar a equipe local."
         }
-        require(participants.size in 2..4) { "A equipe precisa do Mikael AI e de pelo menos um modelo GGUF instalado." }
+        require(participants.size in 2..4) { "A equipe precisa de pelo menos dois modelos instalados." }
         require(participants.map { it.id }.distinct().size == participants.size) {
             "Há participantes duplicados na equipe."
         }
@@ -67,7 +68,7 @@ internal object TeamConversationCoordinator {
         participants.forEachIndexed { index, participant ->
             currentCoroutineContext().ensureActive()
             val role = roleName(participant, programmingTask)
-            onStage("${role} • ${participant.name} • ${index + 1}/4")
+            onStage("${role} • ${participant.name} • ${index + 1}/${participants.size}")
             val prompt = buildPrompt(
                 originalPrompt = originalPrompt,
                 chatContext = chatContext,
@@ -110,7 +111,8 @@ internal object TeamConversationCoordinator {
                 finalizer = onlyContribution.participant.name,
                 attemptCount = participants.size,
                 finalizationFallback = true,
-                finalizationError = "Nenhum modelo GGUF conseguiu executar a etapa de revisão e síntese."
+                finalizationError = "Nenhum modelo GGUF conseguiu executar a etapa de revisão e síntese.",
+                participantCount = participants.size
             )
         }
 
@@ -147,7 +149,8 @@ internal object TeamConversationCoordinator {
             finalizer = finalizer.name,
             attemptCount = calls,
             finalizationFallback = finalizationFallback,
-            finalizationError = finalizationError
+            finalizationError = finalizationError,
+            participantCount = participants.size
         )
     }
 

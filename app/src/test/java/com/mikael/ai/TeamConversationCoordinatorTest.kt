@@ -329,4 +329,25 @@ class TeamConversationCoordinatorTest {
         assertEquals(3, result.attemptCount)
     }
 
+    @Test
+    fun partialTeamWithoutMikaelUsesAvailableGgufModels() = runBlocking {
+        val available = team.drop(1).take(2)
+        val stages = mutableListOf<String>()
+        val result = TeamConversationCoordinator.run(
+            originalPrompt = "Oi",
+            chatContext = "",
+            participants = available,
+            generate = { participant, _, _ ->
+                Result.success("Resposta de ${participant.name}")
+            },
+            onStage = { stages += it }
+        )
+
+        assertEquals(2, result.participantCount)
+        assertEquals(2, result.participatedCount)
+        assertTrue(result.allParticipated)
+        assertEquals(3, result.attemptCount)
+        assertTrue(stages.all { !it.contains("/4") })
+    }
+
 }

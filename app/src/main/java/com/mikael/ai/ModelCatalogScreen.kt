@@ -76,7 +76,7 @@ fun ModelCatalogScreen(
         item {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF173024)), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Mikael AI — 4 modelos", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
+                    Text("Equipe local — até 4 modelos", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
                     Text(
                         "Uma conversa única. Mikael AI, Qwen 2.5, SmolLM2 e TinyLlama contribuem em sequência, recebendo o histórico compartilhado das falas anteriores. Na última etapa, um modelo revisa as contribuições e consolida uma resposta só.",
                         color = Color(0xFFE1EAE4), style = MaterialTheme.typography.bodySmall
@@ -87,8 +87,8 @@ fun ModelCatalogScreen(
                     )
                     Text(
                         if (teamReady && missingTeamModels.isEmpty()) "Todos os quatro modelos estão instalados."
-                        else if (teamReady) "Equipe parcial pronta: ${4 - missingTeamModels.size}/4 modelos instalados. Os modelos disponíveis já podem responder."
-                        else "Instale o Mikael AI e pelo menos um modelo GGUF. Faltam ${missingTeamModels.size} modelo(s). Download restante: ${formatModelBytes(teamDownloadBytes)}.",
+                        else if (teamReady) "Equipe parcial pronta: ${4 - missingTeamModels.size}/4 modelos instalados. Os modelos disponíveis já podem responder; ausentes serão ignorados."
+                        else "Instale pelo menos dois modelos para formar a equipe. O Mikael AI é opcional; modelos ausentes serão ignorados. Faltam ${missingTeamModels.size} modelo(s). Download restante: ${formatModelBytes(teamDownloadBytes)}.",
                         color = if (teamReady) Color(0xFF54E69C) else Color(0xFFFFD28A), style = MaterialTheme.typography.labelSmall
                     )
                     if (teamInstallStatus.isNotBlank()) Text(teamInstallStatus, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
@@ -101,14 +101,14 @@ fun ModelCatalogScreen(
                         }
                     } else {
                         OutlinedButton(onClick = { confirmTeamInstall = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                            Text("Verificar integridade dos quatro modelos")
+                            Text("Verificar integridade dos modelos")
                         }
                     }
                     Button(
                         onClick = onSelectTeam,
                         enabled = teamReady && selectedModelId != ModelCatalog.TEAM_MODEL_ID && !busy,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text(if (selectedModelId == ModelCatalog.TEAM_MODEL_ID) "Equipe selecionada" else "Usar Mikael AI — 4 modelos") }
+                    ) { Text(if (selectedModelId == ModelCatalog.TEAM_MODEL_ID) "Equipe selecionada" else "Usar equipe local") }
                     Text(
                         "O TinyLlama 1.1B é o participante mais pesado. O MKAI v1 tem apenas 512 bytes de contexto e pode ser ignorado em pedidos longos. Pedidos acima de 3.000 bytes precisam ser divididos. A memória é verificada antes de cada carga; se um modelo não couber, ele será marcado como falha. A referência pública do TinyLlama Q4_K_M estima até ~3,17 GB de RAM em certas condições; o orçamento pode chegar a 3 GB em aparelhos maiores, mas a memória livre real do Galaxy A12 normalmente não alcança essa exigência; o app o recusará quando o orçamento seguro for insuficiente. O contexto GGUF começa em 1024 e cresce até 2048 conforme o prompt. As cinco etapas em CPU podem demorar, consumir bateria e aquecer o aparelho.",
                         color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall

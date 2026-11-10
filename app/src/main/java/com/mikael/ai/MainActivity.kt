@@ -372,8 +372,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     }
 
     val mikaelTeamFile = modelPath?.let(::File)
-    val teamModelsReady = mikaelTeamFile?.let { it.isFile && MikaelModelInstaller.isValidMkai(it) } == true &&
-        ModelCatalog.models.filter { it.engine == ModelEngine.LLAMA_CPP }.any { catalogInstalled[it.id]?.isFile == true }
+    val mikaelTeamAvailable = mikaelTeamFile?.let {
+        it.isFile && MikaelModelInstaller.isValidMkai(it)
+    } == true
+    val availableTeamParticipants = ModelCatalog.teamParticipants.filter { participant ->
+        if (participant.id == "mikael-base") mikaelTeamAvailable
+        else catalogInstalled[participant.id]?.isFile == true
+    }
+    // A equipe é parcial por definição: modelos ausentes são ignorados. Dois
+    // participantes são o mínimo necessário para haver colaboração e síntese.
+    val teamModelsReady = availableTeamParticipants.size >= 2
     val activeEngineReady = when (selectedCatalogModelId) {
         ModelCatalog.TEAM_MODEL_ID -> teamModelsReady
         "mikael-base" -> engineReady
@@ -383,7 +391,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         ModelCatalog.TEAM_MODEL_ID -> if (teamModelsReady) {
             teamStatus.ifBlank { "Equipe local pronta com os modelos instalados. Modelos ausentes serão ignorados." }
         } else {
-            "Instale o Mikael AI e pelo menos um modelo GGUF (Qwen ou SmolLM2) para iniciar a equipe."
+            "Instale pelo menos dois modelos locais para iniciar a equipe. O Mikael AI é opcional."
         }
         "mikael-base" -> engineStatus
         else -> llamaStatus
@@ -441,9 +449,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         TeamConversationCoordinator.run(
                             originalPrompt = prompt,
                             chatContext = teamChatContext,
-                            participants = ModelCatalog.teamParticipants.filter { participant ->
-                                participant.id == "mikael-base" || catalogInstalled[participant.id]?.isFile == true
-                            },
+                            participants = availableTeamParticipants,
                             generate = { participant, sharedPrompt, tokenLimit ->
                                 runCatching {
                                     LocalInferenceEngine.cancel()
@@ -516,10 +522,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         )
                     }
-                    val participation = "Equipe local: ${teamRun.participatedCount}/4 modelos participaram; ${teamRun.attemptCount} tentativas sequenciais."
+                    val participation = "Equipe local: ${teamRun.participatedCount}/${teamRun.participantCount} modelos disponíveis contribuíram; ${teamRun.attemptCount} tentativas sequenciais."
                     val failures = teamRun.failedParticipants.entries.joinToString("; ") { "${it.key}: ${it.value}" }
                     val participantNote = if (teamRun.failedParticipants.isEmpty()) "" else {
-                        "\n\n[Participação parcial — ${teamRun.participatedCount}/4: ${failures}]"
+                        "\n\n[Participação parcial — ${teamRun.participatedCount}/${teamRun.participantCount}: ${failures}]"
                     }
                     val synthesisNote = if (teamRun.finalizationFallback) {
                         "\n\n[Consolidação automática indisponível; foi usada a melhor contribuição disponível. ${teamRun.finalizationError.orEmpty()}]"
