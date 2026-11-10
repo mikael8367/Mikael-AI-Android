@@ -621,7 +621,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     }
                                 }
                             }
-                        }
+                        },
+                        availableStorageBytes = context.filesDir.usableSpace,
+                        availableMemoryBytes = MemoryBudget.availableBytes(activityManager),
+                        memoryLimitMiB = memoryLimit,
+                        contextTokens = contextTokens
                     )
                     AppTab.GITHUB -> GithubConnectorScreen(
                         clientId = githubClientId,
