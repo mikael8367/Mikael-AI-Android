@@ -318,6 +318,9 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
         const int decodeResult = llama_decode(g_context, batch);
         nativeLog(env, decodeResult == 0 ? "INFO" : "ERROR", "PREFILL_BATCH_END • offset=" + std::to_string(offset) + " • count=" + std::to_string(count) + " • llama_decode_rc=" + std::to_string(decodeResult) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - batchStart).count()));
         if (decodeResult == 2) return cancelledString(env);
+        if (decodeResult == 1) {
+            return errorString(env, "E_PREFILL_NO_KV_SLOT", "O contexto não encontrou espaço KV para o lote. Reduza o contexto ou o tamanho do lote.");
+        }
         if (decodeResult != 0) return errorString(env, "E_PREFILL_DECODE", ("llama_decode retornou " + std::to_string(decodeResult)).c_str());
     }
 
@@ -340,6 +343,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
     const int limit = std::clamp(std::min(requestedOutput, remainingContext), 1, 256);
     bool decodeFailed = false;
+    int generationDecodeResult = 0;
     bool cancelled = false;
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
         const bool traceToken = generatedTokens == 0 || (generatedTokens + 1) % 8 == 0;
@@ -379,6 +383,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
         }
         if (decodeResult != 0) {
             decodeFailed = true;
+            generationDecodeResult = decodeResult;
             break;
         }
     }
@@ -387,7 +392,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     cancelled = cancelled || g_cancel.load(std::memory_order_relaxed);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - generationStart).count();
     nativeLog(env, decodeFailed ? "ERROR" : (cancelled ? "WARN" : "INFO"), "GEN_END • tokens=" + std::to_string(generatedTokens) + " • chars=" + std::to_string(output.size()) + " • ms=" + std::to_string(elapsed) + " • cancelled=" + std::to_string(cancelled));
-    if (decodeFailed) return errorString(env, "E_GENERATION_DECODE", "Falha em llama_decode durante a geração; consulte GEN_DECODE_FAILED para o código de retorno.");
+    if (decodeFailed) {
+        const char* code = generationDecodeResult == 1 ? "E_GENERATION_NO_KV_SLOT" : "E_GENERATION_DECODE";
+        const std::string message = "llama_decode retornou " + std::to_string(generationDecodeResult) + " durante a geração.";
+        return errorString(env, code, message.c_str());
+    }
     if (cancelled) return cancelledString(env);
     return utf8ToJava(env, output);
 }
