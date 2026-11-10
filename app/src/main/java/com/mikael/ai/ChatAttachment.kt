@@ -14,6 +14,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 import java.util.concurrent.TimeUnit
 
@@ -24,7 +26,8 @@ data class ChatAttachment(
     val promptContext: String
 )
 
-fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachment> {
+suspend fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachment> {
+    val coroutineContext = currentCoroutineContext()
     require(uris.isNotEmpty()) { "Selecione pelo menos um arquivo." }
     require(uris.size <= 5) { "Selecione no máximo 5 arquivos por vez." }
 
@@ -37,6 +40,7 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
     val completedFiles = mutableListOf<File>()
     try {
         uris.map { uri ->
+            coroutineContext.ensureActive()
             val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
             val metadata = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -68,6 +72,7 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
                         val buffer = ByteArray(64 * 1024)
                         var total = 0L
                         while (true) {
+                            coroutineContext.ensureActive()
                             val read = input.read(buffer)
                             if (read < 0) break
                             total += read
@@ -87,7 +92,9 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
                 }
                 completedFiles += destination
 
+                coroutineContext.ensureActive()
                 val extracted = extractAttachmentText(context, destination, mime, name)
+                coroutineContext.ensureActive()
                 val availableForThisFile = remainingAnalysisBytes.coerceAtLeast(0)
                 val safeExtracted = takeUtf8Prefix(extracted, availableForThisFile)
                 remainingAnalysisBytes -= safeExtracted.toByteArray(Charsets.UTF_8).size
