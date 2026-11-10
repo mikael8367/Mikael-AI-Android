@@ -1,52 +1,45 @@
-# Mikael AI Base — especificação do modelo autoral
+# Mikael AI Base — modelo autoral
 
 ## Objetivo
 
-Criar um modelo de linguagem chamado **Mikael AI Base**, especializado em programação e preparado para inferência local em Android ARM64.
+Treinar um modelo de linguagem próprio, especializado em programação e português brasileiro, para inferência local em Android ARM64.
 
-Este projeto deve produzir pesos próprios. Não pode ser apresentado como "feito do zero" se estiver apenas renomeando, mesclando ou fazendo fine-tuning de pesos de Qwen, SmolLM ou qualquer outro modelo pré-treinado.
+## Regras de origem
+
+- Não usar pesos pré-treinados, fine-tuning, destilação ou mesclagem de Qwen, Llama, SmolLM ou qualquer outro modelo.
+- Tokenizer, arquitetura/configuração, pesos e pipeline de treinamento devem ser próprios.
+- Dados precisam ter licença e proveniência registradas.
+- O modelo só pode ser chamado de treinado do zero quando todos os pesos tiverem sido inicializados e treinados sem checkpoint externo.
 
 ## Estado atual
 
-- A tela Android já reserva um cartão para o Mikael AI Base.
-- O cartão informa corretamente que ainda não existe um arquivo de pesos pronto para instalar.
-- O catálogo externo de GGUF é separado do projeto de pesos autorais.
-- Nenhum peso de terceiros será copiado para dentro do Mikael AI Base.
+- Existe uma primeira implementação C++ própria de inferência Transformer no Android.
+- O motor carrega somente o formato MKAI v1; não depende de llama.cpp nem aceita GGUF.
+- O formato está descrito em [MKAI_FORMAT_V1.md](MKAI_FORMAT_V1.md).
+- Ainda não há pesos treinados nem um arquivo MKAI oficial. Logo, ainda não existe um assistente funcional com qualidade de linguagem.
 
-## Proposta técnica inicial
+## Arquitetura de inferência inicial
 
-- Arquitetura: Transformer decoder-only, com implementação e configuração documentadas pelo projeto.
-- Inicialização: pesos inicializados aleatoriamente; nenhum checkpoint pré-treinado.
-- Tokenizer: tokenizer treinado para o corpus próprio, com cobertura de português brasileiro, identificadores e sintaxe de linguagens de programação.
-- Alvo inicial de pesquisa: faixa de 100M–500M parâmetros. A configuração final depende dos testes de qualidade, custo de treinamento e memória do Android.
-- Exportação: GGUF compatível com a versão de llama.cpp incorporada no aplicativo, após validação do tokenizer e do template de conversa.
-- Quantização inicial pretendida: Q4_K_M, comparando qualidade e memória com versões menos quantizadas.
+- Transformer decoder-only com atenção causal multi-head.
+- RMSNorm, projeções Q/K/V/O, conexões residuais e bloco SwiGLU.
+- Embeddings de token e posição.
+- Tokenizer byte-level provisório com 256 IDs.
+- Pesos float32 no formato MKAI v1.
 
-## Etapas necessárias
+Esta é uma base experimental. Ainda faltam RoPE, cache KV, quantização, tokenizer treinável subword, amostragem avançada e otimizações específicas para ARM64.
 
-1. Definir e documentar a arquitetura e a configuração do tokenizer.
-2. Montar um corpus legalmente utilizável, com fontes, licenças e proveniência registradas.
-3. Deduplicar, filtrar e separar os dados em treino, validação e teste.
-4. Treinar o tokenizer e inicializar todos os pesos do modelo do zero.
-5. Fazer pré-treinamento e medir perda/qualidade em conjuntos de validação.
-6. Fazer treinamento supervisionado para instruções de programação em português, mantendo a proveniência dos dados.
-7. Avaliar geração de código, explicações, matemática básica, português e alucinações.
-8. Converter para GGUF, quantizar e testar a inferência no Android ARM64.
-9. Publicar o arquivo de pesos, checksum SHA-256, licença e relatório de avaliação.
-10. Só então habilitar o botão **Baixar e instalar Mikael AI Base** no catálogo.
+## Pipeline de treinamento que falta
 
-## Limite de hardware
+1. Definir configuração pequena compatível com memória real de Android.
+2. Construir corpus legalmente utilizável com origem, licença e deduplicação registradas.
+3. Criar tokenizer próprio e testes de cobertura para português e código.
+4. Inicializar todos os pesos aleatoriamente e treinar o modelo do zero.
+5. Executar pré-treinamento e acompanhar loss em conjuntos separados de treino, validação e teste.
+6. Fazer treinamento supervisionado com exemplos próprios de programação e instruções.
+7. Avaliar qualidade, segurança, alucinações e geração de código.
+8. Exportar os pesos para MKAI, validar checksum e testar no Android ARM64.
+9. Só então marcar Mikael AI Base como disponível.
 
-O Galaxy A12 pode executar modelos pequenos quantizados, mas não é uma plataforma adequada para treinar um LLM desse porte do zero. O treinamento precisará de infraestrutura de computação separada; o telefone será usado para baixar, carregar e avaliar o modelo já treinado.
+## Hardware
 
-## Critério para declarar o modelo pronto
-
-O modelo só muda de "Em desenvolvimento" para "Disponível" quando houver:
-- pesos realmente treinados do zero;
-- arquivo GGUF íntegro e compatível;
-- checksum publicado e conferido;
-- licença e origem dos dados documentadas;
-- teste de carregamento e geração no motor nativo;
-- relatório de qualidade e limitações.
-
-Até cumprir esses critérios, o aplicativo não deve simular um download nem marcar o modelo como instalado.
+O celular será o alvo de inferência, não o ambiente principal de treinamento. Treinar um modelo de linguagem do zero requer infraestrutura computacional separada. Isso não impede que o modelo final rode sem internet no Android.
