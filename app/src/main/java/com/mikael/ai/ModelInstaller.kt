@@ -48,9 +48,11 @@ object ModelInstaller {
             }
             val expected = connection.contentLengthLong
             check(expected <= MAX_MODEL_BYTES) { "O arquivo excede o limite de 1 GB." }
+            // Hugging Face's ordinary ETag is an opaque cache validator and may not
+            // represent the downloaded file's SHA-256. Only X-Linked-Etag is
+            // documented as the linked file's content hash for LFS/Xet assets.
             val remoteSha256 = ModelIntegrity.normalizeExpectedSha256(
-                connection.getHeaderField("X-Linked-Etag"),
-                connection.getHeaderField("ETag")
+                connection.getHeaderField("X-Linked-Etag")
             )
             val requiredSpace = (if (expected > 0) expected else model.approximateBytes) +
                 32L * 1024 * 1024
