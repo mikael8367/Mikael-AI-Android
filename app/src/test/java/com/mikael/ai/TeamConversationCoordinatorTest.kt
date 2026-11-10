@@ -293,4 +293,14 @@ class TeamConversationCoordinatorTest {
         assertEquals(listOf(96, 96, 96, 96, 192), limits)
     }
 
+
+    @Test
+    fun codingTaskDetectionCoversNaturalPortugueseRequestsWithoutFlaggingGeneralChat() {
+        assertTrue(TeamConversationCoordinator.isProgrammingTask("Crie um site para meu projeto"))
+        assertTrue(TeamConversationCoordinator.isProgrammingTask("Corrija esse bug no aplicativo"))
+        assertTrue(TeamConversationCoordinator.isProgrammingTask("Implemente uma função Kotlin"))
+        assertTrue(!TeamConversationCoordinator.isProgrammingTask("Explique como funciona a fotossíntese"))
+    }
+
+
 }
