@@ -2,7 +2,7 @@ name: Mikael AI Android checks (sem APK)
 
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "fix/**"]
   workflow_dispatch:
 
 permissions:
