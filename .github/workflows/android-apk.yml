@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mikael-ai-checks-${{ github.ref }}
+  group: mikael-ai-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
