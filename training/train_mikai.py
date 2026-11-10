@@ -120,6 +120,16 @@ def export_mkai(model: MikaelTransformer, output: Path, dim: int, layers: int,
     validate_export(output, dim, layers, heads, ffn, max_seq)
 
 
+def split_train_validation(tokens: torch.Tensor, seq_len: int):
+    if len(tokens) < 2 * seq_len + 4:
+        raise ValueError("Corpus insuficiente para criar lotes independentes de treino e validação.")
+    split = min(max(seq_len + 2, int(len(tokens) * 0.95)), len(tokens) - seq_len - 2)
+    train_data, val_data = tokens[:split], tokens[split:]
+    if len(train_data) <= seq_len + 1 or len(val_data) <= seq_len + 1:
+        raise ValueError("Divisão treino/validação não permite amostrar uma sequência completa.")
+    return train_data, val_data
+
+
 def expected_float_count(dim: int, layers: int, ffn: int, max_seq: int) -> int:
     return (VOCAB_SIZE * dim + max_seq * dim +
             layers * (2 * dim + 4 * dim * dim + 3 * ffn * dim) +
@@ -173,11 +183,10 @@ def main() -> None:
     torch.set_num_threads(max(1, min(4, torch.get_num_threads())))
     device = torch.device("cpu")
     tokens = torch.from_numpy(np.frombuffer(raw, dtype=np.uint8).astype(np.int64).copy()).to(device)
-    split = max(args.seq_len + 1, int(len(tokens) * 0.95))
-    split = min(split, len(tokens) - args.seq_len - 2)
-    train_data, val_data = tokens[:split], tokens[split:]
-    if len(val_data) < args.seq_len + 1:
-        raise SystemExit("Corpus insuficiente para separar treino e validação.")
+    try:
+        train_data, val_data = split_train_validation(tokens, args.seq_len)
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
 
     def batch(source: torch.Tensor):
         starts = torch.randint(0, len(source) - args.seq_len - 1, (args.batch_size,))
