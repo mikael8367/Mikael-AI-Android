@@ -187,12 +187,13 @@ internal object TeamConversationCoordinator {
         participants: List<TeamParticipant>,
         maxPromptBytes: Int
     ): String? {
-        val prefix = "<|im_start|>system\nVocê é Mikael AI. Português BR; contribuição curta e objetiva; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
-        val teamLine = "Equipe: Qwen 2.5 0.5B, SmolLM2 360M, TinyLlama 1.1B.\nPedido original: "
+        val prefix = "<|im_start|>system\nMikael AI: PT-BR; contribuição breve e objetiva; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
+        val teamNames = participants.filterNot { it.id == "mikael-base" }.joinToString(", ") { it.name }
+        val teamLine = "Equipe: $teamNames.\nPedido original: "
         val contextLine = "\nContexto: "
-        val closing = "\nContribua agora com uma ideia breve.\n<|im_end|>\n<|im_start|>assistant\n"
+        val closing = "\nContribua agora.\n<|im_end|>\n<|im_start|>assistant\n"
         val compact = prefix + teamLine + safe(originalPrompt, Int.MAX_VALUE) +
-            (if (chatContext.isBlank()) "" else contextLine + safe(chatContext, 48)) + closing
+            (if (chatContext.isBlank()) "" else contextLine + safe(chatContext, 24)) + closing
         return compact.takeIf { it.toByteArray(Charsets.UTF_8).size <= maxPromptBytes }
     }
 
