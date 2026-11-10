@@ -192,7 +192,8 @@ jstring utf8ToJava(JNIEnv* env,const std::string& value) {
         i+=count;
     }
     if(out.size()>static_cast<size_t>(std::numeric_limits<jsize>::max())) return nullptr;
-    static const jchar emptyText[] = {0};\n    return env->NewString(out.empty() ? emptyText : out.data(),static_cast<jsize>(out.size()));
+    static const jchar emptyText[] = {0};
+    return env->NewString(out.empty() ? emptyText : out.data(),static_cast<jsize>(out.size()));
 }
 jstring error(JNIEnv* env,const std::string& s){return env->NewStringUTF(s.c_str());}
 }
