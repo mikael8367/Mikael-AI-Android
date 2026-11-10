@@ -1,0 +1,28 @@
+LICENÇAS DE TERCEIROS — MIKAEL AI ANDROID
+
+llama.cpp
+- Licença: MIT
+- Revisão: 281e7dad7cfe4539b13d0218f4b0fd5a03f3abc9
+- Projeto: https://github.com/ggml-org/llama.cpp
+- Texto integral: LLAMA_CPP_LICENSE.txt
+
+Qwen2.5-Coder-0.5B-Instruct-GGUF
+- Licença: Apache-2.0
+- Origem: https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF
+- Pesos são baixados separadamente após confirmação do usuário.
+
+SmolLM2-360M-Instruct-GGUF
+- Licença: Apache-2.0
+- Origem: https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF
+- Pesos são baixados separadamente após confirmação do usuário.
+
+TinyLlama-1.1B-Chat-v1.0-GGUF
+- Licença: Apache-2.0
+- Origem: https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF
+- Pesos são baixados separadamente após confirmação do usuário.
+
+Mikael AI Base (MKAI v1)
+- Licença do peso: não declarada.
+- Não redistribua este checkpoint a terceiros até que o autor publique uma licença.
+
+Consulte sempre o cartão e o arquivo de licença da origem antes de redistribuir pesos baixados.
