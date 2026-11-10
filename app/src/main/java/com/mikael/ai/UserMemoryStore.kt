@@ -23,10 +23,8 @@ object UserMemoryStore {
             .putBoolean(KEY_ENABLED, enabled).apply()
     }
 
-    fun load(context: Context): List<String> {
-        if (!isEnabled(context)) return emptyList()
-        return read(context)
-    }
+    /** Retorna itens salvos mesmo quando desativada, para permitir revisão e exclusão. */
+    fun load(context: Context): List<String> = read(context)
 
     fun rememberFromUserMessage(context: Context, message: String): Boolean {
         if (!isEnabled(context)) return false
@@ -34,24 +32,43 @@ object UserMemoryStore {
             RegexOption.IGNORE_CASE).find(message) ?: return false
         val fact = match.groupValues[1].trim().take(MAX_ITEM_CHARS)
         if (fact.isBlank()) return false
-        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val items = read(context).filterNot { it.equals(fact, ignoreCase = true) }.toMutableList()
         items.add(fact)
-        val json = JSONArray()
-        items.takeLast(MAX_ITEMS).forEach { json.put(it) }
-        prefs.edit().putString(KEY_ITEMS, json.toString()).apply()
+        write(context, items)
         return true
+    }
+
+    fun forgetFromUserMessage(context: Context, message: String): Boolean {
+        val match = Regex("^\\s*(?:esqueça|esquece|apague|remova)\\s*[:,-]?\\s*(.+)$",
+            RegexOption.IGNORE_CASE).find(message) ?: return false
+        val target = match.groupValues[1].trim()
+        if (target.isBlank()) return false
+        val before = read(context)
+        val after = before.filterNot { it.equals(target, ignoreCase = true) }
+        if (after.size == before.size) return false
+        write(context, after)
+        return true
+    }
+
+    fun remove(context: Context, fact: String) {
+        write(context, read(context).filterNot { it == fact })
     }
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ITEMS).apply()
     }
 
+    private fun write(context: Context, items: List<String>) {
+        val json = JSONArray()
+        items.takeLast(MAX_ITEMS).forEach { json.put(it) }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_ITEMS, json.toString()).apply()
+    }
+
     fun contextForPrompt(context: Context): String {
-        val items = load(context)
-        if (items.isEmpty()) return ""
+        if (!isEnabled(context)) return ""
         val output = StringBuilder()
-        for (item in items.asReversed()) {
+        for (item in read(context).asReversed()) {
             val line = "- " + item + "\n"
             if (output.length + line.length > MAX_CONTEXT_CHARS) break
             output.insert(0, line)
