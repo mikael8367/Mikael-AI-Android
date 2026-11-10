@@ -70,6 +70,7 @@ object ModelInstaller {
             }
 
             var received = 0L
+            var lastProgress = -1
             connection.inputStream.use { input ->
                 temporary.outputStream().buffered().use { output ->
                     val buffer = ByteArray(128 * 1024)
@@ -81,7 +82,11 @@ object ModelInstaller {
                         check(received <= MAX_MODEL_BYTES) { "Download excedeu o limite permitido." }
                         output.write(buffer, 0, count)
                         if (expected > 0) {
-                            onProgress(((received * 100) / expected).toInt().coerceIn(0, 99))
+                            val percent = ((received * 100) / expected).toInt().coerceIn(0, 99)
+                            if (percent != lastProgress) {
+                                lastProgress = percent
+                                withContext(Dispatchers.Main.immediate) { onProgress(percent) }
+                            }
                         }
                     }
                 }
@@ -132,7 +137,7 @@ object ModelInstaller {
             }
             backup.delete()
             checksumBackup.delete()
-            onProgress(100)
+            withContext(Dispatchers.Main.immediate) { onProgress(100) }
             destination
         } catch (error: Exception) {
             temporary.delete()
