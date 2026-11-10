@@ -61,7 +61,7 @@ object AssistantPromptBuilder {
             buildString {
                 lastPair.forEach { (role, message) ->
                     append("<|im_start|>$role\n")
-                    append(message)
+                    append(escapeSpecialTokens(message))
                     append("\n<|im_end|>\n")
                 }
             }
@@ -70,7 +70,8 @@ object AssistantPromptBuilder {
         }
 
         val fixedWithHistory = systemPrompt + previousCandidate + currentPrefix + ending
-        val latestMessageBytes = latest?.second?.toByteArray(Charsets.UTF_8)?.size ?: 0
+        val escapedLatest = latest?.second?.let(::escapeSpecialTokens).orEmpty()
+        val latestMessageBytes = escapedLatest.toByteArray(Charsets.UTF_8).size
         // History is optional; never let it shorten a current request that would
         // fit by itself inside the prompt budget.
         val previousPart = if (
@@ -80,13 +81,21 @@ object AssistantPromptBuilder {
 
         val fixed = systemPrompt + previousPart + currentPrefix + ending
         val remaining = (maxBytes - fixed.toByteArray(Charsets.UTF_8).size).coerceAtLeast(0)
-        val currentText = latest?.second?.let { takeUtf8Suffix(it, remaining) }.orEmpty()
+        val currentText = latest?.second?.let { takeUtf8Suffix(escapeSpecialTokens(it), remaining) }.orEmpty()
 
         // System instructions and ChatML markers are never byte-truncated.
         // The current user message keeps its ending, where the actual request
         // or final instruction commonly appears.
         return systemPrompt + previousPart + currentPrefix + currentText + ending
     }
+
+    /**
+     * User text, assistant history and extracted files are untrusted input.
+     * Prevent their literal text from being tokenized as llama.cpp control tokens.
+     * The ChatML markers emitted by this builder remain untouched.
+     */
+    private fun escapeSpecialTokens(value: String): String =
+        value.replace("<|", "<\\u200B|")
 
     private fun takeUtf8Suffix(value: String, maxBytes: Int): String {
         if (maxBytes <= 0 || value.isEmpty()) return ""
