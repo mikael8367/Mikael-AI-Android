@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <exception>
 #include <limits>
 #include <mutex>
 #include <string>
@@ -204,14 +205,21 @@ jstring generationError(JNIEnv* env,const std::string& s){
 }
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(JNIEnv* env,jobject,jstring path,jint context,jint) {
-    std::lock_guard<std::mutex> lock(gMutex); gCancel.store(true); gModel=Model{}; gCancel.store(false);
-    if(!path || context<16 || context>8192) return error(env,"Caminho ou contexto inválido.");
-    std::string message;
-    if(!loadModel(jstringToUtf8(env,path),static_cast<uint32_t>(context),message)) return error(env,message);
-    return nullptr;
+    try {
+        std::lock_guard<std::mutex> lock(gMutex); gCancel.store(true); gModel=Model{}; gCancel.store(false);
+        if(!path || context<16 || context>8192) return error(env,"Caminho ou contexto inválido.");
+        std::string message;
+        if(!loadModel(jstringToUtf8(env,path),static_cast<uint32_t>(context),message)) return error(env,message);
+        return nullptr;
+    } catch(const std::exception& ex) {
+        return error(env,std::string("Falha segura ao carregar o modelo: ")+ex.what());
+    } catch(...) {
+        return error(env,"Falha inesperada ao carregar o modelo.");
+    }
 }
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstring prompt,jint maxTokens) {
+    try {
     if(!prompt) return generationError(env,"Digite uma mensagem.");
     const std::string input=jstringToUtf8(env,prompt);
     if(input.empty() || input.size()>24000) return generationError(env,"Texto vazio ou muito longo.");
@@ -240,6 +248,12 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
     }
     if(gCancel.load()) return generationError(env,"Geração cancelada pelo usuário.");
     return utf8ToJava(env,output);
+
+    } catch(const std::exception& ex) {
+        return generationError(env,std::string("Falha segura durante a inferência: ")+ex.what());
+    } catch(...) {
+        return generationError(env,"Falha inesperada durante a inferência.");
+    }
 }
 extern "C" JNIEXPORT jint JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeContextCapacity(JNIEnv*,jobject){
