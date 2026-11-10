@@ -23,7 +23,7 @@ object ModelCatalog {
             downloadUrl = "https://github.com/mikael8367/Mikael-AI-Android/releases/download/mikael-ai-model-v1/mikael-base.mkai",
             approximateBytes = 1_000_000L, license = "Treinamento próprio",
             sourceUrl = "https://github.com/mikael8367/Mikael-AI-Android/actions/workflows/train-mikael-model.yml",
-            description = "Checkpoint autoral MKAI. Treine e publique o primeiro modelo pelo GitHub Actions; depois instale diretamente por aqui."
+            description = "Checkpoint autoral MKAI v1 já publicado. Baixe e instale diretamente no aplicativo; versões futuras podem ser treinadas com corpus próprio."
         ),
         CatalogModel(
             id = "qwen-0.5b", name = "Qwen 2.5 0.5B Instruct", family = "GGUF • Q4_K_M",
