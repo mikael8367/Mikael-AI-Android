@@ -15,7 +15,7 @@ object UserMemoryStore {
     const val MAX_ITEMS = 100
     const val MAX_ITEM_CHARS = 300
     const val MAX_CONTEXT_CHARS = 2400
-    private const val DUPLICATE_THRESHOLD = 0.82
+    private const val DUPLICATE_THRESHOLD = 0.75
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, true)
@@ -75,8 +75,14 @@ object UserMemoryStore {
         if (!isEnabled(context)) return ""
         val output = StringBuilder()
         for ((topic, entries) in read(context).groupBy { it.topic }.toSortedMap()) {
-            val block = "[$topic]\n" + entries.joinToString("") { "- " + it.text + "\n" }
-            if (output.length + block.length <= MAX_CONTEXT_CHARS) output.append(block)
+            val heading = "[$topic]\n"
+            if (output.length + heading.length > MAX_CONTEXT_CHARS) break
+            output.append(heading)
+            for (entry in entries) {
+                val line = "- " + entry.text + "\n"
+                if (output.length + line.length > MAX_CONTEXT_CHARS) break
+                output.append(line)
+            }
         }
         return output.toString()
     }
