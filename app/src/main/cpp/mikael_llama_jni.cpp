@@ -20,6 +20,8 @@ llama_context* g_context = nullptr;
 const llama_vocab* g_vocab = nullptr;
 uint32_t g_context_size = 0;
 
+void nativeLog(JNIEnv* env, const char* level, const std::string& message);
+
 bool shouldAbortDecode(void*) {
     return g_cancel.load(std::memory_order_relaxed);
 }
