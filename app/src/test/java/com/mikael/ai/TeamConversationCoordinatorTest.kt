@@ -206,4 +206,19 @@ class TeamConversationCoordinatorTest {
         assertTrue(!result.finalizationFallback)
     }
 
+    @Test
+    fun sharedTranscriptKeepsMoreOfEachContributionForLaterReview() {
+        val contribution = "A".repeat(300)
+        val prompt = TeamConversationCoordinator.buildPrompt(
+            originalPrompt = "Revise uma proposta",
+            chatContext = "",
+            participants = team,
+            contributions = listOf(TeamContribution(team.first(), contribution)),
+            failures = emptyMap(),
+            finalSynthesis = true
+        )
+        assertTrue(prompt.contains("A".repeat(160)))
+        assertTrue(!prompt.contains("A".repeat(161)))
+    }
+
 }
