@@ -61,7 +61,8 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeLoad(JNIEnv * env, jobject, jstrin
 
         llama_context_params contextParams = llama_context_default_params();
         contextParams.n_ctx = static_cast<uint32_t>(requestedContext);
-        contextParams.n_batch = static_cast<uint32_t>(std::min(requestedContext, 256));
+        // n_batch must hold the full prompt batch; ubatch controls physical chunking.
+        contextParams.n_batch = static_cast<uint32_t>(requestedContext);
         contextParams.n_ubatch = static_cast<uint32_t>(std::min(requestedContext, 128));
         contextParams.n_seq_max = 1;
         contextParams.n_threads = std::clamp(threads, 1, 3);
