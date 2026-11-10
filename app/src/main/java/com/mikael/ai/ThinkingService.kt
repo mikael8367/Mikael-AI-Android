@@ -73,6 +73,8 @@ class ThinkingService : Service() {
         @Volatile private var activeJob: Job? = null
 
         /** Escopo do processo, não vinculado à composição da tela do chat. */
+        fun hasActiveTask(): Boolean = activeJob?.isActive == true
+
         fun launchTask(block: suspend CoroutineScope.() -> Unit): Job = taskScope.launch {
             activeJob = coroutineContext[Job]
             try { block() } finally { activeJob = null }
