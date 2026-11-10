@@ -385,7 +385,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 val conversationPrompt = ConversationPrompt.build(
                     messages = messages.toList(),
                     githubContext = githubContext,
-                    contextCapacityBytes = activeContext,
+                    contextCapacityTokens = activeContext,
                     userMemory = UserMemoryStore.contextForPrompt(context)
                 )
                 val result = withContext(Dispatchers.IO) {
