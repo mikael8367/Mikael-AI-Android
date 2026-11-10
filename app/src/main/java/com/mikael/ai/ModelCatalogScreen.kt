@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -17,7 +18,12 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,8 +42,13 @@ fun ModelCatalogScreen(
     onInstall: (CatalogModel) -> Unit,
     onImportMkai: () -> Unit,
     onTrainMkai: () -> Unit,
-    onDelete: (CatalogModel) -> Unit
+    onDelete: (CatalogModel) -> Unit,
+    availableStorageBytes: Long,
+    availableMemoryBytes: Long,
+    memoryLimitMiB: Int,
+    contextTokens: Int
 ) {
+    var confirmationModel by remember { mutableStateOf<CatalogModel?>(null) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -93,7 +104,7 @@ fun ModelCatalogScreen(
                             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
                         Button(
-                            onClick = { onInstall(model) },
+                            onClick = { confirmationModel = model },
                             enabled = percent == null,
                             modifier = Modifier.fillMaxWidth()
                         ) {
@@ -167,4 +178,58 @@ fun ModelCatalogScreen(
             )
         }
     }
+
+    confirmationModel?.let { model ->
+        val oldFileBytes = installed[model.id]?.length() ?: 0L
+        val requiredSpace = model.approximateBytes + oldFileBytes + 32L * 1024L * 1024L
+        val hasSpace = availableStorageBytes > requiredSpace
+        val estimate = MemoryBudget.check(
+            availableBytes = availableMemoryBytes,
+            selectedLimitMiB = memoryLimitMiB,
+            modelBytes = model.approximateBytes,
+            contextTokens = if (model.engine == ModelEngine.MKAI) contextTokens.coerceIn(16, 8192) else contextTokens.coerceIn(128, 2048)
+        )
+        AlertDialog(
+            onDismissRequest = { confirmationModel = null },
+            title = { Text("Confirmar instalação") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(model.name, fontWeight = FontWeight.SemiBold)
+                    Text("Download aproximado: ${formatModelBytes(model.approximateBytes)}")
+                    Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
+                    Text("Espaço necessário estimado: ${formatModelBytes(requiredSpace)}")
+                    Text("Licença: ${model.license}")
+                    Text("Fonte: ${model.sourceUrl}", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        if (estimate.allowed) "RAM estimada pelo orçamento do app: ${formatModelBytes(estimate.estimatedBytes)}. É uma estimativa, não um benchmark."
+                        else "Aviso de RAM: ${estimate.reason ?: "Memória disponível insuficiente."} O download pode ser instalado, mas o carregamento poderá ser recusado.",
+                        color = if (estimate.allowed) Color(0xFF8BE7B7) else Color(0xFFFFD28A),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    if (!hasSpace) {
+                        Text("Armazenamento insuficiente para baixar e validar este arquivo. Libere espaço antes de continuar.", color = MaterialTheme.colorScheme.error)
+                    }
+                    Text("Nenhuma conversa ou arquivo pessoal será enviado. O app só baixa o modelo escolhido após sua confirmação.")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val selected = model
+                        confirmationModel = null
+                        onInstall(selected)
+                    },
+                    enabled = hasSpace
+                ) { Text("Baixar e instalar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmationModel = null }) { Text("Cancelar") }
+            }
+        )
+    }
+}
+
+private fun formatModelBytes(bytes: Long): String {
+    if (bytes < 1_000_000L) return "${bytes / 1_000} KB"
+    return String.format(java.util.Locale.US, "%.1f MB", bytes / 1_000_000.0)
 }
