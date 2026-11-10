@@ -29,7 +29,7 @@ O checkpoint autoral Mikael AI é um modelo experimental muito pequeno (cerca de
 - O chat apresenta uma única conversa e uma única resposta final consolidada.
 - Os quatro participantes são chamados em sequência. Cada chamada recebe o pedido original, contexto recente do chat, a lista da equipe, quem já falou, quem ainda não falou e as contribuições anteriores.
 - Cada modelo pode responder a uma proposta anterior, discordar com justificativa objetiva, pedir uma verificação ou sugerir correção.
-- Depois das quatro contribuições, uma chamada final (preferencialmente Qwen) recebe o histórico completo e tenta consolidar uma resposta.
+- Depois das quatro contribuições, uma etapa final (preferencialmente Qwen) recebe o histórico completo, revisa criticamente as propostas, corrige erros e consolida uma resposta.
 - Limite: quatro chamadas de contribuição + uma chamada de síntese (máximo de cinco por mensagem). Contribuições e resposta final têm limites curtos de tokens.
 - Se algum modelo falhar, não será contado como participante. O chat informa a participação parcial. Se a síntese falhar, é usada a melhor contribuição disponível e isso também é informado.
 - Não é execução simultânea: por segurança de memória, o app descarrega o modelo anterior antes de carregar o próximo. Todos compartilham o transcript, mas trabalham em sequência.
