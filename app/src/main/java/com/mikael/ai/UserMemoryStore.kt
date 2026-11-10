@@ -14,6 +14,7 @@ object UserMemoryStore {
     private const val KEY_ITEMS_SECURE = "items_secure_v1"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_ENABLED_SECURE = "enabled_secure_v1"
+    private const val KEY_AUTO_LEARN_SECURE = "auto_learn_secure_v1"
     const val MAX_ITEMS = 100
     const val MAX_ITEM_CHARS = 300
     const val MAX_CONTEXT_CHARS = 2400
@@ -43,6 +44,60 @@ object UserMemoryStore {
     }
 
     fun load(context: Context): List<UserMemoryItem> = read(context)
+
+    fun isAutoLearningEnabled(context: Context): Boolean {
+        val encrypted = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_AUTO_LEARN_SECURE, null) ?: return false
+        return runCatching {
+            JSONObject(SecureLocalStorage.decrypt(encrypted)).optBoolean("enabled", false)
+        }.getOrDefault(false)
+    }
+
+    fun setAutoLearningEnabled(context: Context, enabled: Boolean) {
+        val payload = SecureLocalStorage.encrypt(JSONObject().put("enabled", enabled).toString())
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_AUTO_LEARN_SECURE, payload).commit()) {
+            "Não foi possível salvar a configuração de aprendizado."
+        }
+    }
+
+    /** Aprende apenas preferências e fatos técnicos explícitos; nunca envia dados à rede. */
+    fun learnFromUserMessage(context: Context, message: String): Boolean {
+        if (!isEnabled(context) || !isAutoLearningEnabled(context)) return false
+        val clean = message.trim().replace(Regex("\\s+"), " ")
+        if (clean.length !in 12..MAX_ITEM_CHARS) return false
+        val normalized = normalize(clean)
+        val sensitive = listOf(
+            "saude", "doenca", "medicamento", "remedio", "diagnostico", "depressao",
+            "ansiedade", "religiao", "igreja", "politica", "partido", "sexualidade",
+            "orientacao sexual", "senha", "password", "token", "cpf", "cartao",
+            "endereco", "telefone", "documento", "raca", "etnia"
+        )
+        if (sensitive.any { normalized.contains(it) }) return false
+        val stableSignals = listOf(
+            "prefiro ", "gosto de ", "nao gosto de ", "uso ", "estou desenvolvendo ",
+            "estou criando ", "meu projeto ", "meu aparelho ", "meu celular ",
+            "trabalho com ", "sempre quero ", "nao quero "
+        )
+        if (stableSignals.none { normalized.contains(it) }) return false
+        val fact = clean.take(MAX_ITEM_CHARS)
+        val items = read(context).toMutableList()
+        val key = normalize(fact)
+        val duplicate = items.indexOfFirst {
+            val existing = normalize(it.text)
+            existing == key || tokenSimilarity(existing, key) >= DUPLICATE_THRESHOLD
+        }
+        if (duplicate >= 0) {
+            val old = items[duplicate]
+            if (fact.length <= old.text.length) return false
+            items[duplicate] = old.copy(text = fact, topic = classifyTopic(fact), createdAt = System.currentTimeMillis())
+        } else {
+            items.add(UserMemoryItem(fact, classifyTopic(fact), System.currentTimeMillis()))
+        }
+        write(context, items)
+        return true
+    }
+
 
     fun rememberFromUserMessage(context: Context, message: String): Boolean {
         if (!isEnabled(context)) return false
