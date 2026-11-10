@@ -86,7 +86,7 @@ class AppPreferences(context: Context) {
     private companion object {
         const val PREFS = "mikael_ai_settings"
         const val KEY_SECURE = "settings_secure_v1"
-        val MODEL_IDS = setOf("qwen-0.5b")
+        val MODEL_IDS = setOf("qwen-0.5b", "mikael-base", "smollm2-360m", "tinyllama-1.1b", ModelCatalog.TEAM_MODEL_ID)
         val CONTEXT_OPTIONS = setOf(512, 1024, 2048)
         val LEGACY_KEYS = listOf(
             "model_path",
