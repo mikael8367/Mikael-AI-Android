@@ -80,7 +80,7 @@ Se faltar dado essencial, pergunte em vez de adivinhar.
         val systemPrompt = SYSTEM + taskBlock + memoryBlock
         val systemBytes = systemPrompt.toByteArray(Charsets.UTF_8).size
 
-        if (systemBytes >= promptBudget) {
+        if (systemBytes + currentBlock.toByteArray(Charsets.UTF_8).size > promptBudget) {
             // A solicitação atual tem prioridade sobre memória e instruções opcionais.
             val essentialSystem = SYSTEM + taskBlock
             val questionBudget = (promptBudget - minOf(essentialSystem.toByteArray(Charsets.UTF_8).size, promptBudget / 2)).coerceAtLeast(0)
