@@ -9,6 +9,22 @@ llama.cpp
 Qwen2.5-Coder-0.5B-Instruct-GGUF
 - Licença: Apache-2.0
 - Origem: https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF
-- Pesos Q4_K_M baixados separadamente após confirmação do usuário; não são incluídos no APK.
+- Pesos Q4_K_M (~491 MB), baixados após confirmação; não incluídos no APK.
 
-O nome e a interface Mikael AI pertencem a este aplicativo. Qwen2.5-Coder é um modelo de terceiros, não um modelo autoral Mikael AI. Consulte a licença upstream antes de redistribuir os pesos.
+SmolLM2-360M-Instruct-GGUF
+- Licença: Apache-2.0
+- Modelo original: https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct
+- GGUF Q4_K_M (~271 MB): https://huggingface.co/tensorblock/SmolLM2-360M-Instruct-GGUF
+- Pesos baixados após confirmação; não incluídos no APK.
+
+TinyLlama-1.1B-Chat-v1.0-GGUF
+- Licença: Apache-2.0
+- Modelo original: https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+- GGUF Q4_K_M (~622 MB): https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF
+- Pesos baixados após confirmação; não incluídos no APK.
+
+Mikael AI MKAI v1
+- Checkpoint experimental (~591 KB): https://github.com/mikael8367/Mikael-AI-Android/releases/tag/mikael-ai-model-v1
+- Licença de distribuição não declarada. Consulte o autor antes de redistribuir.
+
+Os pesos externos não são modelos autorais Mikael AI. Consulte os termos upstream antes de redistribuir qualquer arquivo.
