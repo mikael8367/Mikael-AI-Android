@@ -762,19 +762,37 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(proposal.explanation)
-                    Text(if (proposal.kind == ConnectorKind.WEB_SEARCH) "Consulta enviada ao serviço online: ${proposal.query}" else "README consultado no GitHub: ${proposal.query}")
-                    if (!allowOnlineFeatures) Text("Ative os recursos online em Configurações.")
+                    Text(
+                        when (proposal.kind) {
+                            ConnectorKind.CALCULATOR, ConnectorKind.DATE_TIME -> "Ferramenta local. Nenhum dado será enviado pela internet."
+                            ConnectorKind.WEB_SEARCH -> "Consulta enviada ao serviço online: ${proposal.query}"
+                            ConnectorKind.GITHUB_REPOSITORIES -> "Listar repositórios da conta GitHub conectada."
+                            else -> "Consulta GitHub: ${proposal.query}"
+                        }
+                    )
+                    if (proposal.kind !in setOf(ConnectorKind.CALCULATOR, ConnectorKind.DATE_TIME) && !allowOnlineFeatures) {
+                        Text("Ative os recursos online em Configurações.")
+                    }
                     if (proposal.kind == ConnectorKind.WEB_SEARCH && !OnlineSearchClient.hasSession(context)) Text("Conecte o serviço Mikael AI na aba Pesquisa.")
-                    if (proposal.kind == ConnectorKind.GITHUB_README && !GithubTokenStore.hasToken(context)) Text("Conecte o GitHub na aba GitHub.")
+                    if (proposal.kind in setOf(
+                            ConnectorKind.GITHUB_README, ConnectorKind.GITHUB_FILE,
+                            ConnectorKind.GITHUB_CODE_SEARCH, ConnectorKind.GITHUB_ISSUES,
+                            ConnectorKind.GITHUB_REPOSITORIES
+                        ) && !GithubTokenStore.hasToken(context)) Text("Conecte o GitHub na aba GitHub.")
                     if (connectorError.isNotBlank()) Text(connectorError, color = MaterialTheme.colorScheme.error)
                     if (connectorBusy) CircularProgressIndicator()
                 }
             },
             confirmButton = {
                 TextButton(
-                    enabled = !connectorBusy && allowOnlineFeatures &&
+                    enabled = !connectorBusy &&
+                        (proposal.kind in setOf(ConnectorKind.CALCULATOR, ConnectorKind.DATE_TIME) || allowOnlineFeatures) &&
                         (proposal.kind != ConnectorKind.WEB_SEARCH || OnlineSearchClient.hasSession(context)) &&
-                        (proposal.kind != ConnectorKind.GITHUB_README || GithubTokenStore.hasToken(context)),
+                        (proposal.kind !in setOf(
+                            ConnectorKind.GITHUB_README, ConnectorKind.GITHUB_FILE,
+                            ConnectorKind.GITHUB_CODE_SEARCH, ConnectorKind.GITHUB_ISSUES,
+                            ConnectorKind.GITHUB_REPOSITORIES
+                        ) || GithubTokenStore.hasToken(context)),
                     onClick = {
                         connectorBusy = true
                         connectorError = ""
