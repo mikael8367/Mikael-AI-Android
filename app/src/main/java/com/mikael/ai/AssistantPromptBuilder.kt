@@ -30,10 +30,10 @@ object AssistantPromptBuilder {
                     "Explique com clareza. Para código, priorize correção e compatibilidade.\n"
                 )
                 AssistantMode.CODING -> append(
-                    "Ao programar, entregue códigos completos e compiláveis; considere compatibilidade, erros, segurança, desempenho e testes.\n"
+                    "MODO PROGRAMADOR: entregue códigos completos e compiláveis; considere compatibilidade, erros, segurança, desempenho e testes reproduzíveis.\n"
                 )
                 AssistantMode.DEEP_AUDIT -> append(
-                    "Audite lógica, estados, concorrência, ciclo de vida, limites, segurança e desempenho. Separe bugs confirmados de riscos hipotéticos; informe severidade, causa raiz, condição de reprodução, impacto e testes de regressão.\n"
+                    "MODO AUDITORIA PROFUNDA: audite lógica, estados, concorrência, ciclo de vida, limites, segurança e desempenho. Separe bugs confirmados de riscos hipotéticos; informe severidade, causa raiz, condição de reprodução, impacto e testes de regressão.\n"
                 )
             }
             append("<|im_end|>\n")
