@@ -27,7 +27,7 @@ object LocalInferenceEngine {
     fun generate(prompt: String, maxTokens: Int = 128): Result<String> = runCatching {
         check(ready) { "Carregue um modelo MKAI próprio antes de conversar." }
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
-        require(prompt.length <= 24000) { "A mensagem está muito longa." }
+        require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa em UTF-8." }
         val answer = nativeGenerate(prompt, maxTokens)
         if (answer == null) error("O motor local não retornou uma resposta.")
         answer
