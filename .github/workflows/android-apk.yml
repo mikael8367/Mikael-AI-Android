@@ -62,7 +62,7 @@ jobs:
         run: gradle :app:lintDebug
 
       - name: Build debug APK
-        if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && github.ref == 'refs/heads/feature/mkai-v2-5gb-foundation' && contains(github.event.head_commit.message, '[build-apk-once]'))
+        if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/') && contains(github.event.head_commit.message, '[build-apk-once]'))
         run: gradle :app:assembleDebug
 
       - name: Verify APK and ARM64 native libraries
