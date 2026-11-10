@@ -87,7 +87,7 @@ class AppPreferences(context: Context) {
         const val PREFS = "mikael_ai_settings"
         const val KEY_SECURE = "settings_secure_v1"
         val MODEL_IDS = setOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")
-        val CONTEXT_OPTIONS = setOf(512, 1024, 2048, 4096)
+        val CONTEXT_OPTIONS = setOf(512, 1024, 2048)
         val LEGACY_KEYS = listOf(
             "model_path",
             "selected_catalog_model_id",
