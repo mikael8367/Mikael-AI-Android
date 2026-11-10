@@ -18,7 +18,9 @@ object LocalInferenceEngine {
         check(contextTokens in 16..8192) { "O contexto precisa ficar entre 16 e 8192 tokens." }
         val message = nativeLoad(modelPath, contextTokens, Runtime.getRuntime().availableProcessors().coerceIn(1, 4))
         if (message != null) error(message)
-        loadedContextTokens = contextTokens
+        loadedContextTokens = nativeContextCapacity().also { capacity ->
+            check(capacity >= 16) { "O motor não informou um contexto válido após carregar o modelo." }
+        }
         ready = true
     }
 
@@ -36,6 +38,7 @@ object LocalInferenceEngine {
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?
+    private external fun nativeContextCapacity(): Int
     private external fun nativeCancel()
     private external fun nativeUnload()
 }
