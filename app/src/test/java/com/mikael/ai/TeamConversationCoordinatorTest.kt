@@ -101,6 +101,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt!!.contains(original))
         assertTrue(prompt.contains("Qwen 2.5 0.5B"))
         assertTrue(prompt.contains("Já contribuíram: ninguém"))
+        assertTrue(prompt.contains("Ainda não contribuíram: Qwen 2.5 0.5B"))
         assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 480)
     }
 
