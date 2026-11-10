@@ -448,9 +448,15 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             "Checkpoint do Mikael AI inválido. Reinstale-o."
                                         }
                                         val modelContext = minOf(
-                                            1024,
-                                            MikaelModelInstaller.maxSequenceTokens(file) ?: 1024
+                                            512,
+                                            MikaelModelInstaller.maxSequenceTokens(file) ?: 512
                                         ).coerceAtLeast(16)
+                                        val mikaelPrompt = TeamConversationCoordinator.buildCompactMikaelPrompt(
+                                            originalPrompt = prompt,
+                                            chatContext = teamChatContext,
+                                            participants = ModelCatalog.teamParticipants,
+                                            maxPromptBytes = (modelContext - 24 - 4).coerceAtLeast(0)
+                                        ) ?: error("O checkpoint MKAI v1 tem contexto de apenas 512 bytes. Esta mensagem e o contexto anterior são grandes demais para ele; ele não será contado como participante.")
                                         val memory = MemoryBudget.check(
                                             availableBytes = MemoryBudget.availableBytes(activityManager),
                                             selectedLimitMiB = memoryLimit,
@@ -460,7 +466,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         check(memory.allowed) { memory.reason ?: "Memória insuficiente para Mikael AI." }
                                         try {
                                             LocalInferenceEngine.load(file.absolutePath, modelContext).getOrThrow()
-                                            LocalInferenceEngine.generate(sharedPrompt, tokenLimit).getOrThrow()
+                                            LocalInferenceEngine.generate(mikaelPrompt, minOf(tokenLimit, 24)).getOrThrow()
                                         } finally {
                                             LocalInferenceEngine.unload()
                                         }
@@ -472,7 +478,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         check(ModelInstaller.verifyInstalledFile(file)) {
                                             "Arquivo de ${participant.name} corrompido. Reinstale o modelo."
                                         }
-                                        val modelContext = 1024
+                                        val modelContext = 2048
                                         val memory = MemoryBudget.check(
                                             availableBytes = MemoryBudget.availableBytes(activityManager),
                                             selectedLimitMiB = memoryLimit,
@@ -812,8 +818,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             job.start()
                         },
                         onInstallTeam = {
-                            if (catalogJobs.containsKey(ModelCatalog.TEAM_MODEL_ID)) return@ModelCatalogScreen
-                            teamStatus = "Preparando downloads..."
+                                                        teamStatus = "Preparando downloads..."
                             val job = scope.launch(start = CoroutineStart.LAZY) {
                                 try {
                                     val missing = ModelCatalog.models.filter { model ->
