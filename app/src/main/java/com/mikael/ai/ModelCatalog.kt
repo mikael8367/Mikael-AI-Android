@@ -25,44 +25,8 @@ data class CatalogModel(
 )
 
 object ModelCatalog {
-    val models = listOf(
-        CatalogModel(
-            id = "smollm2-360m-q5",
-            name = "SmolLM2 360M Instruct",
-            description = "Modelo compacto para conversas e tarefas simples.",
-            sizeLabel = "290 MB",
-            expectedBytes = 290L * 1024L * 1024L,
-            fileName = "SmolLM2-360M-Instruct-Q5_K_L.gguf",
-            downloadUrl = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q5_K_L.gguf",
-            sha256 = "5fa72b081370dbfc015f0be3fe71aa2ae78b620fd5c1d1f484fb976bab7dae73",
-            license = "Apache-2.0",
-            category = "Geral"
-        ),
-        CatalogModel(
-            id = "qwen25-05b-q4",
-            name = "Qwen2.5 0.5B Instruct",
-            description = "Modelo geral pequeno para testar o chat local.",
-            sizeLabel = "491 MB",
-            expectedBytes = 491L * 1024L * 1024L,
-            fileName = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-            downloadUrl = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_k_m.gguf",
-            sha256 = "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db",
-            license = "Apache-2.0",
-            category = "Geral"
-        ),
-        CatalogModel(
-            id = "qwen25-coder-05b-q4",
-            name = "Qwen2.5-Coder 0.5B Instruct",
-            description = "Modelo compacto voltado para código e programação.",
-            sizeLabel = "491 MB",
-            expectedBytes = 491L * 1024L * 1024L,
-            fileName = "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
-            downloadUrl = "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
-            sha256 = "1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32",
-            license = "Apache-2.0",
-            category = "Programação"
-        )
-    )
+    // Modelos de terceiros foram desativados: o motor autoral não carrega GGUF.
+    val models = emptyList<CatalogModel>()
 }
 
 object ModelDownloader {
