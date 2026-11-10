@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(mikael_llama LANGUAGES C CXX)
 
+# The CI's installable debug variant is also used for on-device performance
+# diagnosis. Keep debug symbols, but avoid compiling llama.cpp/ggml kernels at
+# -O0 on low-power ARM devices. Release builds retain their normal toolchain flags.
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_C_FLAGS_DEBUG "-O2 -g" CACHE STRING "Optimized debug C flags" FORCE)
+    set(CMAKE_CXX_FLAGS_DEBUG "-O2 -g" CACHE STRING "Optimized debug C++ flags" FORCE)
+endif()
+
 include(FetchContent)
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
