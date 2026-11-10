@@ -616,9 +616,19 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     fun resumePendingTask() {
         val task = pendingTask ?: return
         if (isGenerating || ThinkingService.hasActiveTask()) return
-        val resumableModelId = task.modelId.takeIf {
-            it == ModelCatalog.TEAM_MODEL_ID || ModelCatalog.models.any { model -> model.id == it }
-        } ?: "qwen-0.5b"
+        val resumableModelId = resolveResumableModelId(
+            savedModelId = task.modelId,
+            installedFile = { id -> catalogInstalled[id] },
+            mikaelInstalled = modelPath?.let(::File)?.isFile == true
+        )
+        if (resumableModelId == null) {
+            android.widget.Toast.makeText(
+                context,
+                "Nenhum modelo instalado pode retomar esta tarefa. Instale um modelo no catálogo.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
         if (selectedCatalogModelId != resumableModelId) {
             selectedCatalogModelId = resumableModelId
             preferences.selectedCatalogModelId = resumableModelId
@@ -806,7 +816,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onImportMkai = { modelPicker.launch(arrayOf("application/octet-stream")) },
                         onTrainMkai = {
                             val trainingUrl = Uri.parse(
-                                "https://github.com/mikael8367/Mikael-AI-Android/edit/fix/ai-runtime-stability/training/corpus.txt"
+                                "https://github.com/mikael8367/Mikael-AI-Android/edit/feature/qwen-only-engine/training/corpus.txt"
                             )
                             context.startActivity(Intent(Intent.ACTION_VIEW, trainingUrl))
                         },
@@ -1690,3 +1700,22 @@ private fun loadCatalogInstalled(context: Context): Map<String, File> =
     ModelCatalog.models.mapNotNull { model ->
         ModelInstaller.installedFile(context, model)?.let { model.id to it }
     }.toMap()
+
+/** Decide qual modelo instalado pode retomar uma tarefa pendente sem fingir que um modelo ausente existe. */
+internal fun resolveResumableModelId(
+    savedModelId: String?,
+    installedFile: (String) -> File?,
+    mikaelInstalled: Boolean
+): String? {
+    if (savedModelId == null) return null
+    if (savedModelId == ModelCatalog.TEAM_MODEL_ID) return savedModelId
+    if (ModelCatalog.models.none { it.id == savedModelId }) return null
+    val savedInstalled = when (savedModelId) {
+        "mikael-base" -> mikaelInstalled
+        else -> installedFile(savedModelId)?.isFile == true
+    }
+    if (savedInstalled) return savedModelId
+    return ModelCatalog.models.firstOrNull { candidate ->
+        candidate.id != "mikael-base" && installedFile(candidate.id)?.isFile == true
+    }?.id ?: "mikael-base".takeIf { mikaelInstalled }
+}
