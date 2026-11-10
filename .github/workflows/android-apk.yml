@@ -1,4 +1,4 @@
-name: Mikael AI Native Android APK
+name: Mikael AI Android checks (sem APK)
 
 on:
   push:
@@ -51,13 +51,4 @@ jobs:
       - name: Run Android lint
         run: gradle :app:lintDebug
 
-      # Build an installable debug APK on the development branch after tests and lint pass.
-      - name: Build debug APK
-        run: gradle :app:assembleDebug
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: mikael-ai-android-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+      # Este workflow valida código e runtime nativo; não gera nem publica APK.
