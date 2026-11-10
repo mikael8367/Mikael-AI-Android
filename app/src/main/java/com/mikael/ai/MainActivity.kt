@@ -385,7 +385,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     val file = ModelInstaller.install(context, model) { percent ->
                                         catalogProgress = catalogProgress + (model.id to percent)
                                     }
-                                    catalogInstalled = catalogInstalled + (model.id to file)
+                                    val sharedModels = ModelCatalog.models
+                                        .filter { model.fileName != null && it.fileName == model.fileName }
+                                        .associate { it.id to file }
+                                        .ifEmpty { mapOf(model.id to file) }
+                                    catalogInstalled = catalogInstalled + sharedModels
                                     catalogProgress = catalogProgress - model.id
                                     catalogErrors = catalogErrors - model.id
                                 } catch (error: Exception) {
