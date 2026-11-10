@@ -26,6 +26,15 @@ class AnswerRevisionTest {
     }
 
     @Test
+    fun emptyInitialDraftReturnsVisibleDiagnosticFailure() {
+        val result = AnswerRevision.generate("pedido", "prompt", 2048) { _, _ ->
+            Result.success("   ")
+        }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()?.message?.contains("não gerou texto") == true)
+    }
+
+    @Test
     fun keepsDraftWhenSelfReviewApprovesIt() {
         val outputs = ArrayDeque(listOf("rascunho correto", "MANTER"))
         var calls = 0
