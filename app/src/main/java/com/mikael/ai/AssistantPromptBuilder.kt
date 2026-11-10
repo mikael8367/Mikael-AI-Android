@@ -70,10 +70,12 @@ object AssistantPromptBuilder {
         }
 
         val fixedWithHistory = systemPrompt + previousCandidate + currentPrefix + ending
-        val minimumCurrentBytes = minOf(48, latest?.second?.toByteArray(Charsets.UTF_8)?.size ?: 0)
+        val latestMessageBytes = latest?.second?.toByteArray(Charsets.UTF_8)?.size ?: 0
+        // History is optional; never let it shorten a current request that would
+        // fit by itself inside the prompt budget.
         val previousPart = if (
             previousCandidate.isNotEmpty() &&
-            fixedWithHistory.toByteArray(Charsets.UTF_8).size + minimumCurrentBytes <= maxBytes
+            fixedWithHistory.toByteArray(Charsets.UTF_8).size + latestMessageBytes <= maxBytes
         ) previousCandidate else ""
 
         val fixed = systemPrompt + previousPart + currentPrefix + ending
