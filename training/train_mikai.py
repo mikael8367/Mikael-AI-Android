@@ -175,7 +175,8 @@ def main() -> None:
     if not (16 <= args.dim <= 1024 and 1 <= args.layers <= 16 and
             1 <= args.heads <= 32 and args.dim % args.heads == 0 and
             args.dim <= args.ffn <= 4096 and 16 <= args.seq_len <= 8192 and
-            1 <= args.steps <= 100000 and 1 <= args.batch_size <= 128):
+            1 <= args.steps <= 100000 and 1 <= args.batch_size <= 128 and
+            np.isfinite(args.learning_rate) and 0.0 < args.learning_rate <= 1.0):
         raise SystemExit("Configuração fora dos limites seguros do formato MKAI v1.")
 
     random.seed(args.seed)
