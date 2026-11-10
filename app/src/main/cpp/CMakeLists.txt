@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.22.1)
 project(mikael_llama LANGUAGES C CXX)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export native compile commands for CI verification" FORCE)
+
 # The CI's installable debug variant is also used for on-device performance
 # diagnosis. Keep debug symbols, but avoid compiling llama.cpp/ggml kernels at
 # -O0 on low-power ARM devices. Release builds retain their normal toolchain flags.
