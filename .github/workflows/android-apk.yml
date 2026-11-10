@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref != 'refs/heads/feature/conversation-history'
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
