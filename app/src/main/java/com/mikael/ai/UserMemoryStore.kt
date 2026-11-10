@@ -41,6 +41,7 @@ object UserMemoryStore {
             "Não foi possível salvar a configuração de memória criptografada."
         }
         prefs.edit().remove(KEY_ENABLED).commit()
+        if (!enabled) setAutoLearningEnabled(context, false)
     }
 
     fun load(context: Context): List<UserMemoryItem> = read(context)
