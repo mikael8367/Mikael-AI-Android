@@ -135,6 +135,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var input by remember { mutableStateOf("") }
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
     var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
+    var userMemoryEnabled by remember { mutableStateOf(UserMemoryStore.isEnabled(context)) }
+    var userMemoryCount by remember { mutableStateOf(UserMemoryStore.load(context).size) }
     var githubContext by remember { mutableStateOf("") }
 
     fun persistActiveConversation() {
@@ -386,6 +388,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
                                 input = ""
                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                if (UserMemoryStore.rememberFromUserMessage(context, prompt)) {
+                                    userMemoryCount = UserMemoryStore.load(context).size
+                                }
                                 persistActiveConversation()
                                 isGenerating = true
                                 scope.launch {
@@ -397,7 +402,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     val conversationPrompt = ConversationPrompt.build(
                                         messages = messages.toList(),
                                         githubContext = githubContext,
-                                        contextCapacityBytes = activeContext
+                                        contextCapacityBytes = activeContext,
+                                        userMemory = UserMemoryStore.contextForPrompt(context)
                                     )
                                     val result = withContext(Dispatchers.IO) {
                                         AnswerRevision.generate(
@@ -520,6 +526,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         }
                     )
                     AppTab.SETTINGS -> SettingsScreen(
+                        userMemoryEnabled = userMemoryEnabled,
+                        userMemoryCount = userMemoryCount,
+                        onUserMemoryEnabledChange = { enabled ->
+                            UserMemoryStore.setEnabled(context, enabled)
+                            userMemoryEnabled = enabled
+                        },
+                        onClearUserMemory = {
+                            UserMemoryStore.clear(context)
+                            userMemoryCount = 0
+                        },
                         allowOnlineFeatures = allowOnlineFeatures,
                         onAllowOnlineFeaturesChange = {
                             allowOnlineFeatures = it
@@ -857,6 +873,10 @@ private fun ModelsScreen(
 
 @Composable
 private fun SettingsScreen(
+    userMemoryEnabled: Boolean,
+    userMemoryCount: Int,
+    onUserMemoryEnabledChange: (Boolean) -> Unit,
+    onClearUserMemory: () -> Unit,
     allowOnlineFeatures: Boolean,
     onAllowOnlineFeaturesChange: (Boolean) -> Unit,
     memoryLimit: Int,
@@ -897,6 +917,18 @@ private fun SettingsScreen(
                 color = Color(0xFF9EAAA2),
                 style = MaterialTheme.typography.bodySmall
             )
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Memória do usuário", fontWeight = FontWeight.SemiBold)
+            Text("$userMemoryCount lembranças salvas neste aparelho. Para guardar algo, comece a mensagem com \"Lembre: \". Exemplo: Lembre: prefiro respostas em português.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Usar memória nas respostas", modifier = Modifier.weight(1f))
+                Switch(checked = userMemoryEnabled, onCheckedChange = onUserMemoryEnabledChange)
+            }
+            OutlinedButton(onClick = onClearUserMemory, enabled = userMemoryCount > 0, modifier = Modifier.fillMaxWidth()) {
+                Text("Apagar todas as lembranças")
+            }
         }
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
