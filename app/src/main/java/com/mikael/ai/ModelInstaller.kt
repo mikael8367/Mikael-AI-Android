@@ -60,7 +60,17 @@ object ModelInstaller {
             val remoteSha256 = ModelIntegrity.normalizeExpectedSha256(
                 connection.getHeaderField("X-Linked-Etag")
             )
-            check(remoteSha256 != null) {
+            val pinnedSha256 = model.expectedSha256?.lowercase()
+            check(pinnedSha256 == null || ModelIntegrity.isSha256(pinnedSha256)) {
+                "O SHA-256 fixado no catálogo é inválido."
+            }
+            if (pinnedSha256 != null && remoteSha256 != null) {
+                check(pinnedSha256 == remoteSha256) {
+                    "O hash publicado pela origem mudou. O download foi cancelado."
+                }
+            }
+            val expectedSha256 = pinnedSha256 ?: remoteSha256
+            check(expectedSha256 != null) {
                 "O servidor não forneceu um SHA-256 verificável. O download foi cancelado por segurança."
             }
             val requiredSpace = (if (expected > 0) expected else model.approximateBytes) +
@@ -102,8 +112,8 @@ object ModelInstaller {
             check(magic) { "Arquivo inválido: cabeçalho GGUF não encontrado." }
 
             val actualSha256 = ModelIntegrity.sha256(temporary)
-            check(remoteSha256 == null || actualSha256.equals(remoteSha256, ignoreCase = true)) {
-                "A verificação SHA-256 do servidor falhou. O arquivo foi descartado."
+            check(actualSha256.equals(expectedSha256, ignoreCase = true)) {
+                "A verificação SHA-256 do modelo falhou. O arquivo foi descartado."
             }
             checksumTemporary.writeText(actualSha256)
 
