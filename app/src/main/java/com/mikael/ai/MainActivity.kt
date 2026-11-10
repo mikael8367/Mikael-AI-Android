@@ -139,6 +139,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
     var userMemoryEnabled by remember { mutableStateOf(UserMemoryStore.isEnabled(context)) }
     var userMemoryItems by remember { mutableStateOf(UserMemoryStore.load(context)) }
+    var pendingTask by remember { mutableStateOf(PendingTaskStore.load(context)) }
     var userMemoryCount by remember { mutableStateOf(userMemoryItems.size) }
     var githubContext by remember { mutableStateOf("") }
 
@@ -311,6 +312,84 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val activeEngineReady = if (selectedCatalogModelId == "mikael-base") engineReady else llamaReady
     val activeEngineStatus = if (selectedCatalogModelId == "mikael-base") engineStatus else llamaStatus
 
+    fun launchGeneration(prompt: String) {
+        val modelId = selectedCatalogModelId
+        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis())
+        PendingTaskStore.save(context, task)
+        pendingTask = task
+        isGenerating = true
+        ContextCompat.startForegroundService(context, Intent(context, ThinkingService::class.java))
+        ThinkingService.launchTask {
+            try {
+                val activeContext = if (modelId == "mikael-base") {
+                    LocalInferenceEngine.contextCapacityTokens()
+                } else {
+                    LlamaInferenceEngine.contextCapacityTokens()
+                }
+                val conversationPrompt = ConversationPrompt.build(
+                    messages = messages.toList(),
+                    githubContext = githubContext,
+                    contextCapacityBytes = activeContext,
+                    userMemory = UserMemoryStore.contextForPrompt(context)
+                )
+                val result = withContext(Dispatchers.IO) {
+                    AnswerRevision.generate(
+                        originalRequest = prompt,
+                        conversationPrompt = conversationPrompt,
+                        contextCapacityBytes = activeContext,
+                        maxAnswerTokens = 256
+                    ) { candidatePrompt, tokenLimit ->
+                        if (modelId == "mikael-base") LocalInferenceEngine.generate(candidatePrompt, tokenLimit)
+                        else LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
+                    }
+                }
+                result.fold(
+                    onSuccess = { answer ->
+                        if (answer.isNotBlank()) {
+                            ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", answer))
+                            persistActiveConversation()
+                            PendingTaskStore.clear(context)
+                            pendingTask = null
+                        }
+                    },
+                    onFailure = { error ->
+                        if (error.message != "Geração cancelada pelo usuário.") {
+                            ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant",
+                                "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                            persistActiveConversation()
+                            // Mantém o registro para permitir tentar novamente após corrigir a falha.
+                        }
+                    }
+                )
+            } catch (error: Exception) {
+                if (error !is kotlinx.coroutines.CancellationException) {
+                    ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant",
+                        "Tarefa interrompida: ${error.message ?: "erro inesperado"}. Você pode tentar retomá-la."))
+                    persistActiveConversation()
+                }
+            } finally {
+                isGenerating = false
+                context.stopService(Intent(context, ThinkingService::class.java))
+            }
+        }
+    }
+
+    fun resumePendingTask() {
+        val task = pendingTask ?: return
+        if (!activeEngineReady || isGenerating) return
+        val conversation = conversations.firstOrNull { it.id == task.conversationId }
+        if (conversation != null) {
+            messages.clear()
+            messages.addAll(conversation.messages)
+            activeConversationId = conversation.id
+        }
+        if (messages.none { it.role == "user" && it.text == task.prompt }) {
+            ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", task.prompt))
+            persistActiveConversation()
+        }
+        launchGeneration(task.prompt)
+    }
+
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = Color(0xFF101713)) {
@@ -382,9 +461,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         engineReady = activeEngineReady,
                         engineStatus = activeEngineStatus,
                         isGenerating = isGenerating,
+                        pendingTask = pendingTask,
+                        onResumeTask = { resumePendingTask() },
                         onCancel = {
                             if (selectedCatalogModelId == "mikael-base") LocalInferenceEngine.cancel()
                             else LlamaInferenceEngine.cancel()
+                            PendingTaskStore.clear(context)
+                            pendingTask = null
                             context.stopService(Intent(context, ThinkingService::class.java))
                         },
                         onSend = {
@@ -399,54 +482,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     userMemoryCount = userMemoryItems.size
                                 }
                                 persistActiveConversation()
-                                isGenerating = true
-                                ContextCompat.startForegroundService(context, Intent(context, ThinkingService::class.java))
-                                ThinkingService.launchTask {
-                                    try {
-                                    val activeContext = if (selectedCatalogModelId == "mikael-base") {
-                                        LocalInferenceEngine.contextCapacityTokens()
-                                    } else {
-                                        LlamaInferenceEngine.contextCapacityTokens()
-                                    }
-                                    val conversationPrompt = ConversationPrompt.build(
-                                        messages = messages.toList(),
-                                        githubContext = githubContext,
-                                        contextCapacityBytes = activeContext,
-                                        userMemory = UserMemoryStore.contextForPrompt(context)
-                                    )
-                                    val result = withContext(Dispatchers.IO) {
-                                        AnswerRevision.generate(
-                                            originalRequest = prompt,
-                                            conversationPrompt = conversationPrompt,
-                                            contextCapacityBytes = activeContext,
-                                            maxAnswerTokens = 256
-                                        ) { candidatePrompt, tokenLimit ->
-                                            if (selectedCatalogModelId == "mikael-base") {
-                                                LocalInferenceEngine.generate(candidatePrompt, tokenLimit)
-                                            } else {
-                                                LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
-                                            }
-                                        }
-                                    }
-                                    result.fold(
-                                        onSuccess = { answer ->
-                                            if (answer.isNotBlank()) {
-                                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", answer))
-                                                persistActiveConversation()
-                                            }
-                                        },
-                                        onFailure = { error ->
-                                            if (error.message != "Geração cancelada pelo usuário.") {
-                                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
-                                                persistActiveConversation()
-                                            }
-                                        }
-                                    )
-                                    } finally {
-                                        isGenerating = false
-                                        context.stopService(Intent(context, ThinkingService::class.java))
-                                    }
-                                }
+                                launchGeneration(prompt)
+
                             } else if (!activeEngineReady) {
                                 android.widget.Toast.makeText(context, activeEngineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
@@ -636,6 +673,8 @@ private fun ChatScreen(
     engineReady: Boolean,
     engineStatus: String,
     isGenerating: Boolean,
+    pendingTask: PendingAiTask?,
+    onResumeTask: () -> Unit,
     onCancel: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -644,6 +683,16 @@ private fun ChatScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        if (pendingTask != null && !isGenerating) {
+            Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF26382D))) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Tarefa interrompida", fontWeight = FontWeight.SemiBold, color = Color(0xFFB8E8CA))
+                    Text(pendingTask.prompt.take(120), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = onResumeTask, enabled = engineReady) { Text(if (engineReady) "Retomar tarefa" else "Carregando modelo…") }
+                }
+            }
+        }
         if (!engineReady) {
             Card(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -894,10 +943,10 @@ private fun ModelsScreen(
 private fun SettingsScreen(
     userMemoryEnabled: Boolean,
     userMemoryCount: Int,
-    userMemoryItems: List<String>,
+    userMemoryItems: List<UserMemoryItem>,
     onUserMemoryEnabledChange: (Boolean) -> Unit,
     onClearUserMemory: () -> Unit,
-    onRemoveUserMemory: (String) -> Unit,
+    onRemoveUserMemory: (UserMemoryItem) -> Unit,
     allowOnlineFeatures: Boolean,
     onAllowOnlineFeaturesChange: (Boolean) -> Unit,
     memoryLimit: Int,
@@ -945,7 +994,7 @@ private fun SettingsScreen(
             Text("$userMemoryCount lembranças salvas neste aparelho. Use \"Lembre: ...\" para guardar e \"Esqueça: ...\" para remover uma lembrança pelo chat.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
             userMemoryItems.forEach { item ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(item, modifier = Modifier.weight(1f), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                    Text("[${item.topic}] ${item.text}", modifier = Modifier.weight(1f), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
                     TextButton(onClick = { onRemoveUserMemory(item) }) { Text("Remover") }
                 }
             }
