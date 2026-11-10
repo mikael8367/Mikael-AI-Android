@@ -104,7 +104,11 @@ object UserMemoryStore {
             "Projetos" to listOf("projeto", "repositorio", "mikael ai", "desenvolver", "construir", "funcionalidade"),
             "Preferências" to listOf("prefiro", "gosto", "quero", "nao quero", "sempre", "nunca", "portugues", "portugues brasil")
         )
-        return groups.entries.firstOrNull { entry -> entry.value.any { value.contains(it) } }?.key ?: "Outros"
+        return groups.entries.firstOrNull { entry ->
+            entry.value.any { keyword ->
+                if (keyword.contains(' ')) value.contains(keyword) else value.split(' ').contains(keyword)
+            }
+        }?.key ?: "Outros"
     }
 
     internal fun normalize(value: String): String =
@@ -114,8 +118,9 @@ object UserMemoryStore {
             .trim().replace(Regex("\\s+"), " ")
 
     internal fun tokenSimilarity(first: String, second: String): Double {
-        val a = first.split(" ").filter { it.length > 2 }.toSet()
-        val b = second.split(" ").filter { it.length > 2 }.toSet()
+        val ignored = setOf("que", "para", "com", "uma", "uns", "das", "dos", "em", "de", "do", "da", "eu", "meu", "minha")
+        val a = first.split(" ").filter { it.length > 1 && it !in ignored }.toSet()
+        val b = second.split(" ").filter { it.length > 1 && it !in ignored }.toSet()
         if (a.isEmpty() || b.isEmpty()) return if (first == second) 1.0 else 0.0
         return a.intersect(b).size.toDouble() / a.union(b).size.toDouble()
     }
