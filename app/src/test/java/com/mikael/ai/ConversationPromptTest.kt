@@ -18,6 +18,19 @@ class ConversationPromptTest {
     }
 
     @Test
+    fun approvedLocalMemoryIsIncludedAsContext() {
+        val prompt = ConversationPrompt.build(
+            listOf(ChatMessage(1, "user", "Qual idioma prefiro?")),
+            "",
+            1024,
+            userMemory = "- Prefiro português do Brasil\\n"
+        )
+        assertTrue(prompt.contains("Memórias locais fornecidas pelo usuário"))
+        assertTrue(prompt.contains("Prefiro português do Brasil"))
+        assertTrue(prompt.contains("Qual idioma prefiro?"))
+    }
+
+    @Test
     fun oversizedGithubContextDoesNotPushPromptOverLimit() {
         val prompt = ConversationPrompt.build(
             listOf(ChatMessage(1, "user", "Explique este código")),
