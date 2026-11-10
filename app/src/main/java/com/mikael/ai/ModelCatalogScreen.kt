@@ -35,6 +35,7 @@ fun ModelCatalogScreen(
     onSelect: (CatalogModel) -> Unit,
     onInstall: (CatalogModel) -> Unit,
     onImportMkai: () -> Unit,
+    onTrainMkai: () -> Unit,
     onDelete: (CatalogModel) -> Unit
 ) {
     LazyColumn(
@@ -49,7 +50,7 @@ fun ModelCatalogScreen(
                 Text("Modelos disponíveis", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Mikael AI autoral e três modelos GGUF opcionais.", color = Color(0xFF9EAAA2))
                 Text(
-                    "Escolha um modelo, instale-o e toque em Usar modelo. O carregamento acontece automaticamente.",
+                    "Instale um modelo e toque em Usar modelo. O carregamento acontece automaticamente.",
                     color = Color(0xFF9EAAA2),
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -79,16 +80,30 @@ fun ModelCatalogScreen(
 
                     if (isMikael) {
                         Text(
-                            if (mikaelAvailable) "Modelo MKAI instalado neste aparelho."
-                            else "Ainda não existe um arquivo MKAI treinado publicado para download. Instale selecionando um arquivo .mkai treinado.",
+                            if (mikaelAvailable) "Checkpoint MKAI instalado neste aparelho."
+                            else "O primeiro checkpoint precisa ser treinado e publicado uma vez. Depois, você poderá baixá-lo diretamente por este botão.",
                             color = if (mikaelAvailable) Color(0xFF54E69C) else Color(0xFFFFD28A),
                             style = MaterialTheme.typography.bodySmall
                         )
+                        if (percent != null) {
+                            LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
+                            Text("Baixando Mikael AI: $percent%", color = Color(0xFF8BE7B7))
+                        }
                         errors[model.id]?.let {
                             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                         }
-                        Button(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (mikaelAvailable) "Trocar / instalar arquivo Mikael AI (.mkai)" else "Instalar arquivo Mikael AI (.mkai)")
+                        Button(
+                            onClick = { onInstall(model) },
+                            enabled = percent == null,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(if (percent != null) "Baixando..." else "Baixar e instalar Mikael AI")
+                        }
+                        OutlinedButton(onClick = onTrainMkai, modifier = Modifier.fillMaxWidth()) {
+                            Text("Treinar primeiro checkpoint no GitHub")
+                        }
+                        OutlinedButton(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) {
+                            Text("Importar arquivo .mkai manualmente")
                         }
                         if (mikaelAvailable) {
                             OutlinedButton(
@@ -146,7 +161,7 @@ fun ModelCatalogScreen(
         item {
             Spacer(Modifier.size(8.dp))
             Text(
-                "Os modelos GGUF de terceiros são opcionais. O Mikael AI autoral será instalado quando o primeiro checkpoint próprio estiver treinado e validado.",
+                "Os modelos GGUF de terceiros são opcionais. O Mikael AI autoral usa o formato MKAI próprio.",
                 color = Color(0xFF9EAAA2),
                 style = MaterialTheme.typography.bodySmall
             )
