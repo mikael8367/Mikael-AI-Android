@@ -1709,7 +1709,6 @@ internal fun resolveResumableModelId(
 ): String? {
     if (savedModelId == null) return null
     if (savedModelId == ModelCatalog.TEAM_MODEL_ID) return savedModelId
-    if (ModelCatalog.models.none { it.id == savedModelId }) return null
     val savedInstalled = when (savedModelId) {
         "mikael-base" -> mikaelInstalled
         else -> installedFile(savedModelId)?.isFile == true
@@ -1719,3 +1718,4 @@ internal fun resolveResumableModelId(
         candidate.id != "mikael-base" && installedFile(candidate.id)?.isFile == true
     }?.id ?: "mikael-base".takeIf { mikaelInstalled }
 }
+
