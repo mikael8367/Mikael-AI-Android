@@ -1,0 +1,345 @@
+Mikael AI - corpus autoral inicial em português brasileiro
+Finalidade: exemplos didáticos curtos para o primeiro treinamento experimental do modelo próprio MKAI.
+Todo o conteúdo abaixo foi escrito para este projeto. Não contém dados pessoais.
+
+<|im_start|>user
+Oi
+<|im_end|>
+<|im_start|>assistant
+Oi! Sou o Mikael AI, um assistente experimental. Posso ajudar com dúvidas simples de programação.
+<|im_end|>
+<|im_start|>user
+O que é uma variável?
+<|im_end|>
+<|im_start|>assistant
+Uma variável é um espaço identificado por um nome que guarda um valor. Em Kotlin, use val para um valor que não será reatribuído e var para um valor que pode mudar.
+<|im_end|>
+<|im_start|>user
+Qual a diferença entre val e var no Kotlin?
+<|im_end|>
+<|im_start|>assistant
+val cria uma referência que não pode receber outra atribuição. var permite receber novos valores. Prefira val quando não precisar alterar a variável.
+<|im_end|>
+<|im_start|>user
+O que é uma função?
+<|im_end|>
+<|im_start|>assistant
+Uma função é um bloco de código que executa uma tarefa. Ela pode receber parâmetros e devolver um resultado.
+<|im_end|>
+<|im_start|>user
+Mostre uma função simples em Kotlin.
+<|im_end|>
+<|im_start|>assistant
+fun somar(a: Int, b: Int): Int {
+    return a + b
+}
+A função recebe dois números inteiros e devolve a soma.
+<|im_end|>
+<|im_start|>user
+O que significa Int?
+<|im_end|>
+<|im_start|>assistant
+Int é um tipo usado para representar números inteiros, como 2, 15 e -8.
+<|im_end|>
+<|im_start|>user
+O que significa String?
+<|im_end|>
+<|im_start|>assistant
+String representa uma sequência de caracteres, como um nome ou uma frase. Exemplo em Kotlin: val nome = "Mikael".
+<|im_end|>
+<|im_start|>user
+Como mostrar uma mensagem em Kotlin?
+<|im_end|>
+<|im_start|>assistant
+Use println para mostrar texto no console:
+println("Olá!")
+<|im_end|>
+<|im_start|>user
+O que é uma condição if?
+<|im_end|>
+<|im_start|>assistant
+if executa um bloco quando uma condição é verdadeira. Exemplo:
+if (idade >= 18) {
+    println("Maior de idade")
+}
+<|im_end|>
+<|im_start|>user
+Para que serve else?
+<|im_end|>
+<|im_start|>assistant
+else define o bloco alternativo executado quando a condição do if é falsa.
+<|im_end|>
+<|im_start|>user
+O que é um laço for?
+<|im_end|>
+<|im_start|>assistant
+for repete um bloco para cada elemento de uma sequência. Exemplo:
+for (numero in 1..3) {
+    println(numero)
+}
+<|im_end|>
+<|im_start|>user
+O que é um laço while?
+<|im_end|>
+<|im_start|>assistant
+while repete um bloco enquanto sua condição continuar verdadeira. Garanta que a condição possa se tornar falsa para evitar um loop infinito.
+<|im_end|>
+<|im_start|>user
+O que é uma lista?
+<|im_end|>
+<|im_start|>assistant
+Uma lista guarda vários elementos em uma única estrutura. Em Kotlin, listOf cria uma lista somente para leitura e mutableListOf cria uma lista que pode ser alterada.
+<|im_end|>
+<|im_start|>user
+Como criar uma lista em Kotlin?
+<|im_end|>
+<|im_start|>assistant
+val linguagens = listOf("Kotlin", "Java", "Python")
+A variável linguagens contém três textos.
+<|im_end|>
+<|im_start|>user
+O que é uma classe?
+<|im_end|>
+<|im_start|>assistant
+Uma classe define a estrutura e os comportamentos que objetos daquele tipo podem ter. Ela pode conter propriedades e funções.
+<|im_end|>
+<|im_start|>user
+O que é um objeto?
+<|im_end|>
+<|im_start|>assistant
+Um objeto é uma instância criada a partir de uma classe. Ele possui os dados e comportamentos definidos por ela.
+<|im_end|>
+<|im_start|>user
+O que é um bug?
+<|im_end|>
+<|im_start|>assistant
+Bug é um defeito no software que faz o programa apresentar um resultado incorreto, falhar ou se comportar de maneira inesperada.
+<|im_end|>
+<|im_start|>user
+Como começar a investigar um erro?
+<|im_end|>
+<|im_start|>assistant
+Leia a mensagem de erro, encontre a linha indicada, tente reproduzir o problema com passos claros e verifique quais valores entram na parte do código que falhou.
+<|im_end|>
+<|im_start|>user
+O que é um log?
+<|im_end|>
+<|im_start|>assistant
+Log é um registro de eventos do programa. Ele ajuda a descobrir o que aconteceu antes, durante e depois de um erro.
+<|im_end|>
+<|im_start|>user
+O que é JSON?
+<|im_end|>
+<|im_start|>assistant
+JSON é um formato textual para representar dados estruturados. Ele usa objetos, arrays, textos, números, booleanos e null.
+<|im_end|>
+<|im_start|>user
+Mostre um JSON simples.
+<|im_end|>
+<|im_start|>assistant
+{
+  "nome": "Mikael AI",
+  "versao": 1,
+  "ativo": true
+}
+<|im_end|>
+<|im_start|>user
+O que é uma API?
+<|im_end|>
+<|im_start|>assistant
+Uma API define uma forma organizada para que programas troquem informações ou solicitem operações uns aos outros.
+<|im_end|>
+<|im_start|>user
+O que é HTTP?
+<|im_end|>
+<|im_start|>assistant
+HTTP é um protocolo usado para comunicação entre clientes e servidores na web. HTTPS adiciona uma camada de segurança com TLS.
+<|im_end|>
+<|im_start|>user
+O que significa erro 404?
+<|im_end|>
+<|im_start|>assistant
+O status HTTP 404 significa que o servidor não encontrou o recurso solicitado.
+<|im_end|>
+<|im_start|>user
+O que é Git?
+<|im_end|>
+<|im_start|>assistant
+Git é um sistema de controle de versão. Ele registra mudanças nos arquivos e permite comparar e recuperar versões do projeto.
+<|im_end|>
+<|im_start|>user
+O que é um commit?
+<|im_end|>
+<|im_start|>assistant
+Um commit registra um conjunto de alterações no histórico do Git. Uma boa mensagem descreve resumidamente o que mudou.
+<|im_end|>
+<|im_start|>user
+O que é uma branch?
+<|im_end|>
+<|im_start|>assistant
+Branch é uma linha independente de desenvolvimento. Ela permite trabalhar em mudanças sem alterar diretamente outra branch.
+<|im_end|>
+<|im_start|>user
+O que é HTML?
+<|im_end|>
+<|im_start|>assistant
+HTML é uma linguagem de marcação que organiza o conteúdo de páginas web, como títulos, parágrafos, links e imagens.
+<|im_end|>
+<|im_start|>user
+O que é CSS?
+<|im_end|>
+<|im_start|>assistant
+CSS define a apresentação visual de páginas HTML, incluindo cores, espaçamentos, tamanhos e organização dos elementos.
+<|im_end|>
+<|im_start|>user
+O que é JavaScript?
+<|im_end|>
+<|im_start|>assistant
+JavaScript é uma linguagem de programação muito usada para adicionar comportamento e interatividade a páginas e aplicações.
+<|im_end|>
+<|im_start|>user
+O que é Python?
+<|im_end|>
+<|im_start|>assistant
+Python é uma linguagem de programação conhecida por sua sintaxe legível. É usada em automação, análise de dados, educação e desenvolvimento de software.
+<|im_end|>
+<|im_start|>user
+O que é um array?
+<|im_end|>
+<|im_start|>assistant
+Array é uma estrutura que armazena uma sequência de elementos acessados por índices. Em muitas linguagens, o primeiro índice é zero.
+<|im_end|>
+<|im_start|>user
+O que é um parâmetro?
+<|im_end|>
+<|im_start|>assistant
+Parâmetro é uma variável declarada na definição de uma função para receber um valor quando ela é chamada.
+<|im_end|>
+<|im_start|>user
+O que é retorno de uma função?
+<|im_end|>
+<|im_start|>assistant
+O retorno é o resultado que uma função entrega ao código que a chamou. Em Kotlin, o tipo de retorno pode ser declarado depois dos parâmetros.
+<|im_end|>
+<|im_start|>user
+Como somar dois números em Python?
+<|im_end|>
+<|im_start|>assistant
+a = 4
+b = 6
+resultado = a + b
+print(resultado)
+O programa mostra 10.
+<|im_end|>
+<|im_start|>user
+Como criar uma função em Python?
+<|im_end|>
+<|im_start|>assistant
+def saudar(nome):
+    return "Olá, " + nome
+
+print(saudar("Mikael"))
+A palavra def inicia uma definição de função.
+<|im_end|>
+<|im_start|>user
+Como comentar código em Python?
+<|im_end|>
+<|im_start|>assistant
+Use o caractere # para iniciar um comentário de uma linha. O interpretador ignora o comentário.
+<|im_end|>
+<|im_start|>user
+Como comentar código em Kotlin?
+<|im_end|>
+<|im_start|>assistant
+Use // para comentário de uma linha. Para comentários em bloco, use /* e */.
+<|im_end|>
+<|im_start|>user
+O que é null?
+<|im_end|>
+<|im_start|>assistant
+null representa a ausência de um valor. Em Kotlin, os tipos precisam permitir null explicitamente, como String?.
+<|im_end|>
+<|im_start|>user
+O que é uma exceção?
+<|im_end|>
+<|im_start|>assistant
+Uma exceção sinaliza uma condição anormal durante a execução. O código pode tratar exceções com try e catch quando houver uma recuperação adequada.
+<|im_end|>
+<|im_start|>user
+Como evitar divisão por zero?
+<|im_end|>
+<|im_start|>assistant
+Verifique se o divisor é diferente de zero antes de dividir. Se for zero, trate o caso com uma mensagem ou um resultado alternativo.
+<|im_end|>
+<|im_start|>user
+O que é depuração?
+<|im_end|>
+<|im_start|>assistant
+Depuração é o processo de investigar a execução de um programa para localizar a causa de um defeito e confirmar a correção.
+<|im_end|>
+<|im_start|>user
+O que é um teste unitário?
+<|im_end|>
+<|im_start|>assistant
+Teste unitário verifica uma parte pequena do programa isoladamente. Ele ajuda a detectar regressões quando o código muda.
+<|im_end|>
+<|im_start|>user
+Como escrever um teste simples?
+<|im_end|>
+<|im_start|>assistant
+Defina uma entrada conhecida, execute a função e compare o resultado com o valor esperado. Inclua também entradas vazias e valores extremos.
+<|im_end|>
+<|im_start|>user
+O que é uma dependência?
+<|im_end|>
+<|im_start|>assistant
+Dependência é uma biblioteca ou componente externo que um projeto utiliza para oferecer uma funcionalidade.
+<|im_end|>
+<|im_start|>user
+O que é compilação?
+<|im_end|>
+<|im_start|>assistant
+Compilação transforma código-fonte em uma forma que pode ser executada ou processada por outra ferramenta, como código nativo ou bytecode.
+<|im_end|>
+<|im_start|>user
+O que é um aplicativo Android?
+<|im_end|>
+<|im_start|>assistant
+É um programa criado para funcionar no sistema Android. Ele pode usar componentes da plataforma, permissões e recursos do dispositivo.
+<|im_end|>
+<|im_start|>user
+Como organizar um projeto de programação?
+<|im_end|>
+<|im_start|>assistant
+Separe o código por responsabilidade, mantenha nomes claros, documente decisões importantes e crie testes para os comportamentos essenciais.
+<|im_end|>
+<|im_start|>user
+O que fazer quando não sei resolver um erro?
+<|im_end|>
+<|im_start|>assistant
+Registre a mensagem completa, identifique o que mudou recentemente, crie um exemplo mínimo que reproduza o erro e investigue uma hipótese por vez.
+<|im_end|>
+<|im_start|>user
+O que é uma versão de software?
+<|im_end|>
+<|im_start|>assistant
+Uma versão identifica um estado publicado do software. Em versionamento semântico, MAJOR indica mudanças incompatíveis, MINOR indica recursos compatíveis e PATCH indica correções.
+<|im_end|>
+<|im_start|>user
+O que é um banco de dados?
+<|im_end|>
+<|im_start|>assistant
+Banco de dados é um sistema organizado para armazenar, consultar e atualizar informações.
+<|im_end|>
+<|im_start|>user
+Como melhorar um programa lento?
+<|im_end|>
+<|im_start|>assistant
+Meça o desempenho primeiro, descubra qual parte consome mais tempo, faça uma alteração pequena e compare os resultados com o mesmo teste.
+<|im_end|>
+<|im_start|>user
+Como responder quando não sabe a resposta?
+<|im_end|>
+<|im_start|>assistant
+Diga claramente o que não sabe, não invente fatos e peça o detalhe necessário para investigar corretamente.
+<|im_end|>
