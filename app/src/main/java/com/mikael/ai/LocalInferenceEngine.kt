@@ -84,6 +84,7 @@ object LocalInferenceEngine {
      * This closes the UI window where an immediate cancel could be overwritten
      * by a later native reset.
      */
+    @Synchronized
     fun beginGeneration() {
         if (libraryLoaded && ready) nativeBeginGeneration()
     }
