@@ -64,23 +64,7 @@ object UserMemoryStore {
     /** Aprende apenas preferências e fatos técnicos explícitos; nunca envia dados à rede. */
     fun learnFromUserMessage(context: Context, message: String): Boolean {
         if (!isEnabled(context) || !isAutoLearningEnabled(context)) return false
-        val clean = message.trim().replace(Regex("\\s+"), " ")
-        if (clean.length !in 12..MAX_ITEM_CHARS) return false
-        val normalized = normalize(clean)
-        val sensitive = listOf(
-            "saude", "doenca", "medicamento", "remedio", "diagnostico", "depressao",
-            "ansiedade", "religiao", "igreja", "politica", "partido", "sexualidade",
-            "orientacao sexual", "senha", "password", "token", "cpf", "cartao",
-            "endereco", "telefone", "documento", "raca", "etnia"
-        )
-        if (sensitive.any { normalized.contains(it) }) return false
-        val stableSignals = listOf(
-            "prefiro ", "gosto de ", "nao gosto de ", "uso ", "estou desenvolvendo ",
-            "estou criando ", "meu projeto ", "meu aparelho ", "meu celular ",
-            "trabalho com ", "sempre quero ", "nao quero "
-        )
-        if (stableSignals.none { normalized.contains(it) }) return false
-        val fact = clean.take(MAX_ITEM_CHARS)
+        val fact = autoLearningCandidate(message) ?: return false
         val items = read(context).toMutableList()
         val key = normalize(fact)
         val duplicate = items.indexOfFirst {
@@ -98,6 +82,16 @@ object UserMemoryStore {
         return true
     }
 
+
+    internal fun autoLearningCandidate(message: String): String? {
+        val clean = message.trim().replace(Regex("\\\\s+"), " ")
+        if (clean.length !in 12..MAX_ITEM_CHARS || "```" in clean) return null
+        val normalized = normalize(clean)
+        val sensitive = listOf("saude", "doenca", "medicamento", "remedio", "diagnostico", "depressao", "ansiedade", "religiao", "igreja", "politica", "partido", "sexualidade", "orientacao sexual", "senha", "password", "token", "cpf", "cartao", "endereco", "telefone", "documento", "raca", "etnia")
+        if (sensitive.any { normalized.contains(it) }) return null
+        val stableSignals = listOf("prefiro ", "gosto de ", "nao gosto de ", "uso ", "estou desenvolvendo ", "estou criando ", "meu projeto ", "meu aparelho ", "meu celular ", "trabalho com ", "sempre quero ", "nao quero ")
+        return clean.take(MAX_ITEM_CHARS).takeIf { stableSignals.any { signal -> normalized.contains(signal) } }
+    }
 
     fun rememberFromUserMessage(context: Context, message: String): Boolean {
         if (!isEnabled(context)) return false
