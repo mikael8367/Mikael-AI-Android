@@ -35,7 +35,7 @@ class UserMemoryStoreTest {
 
     @Test
     fun genericModelWordIsNotMisclassifiedAsMinecraftMod() {
-        assertEquals("Outros", UserMemoryStore.classifyTopic("Quero testar um modelo local"))
+        assertEquals("Outros", UserMemoryStore.classifyTopic("Modelo local pequeno"))
     }
 
     @Test
