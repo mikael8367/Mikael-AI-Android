@@ -154,7 +154,7 @@ internal object TeamConversationCoordinator {
         val spoken = contributions.map { it.participant.id }.toSet()
         val remaining = participants.filterNot { it.id in spoken }
         val roleInstruction = if (finalSynthesis) {
-            "Etapa final: revise criticamente as quatro contribuições, corrija erros e resolva divergências por evidências. Entregue uma resposta natural única; não invente verificações nem revele raciocínio privado."
+            "Etapa final: revise criticamente todas as contribuições recebidas, corrija erros e resolva divergências por evidências. Entregue uma resposta natural única; não invente verificações nem revele raciocínio privado."
         } else {
             "Contribua brevemente. Pode responder, contestar, pedir verificação ou corrigir outro modelo. Justifique discordâncias e proponha alternativa; sem raciocínio privado."
         }
