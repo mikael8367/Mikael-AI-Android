@@ -111,6 +111,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var tab by remember { mutableStateOf(AppTab.CHAT) }
     var modelPath by remember { mutableStateOf(preferences.modelPath) }
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
+    var activeDownloadId by remember { mutableStateOf<String?>(null) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadStatus by remember { mutableStateOf("") }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
@@ -285,7 +288,33 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         installedModels = installedModels,
                         engineStatus = engineStatus,
                         engineReady = engineReady,
+                        activeDownloadId = activeDownloadId,
+                        downloadProgress = downloadProgress,
+                        downloadStatus = downloadStatus,
                         onImport = { modelPicker.launch(arrayOf("*/*")) },
+                        onDownload = { model ->
+                            if (activeDownloadId == null) {
+                                scope.launch {
+                                    activeDownloadId = model.id
+                                    downloadProgress = 0f
+                                    downloadStatus = "Preparando download..."
+                                    try {
+                                        ModelDownloader.download(context, model) { received, total ->
+                                            downloadProgress = (received.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                                            downloadStatus = "Baixando ${(downloadProgress * 100).toInt()}% — ${model.name}"
+                                        }
+                                        installedModels = listInstalledModels(context)
+                                        downloadStatus = "${model.name} instalado e verificado."
+                                        android.widget.Toast.makeText(context, "Modelo instalado. Escolha Usar para carregá-lo.", android.widget.Toast.LENGTH_LONG).show()
+                                    } catch (error: Exception) {
+                                        downloadStatus = error.message ?: "Falha ao baixar o modelo."
+                                    } finally {
+                                        activeDownloadId = null
+                                        downloadProgress = 0f
+                                    }
+                                }
+                            }
+                        },
                         onSelect = { selectedPath ->
                             preferences.modelPath = selectedPath
                             if (selectedPath == modelPath) {
@@ -300,17 +329,19 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             engineReady = false
                             engineStatus = "Modelo descarregado."
                         },
-                        onDelete = {
+                        onDelete = { filePath ->
                             scope.launch {
                                 withContext(Dispatchers.IO) {
-                                    LocalInferenceEngine.unload()
-                                    modelPath?.let { File(it).delete() }
+                                    if (modelPath == filePath) LocalInferenceEngine.unload()
+                                    File(filePath).delete()
                                 }
-                                preferences.modelPath = null
-                                modelPath = null
+                                if (modelPath == filePath) {
+                                    preferences.modelPath = null
+                                    modelPath = null
+                                    engineReady = false
+                                    engineStatus = "Nenhum modelo importado."
+                                }
                                 installedModels = listInstalledModels(context)
-                                engineReady = false
-                                engineStatus = "Nenhum modelo importado."
                             }
                         }
                     )
