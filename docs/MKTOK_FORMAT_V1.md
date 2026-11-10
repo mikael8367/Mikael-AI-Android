@@ -31,7 +31,8 @@ O ID de cada merge é 256 + índice. Cada merge só pode referenciar IDs anterio
 ## Limites de segurança
 
 - Corpus de treinamento limitado a 256 KiB por execução, para controlar o uso de RAM no Android.
-- Vocabulário limitado a 4.352 IDs (256 bytes-base + 4.096 merges).
+- Arquivos MKTOK podem armazenar até 4.352 IDs (256 bytes-base + 4.096 merges).
+- O treinamento executado no celular é limitado a 128 merges (384 IDs) para controlar o custo de CPU; vocabulários maiores exigirão o pipeline de treinamento em infraestrutura separada.
 - Armazenamento expandido do vocabulário limitado a 1 MiB; entradas e saídas também são limitadas.
 - Arquivo limitado ao tamanho máximo definido pelo número de merges.
 - SHA-256 obrigatório na leitura.
