@@ -20,6 +20,15 @@ llama_context* g_context = nullptr;
 const llama_vocab* g_vocab = nullptr;
 uint32_t g_context_size = 0;
 
+bool shouldAbortDecode(void*) {
+    return g_cancel.load(std::memory_order_relaxed);
+}
+
+jstring cancelledString(JNIEnv* env) {
+    nativeLog(env, "WARN", "GEN_CANCELLED • geração interrompida pelo usuário");
+    return env->NewStringUTF("MIKAEL_NATIVE_CANCELLED:");
+}
+
 void unloadLocked() {
     if (g_context != nullptr) {
         llama_free(g_context);
@@ -184,6 +193,8 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(
     contextParams.n_ctx = static_cast<uint32_t>(contextTokens);
     contextParams.n_batch = 128;
     contextParams.n_ubatch = 128;
+    contextParams.abort_callback = shouldAbortDecode;
+    contextParams.abort_callback_data = nullptr;
     const int safeThreads = std::clamp(static_cast<int>(threads), 1, 4);
     contextParams.n_threads = safeThreads;
     contextParams.n_threads_batch = safeThreads;
@@ -213,8 +224,10 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
         return errorString(env, "E_INPUT_SIZE", "A mensagem precisa ter entre 1 e 24000 bytes.");
     }
 
-    g_cancel.store(false);
     std::lock_guard<std::mutex> lock(g_mutex);
+    // Reset only after owning the engine lock, so a queued generation cannot
+    // erase a cancellation intended for the active generation.
+    g_cancel.store(false, std::memory_order_relaxed);
     const auto generationStart = std::chrono::steady_clock::now();
     nativeLog(env, "INFO", "GEN_BEGIN • prompt_bytes=" + std::to_string(prompt.size()) + " • max_tokens=" + std::to_string(maxTokens));
     if (g_model == nullptr || g_context == nullptr || g_vocab == nullptr || g_context_size == 0) {
@@ -258,13 +271,14 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     nativeLog(env, "INFO", "PREFILL_BEGIN • tokens=" + std::to_string(tokenCount));
     constexpr int32_t batchLimit = 128;
     for (int32_t offset = 0; offset < tokenCount; offset += batchLimit) {
-        if (g_cancel.load()) return utf8ToJava(env, "");
+        if (g_cancel.load(std::memory_order_relaxed)) return cancelledString(env);
         const int32_t count = std::min(batchLimit, tokenCount - offset);
         llama_batch batch = llama_batch_get_one(tokens.data() + offset, count);
         nativeLog(env, "INFO", "PREFILL_BATCH_BEGIN • offset=" + std::to_string(offset) + " • count=" + std::to_string(count));
         const auto batchStart = std::chrono::steady_clock::now();
         const int decodeResult = llama_decode(g_context, batch);
         nativeLog(env, decodeResult == 0 ? "INFO" : "ERROR", "PREFILL_BATCH_END • offset=" + std::to_string(offset) + " • count=" + std::to_string(count) + " • llama_decode_rc=" + std::to_string(decodeResult) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - batchStart).count()));
+        if (decodeResult == 2) return cancelledString(env);
         if (decodeResult != 0) return errorString(env, "E_PREFILL_DECODE", ("llama_decode retornou " + std::to_string(decodeResult)).c_str());
     }
 
@@ -286,6 +300,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
     const int limit = std::clamp(std::min(requestedOutput, remainingContext), 1, 256);
     bool decodeFailed = false;
+    bool cancelled = false;
     for (int i = 0; i < limit && !g_cancel.load(); ++i) {
         const bool traceToken = generatedTokens == 0 || (generatedTokens + 1) % 8 == 0;
         if (traceToken) nativeLog(env, "INFO", "SAMPLE_BEGIN • next_token=" + std::to_string(generatedTokens + 1));
@@ -313,6 +328,10 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
         const auto decodeStart = std::chrono::steady_clock::now();
         const int decodeResult = llama_decode(g_context, batch);
         if (traceToken || decodeResult != 0) nativeLog(env, decodeResult == 0 ? "INFO" : "ERROR", "GEN_DECODE_END • token=" + std::to_string(generatedTokens) + " • llama_decode_rc=" + std::to_string(decodeResult) + " • ms=" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - decodeStart).count()));
+        if (decodeResult == 2) {
+            cancelled = true;
+            break;
+        }
         if (decodeResult != 0) {
             decodeFailed = true;
             break;
@@ -320,9 +339,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     }
 
     llama_sampler_free(sampler);
+    cancelled = cancelled || g_cancel.load(std::memory_order_relaxed);
     const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - generationStart).count();
-    nativeLog(env, decodeFailed ? "ERROR" : "INFO", "GEN_END • tokens=" + std::to_string(generatedTokens) + " • chars=" + std::to_string(output.size()) + " • ms=" + std::to_string(elapsed) + " • cancelled=" + std::to_string(g_cancel.load()));
+    nativeLog(env, decodeFailed ? "ERROR" : (cancelled ? "WARN" : "INFO"), "GEN_END • tokens=" + std::to_string(generatedTokens) + " • chars=" + std::to_string(output.size()) + " • ms=" + std::to_string(elapsed) + " • cancelled=" + std::to_string(cancelled));
     if (decodeFailed) return errorString(env, "E_GENERATION_DECODE", "Falha em llama_decode durante a geração; consulte GEN_DECODE_FAILED para o código de retorno.");
+    if (cancelled) return cancelledString(env);
     return utf8ToJava(env, output);
 }
 
