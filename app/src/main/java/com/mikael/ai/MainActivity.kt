@@ -385,7 +385,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onImportMkai = { modelPicker.launch(arrayOf("application/octet-stream")) },
                         onTrainMkai = {
                             val trainingUrl = Uri.parse(
-                                "https://github.com/mikael8367/Mikael-AI-Android/actions/workflows/train-mikael-model.yml"
+                                "https://github.com/mikael8367/Mikael-AI-Android/new/fix/ai-runtime-stability?filename=training/corpus.txt"
                             )
                             context.startActivity(Intent(Intent.ACTION_VIEW, trainingUrl))
                         },
