@@ -2,7 +2,6 @@ package com.mikael.ai
 
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
-import java.util.Locale
 
 data class TeamParticipant(val id: String, val name: String)
 
