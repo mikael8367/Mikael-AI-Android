@@ -10,11 +10,22 @@ import torch
 
 from train_mikai import (
     HEADER, MAGIC, MikaelTransformer, VOCAB_SIZE,
-    expected_float_count, export_mkai, validate_export,
+    expected_float_count, export_mkai, validate_export, split_train_validation,
 )
 
 
 class TrainerTests(unittest.TestCase):
+    def test_minimum_corpus_has_valid_train_and_validation_batches(self):
+        tokens = torch.arange(4096, dtype=torch.long)
+        train_data, val_data = split_train_validation(tokens, 512)
+        self.assertGreater(len(train_data), 513)
+        self.assertGreater(len(val_data), 513)
+
+    def test_too_short_corpus_is_rejected(self):
+        tokens = torch.arange(1027, dtype=torch.long)
+        with self.assertRaises(ValueError):
+            split_train_validation(tokens, 512)
+
     def test_forward_returns_byte_vocabulary_logits(self):
         model = MikaelTransformer(dim=32, layers=1, heads=4, ffn=64, max_seq=32)
         tokens = torch.randint(0, VOCAB_SIZE, (2, 16))
