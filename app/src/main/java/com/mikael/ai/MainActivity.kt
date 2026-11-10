@@ -421,7 +421,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         val prior = taskMessages.dropLast(1).takeLast(8)
                         if (prior.isNotEmpty()) {
                             append("Histórico recente da conversa:\n")
-                            prior.forEach { message ->
+                            // O prompt da equipe tem orçamento de contexto curto: prioriza as mensagens mais recentes.
+                            prior.asReversed().forEach { message ->
                                 append(if (message.role == "user") "Usuário: " else "Mikael AI: ")
                                 append(message.text.take(450))
                                 append("\n")
