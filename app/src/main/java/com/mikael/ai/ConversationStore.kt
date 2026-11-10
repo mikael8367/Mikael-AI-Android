@@ -29,7 +29,7 @@ object ConversationStore {
             runCatching { SecureLocalStorage.decrypt(it) }.getOrNull()
         }
         val raw = decrypted ?: legacyRaw
-        if (decrypted != null && legacyRaw != null) {
+        if (decrypted != null) {
             prefs.edit().remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).apply()
         }
         if (raw.isNullOrBlank()) {
