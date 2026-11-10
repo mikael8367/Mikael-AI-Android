@@ -164,7 +164,7 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = true
         )
-        assertTrue(prompt.contains("revise criticamente as quatro contribuições"))
+        assertTrue(prompt.contains("revise criticamente todas as contribuições recebidas"))
         assertTrue(prompt.contains("Entregue uma resposta natural única"))
         assertTrue(prompt.contains("Sugestão de TinyLlama 1.1B"))
     }
