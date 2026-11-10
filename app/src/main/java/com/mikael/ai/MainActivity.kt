@@ -130,9 +130,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var tab by remember { mutableStateOf(AppTab.CHAT) }
 
     val initialInstalledModels = remember { listInstalledModels(context) }
-    val savedMkaiPath = preferences.modelPath?.let(::File)?.takeIf { it.isFile }?.absolutePath
+    val savedMkaiPath = preferences.modelPath?.let(::File)
+        ?.takeIf { it.isFile && MikaelModelInstaller.isValidMkai(it) }?.absolutePath
+    val discoveredMkaiPath = initialInstalledModels.firstOrNull { MikaelModelInstaller.isValidMkai(it) }?.absolutePath
     var modelPath by remember {
-        mutableStateOf(savedMkaiPath ?: initialInstalledModels.firstOrNull()?.absolutePath)
+        mutableStateOf(savedMkaiPath ?: discoveredMkaiPath)
     }
     var installedModels by remember { mutableStateOf(initialInstalledModels) }
     var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
@@ -460,7 +462,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             chatContext = teamChatContext,
                                             participants = ModelCatalog.teamParticipants,
                                             maxPromptBytes = (modelContext - 24 - 4).coerceAtLeast(0)
-                                        ) ?: error("O checkpoint MKAI v1 tem contexto de apenas 512 bytes. Esta mensagem e o contexto anterior são grandes demais para ele; ele não será contado como participante.")
+                                        ) ?: error("O checkpoint MKAI tem contexto de apenas $modelContext bytes. Esta mensagem e o contexto anterior são grandes demais para ele; ele não será contado como participante.")
                                         val memory = MemoryBudget.check(
                                             availableBytes = MemoryBudget.availableBytes(activityManager),
                                             selectedLimitMiB = memoryLimit,
