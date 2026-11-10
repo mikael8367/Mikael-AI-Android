@@ -71,7 +71,6 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("Pode responder, contestar"))
         assertTrue(prompt.contains("Justifique discordâncias"))
         assertTrue(prompt.contains("sem raciocínio privado"))
-        assertTrue(prompt.contains("revise criticamente as quatro contribuições"))
         assertTrue(prompt.contains("Já contribuíram: Mikael AI"))
         assertTrue(prompt.contains("Ainda não contribuíram: Qwen 2.5 0.5B"))
     }
@@ -152,6 +151,21 @@ class TeamConversationCoordinatorTest {
             2_048,
             TeamConversationCoordinator.contextTokensFor("curto", 48, 2_048)
         )
+    }
+
+    @Test
+    fun finalSynthesisRoundReviewsAllContributionsAndReturnsOneAnswer() {
+        val prompt = TeamConversationCoordinator.buildPrompt(
+            originalPrompt = "Implemente uma função Kotlin",
+            chatContext = "Projeto Android",
+            participants = team,
+            contributions = team.map { TeamContribution(it, "Sugestão de ${it.name}") },
+            failures = emptyMap(),
+            finalSynthesis = true
+        )
+        assertTrue(prompt.contains("revise criticamente as quatro contribuições"))
+        assertTrue(prompt.contains("Entregue uma resposta natural única"))
+        assertTrue(prompt.contains("Sugestão de TinyLlama 1.1B"))
     }
 
 }
