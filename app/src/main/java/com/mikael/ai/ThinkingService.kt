@@ -26,6 +26,7 @@ class ThinkingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            PendingTaskStore.clear(this)
             cancelTask()
             LocalInferenceEngine.cancel()
             LlamaInferenceEngine.cancel()
