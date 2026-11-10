@@ -149,6 +149,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
     var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
     var userMemoryEnabled by remember { mutableStateOf(UserMemoryStore.isEnabled(context)) }
+    var autoLearningEnabled by remember { mutableStateOf(UserMemoryStore.isAutoLearningEnabled(context)) }
     var userMemoryItems by remember { mutableStateOf(UserMemoryStore.load(context)) }
     var pendingTask by remember { mutableStateOf(PendingTaskStore.load(context)) }
     var userMemoryCount by remember { mutableStateOf(userMemoryItems.size) }
@@ -392,7 +393,18 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     githubContext = taskGithubContext,
                     contextCapacityTokens = activeContext,
                     reserveOutputTokens = responseBudget,
-                    userMemory = UserMemoryStore.contextForPrompt(context)
+                    userMemory = buildString {
+                        append(UserMemoryStore.contextForPrompt(context))
+                        val crossConversation = ConversationStore.contextFromOtherConversations(
+                            conversations = conversations.toList(),
+                            activeConversationId = task.conversationId,
+                            maxChars = 700
+                        )
+                        if (crossConversation.isNotBlank()) {
+                            append("\\n[Contexto resumido de outras conversas; use apenas como referência]\\n")
+                            append(crossConversation)
+                        }
+                    }
                 )
                 val result = withContext(Dispatchers.IO) {
                     if (modelId == "mikael-base") {
@@ -568,9 +580,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (pendingTask != null) {
                                 android.widget.Toast.makeText(context, "Retome ou descarte a tarefa interrompida antes de enviar outra mensagem.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
-                                val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
-                                    UserMemoryStore.forgetFromUserMessage(context, prompt)
-                                if (memoryChanged) {
+                                val explicitMemoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt)
+                                val memoryForgotten = UserMemoryStore.forgetFromUserMessage(context, prompt)
+                                val autoMemoryChanged = UserMemoryStore.learnFromUserMessage(context, prompt)
+                                if (explicitMemoryChanged || memoryForgotten || autoMemoryChanged) {
                                     userMemoryItems = UserMemoryStore.load(context)
                                     userMemoryCount = userMemoryItems.size
                                 }
@@ -692,11 +705,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     )
                     AppTab.SETTINGS -> SettingsScreen(
                         userMemoryEnabled = userMemoryEnabled,
+                        autoLearningEnabled = autoLearningEnabled,
                         userMemoryCount = userMemoryCount,
                         userMemoryItems = userMemoryItems,
                         onUserMemoryEnabledChange = { enabled ->
                             UserMemoryStore.setEnabled(context, enabled)
                             userMemoryEnabled = enabled
+                        },
+                        onAutoLearningEnabledChange = { enabled ->
+                            UserMemoryStore.setAutoLearningEnabled(context, enabled)
+                            autoLearningEnabled = enabled
                         },
                         onClearUserMemory = {
                             UserMemoryStore.clear(context)
@@ -1164,9 +1182,11 @@ private fun ModelsScreen(
 @Composable
 private fun SettingsScreen(
     userMemoryEnabled: Boolean,
+    autoLearningEnabled: Boolean,
     userMemoryCount: Int,
     userMemoryItems: List<UserMemoryItem>,
     onUserMemoryEnabledChange: (Boolean) -> Unit,
+    onAutoLearningEnabledChange: (Boolean) -> Unit,
     onClearUserMemory: () -> Unit,
     onRemoveUserMemory: (UserMemoryItem) -> Unit,
     allowOnlineFeatures: Boolean,
@@ -1244,6 +1264,17 @@ private fun SettingsScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Usar memória nas respostas", modifier = Modifier.weight(1f))
                 Switch(checked = userMemoryEnabled, onCheckedChange = onUserMemoryEnabledChange)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Aprender automaticamente")
+                    Text("Guarda apenas preferências e fatos técnicos explícitos e não sensíveis. Tudo fica local e criptografado.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = autoLearningEnabled,
+                    onCheckedChange = onAutoLearningEnabledChange,
+                    enabled = userMemoryEnabled
+                )
             }
             OutlinedButton(onClick = onClearUserMemory, enabled = userMemoryCount > 0, modifier = Modifier.fillMaxWidth()) {
                 Text("Apagar todas as lembranças")
