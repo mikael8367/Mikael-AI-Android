@@ -34,7 +34,7 @@ O cabeçalho ocupa 40 bytes. Em seguida, os tensores são armazenados na ordem a
 4. final_norm[dim]
 5. lm_head[vocab, dim]
 
-As matrizes são row-major. O tokenizer inicial é byte-level UTF-8: cada byte vira um ID entre 0 e 255. Isso é um tokenizer técnico inicial, não o tokenizer final treinado para português e código.
+As matrizes são row-major. O MKAI v1 permanece compatível somente com o fallback byte-level UTF-8 (IDs 0–255). O tokenizer BPE autoral MKTOK v1 foi implementado separadamente; ele pode produzir IDs acima de 255 e, por isso, ainda não pode ser conectado a pesos MKAI v1. A integração exige MKAI v2 com dimensão de vocabulário sincronizada com o arquivo MKTOK.
 
 ## Implementação atual
 
@@ -47,14 +47,14 @@ O carregador verifica magic, versão, dimensões, limites de alocação por tens
 - Ainda não há pesos MKAI treinados nem arquivo .mkai oficial para instalar.
 - O modelo não produz respostas úteis até que os pesos sejam treinados com o pipeline próprio.
 - A implementação atual recalcula a sequência inteira a cada token; é um protótipo e pode ficar lenta em celulares.
-- A versão 1 ainda não inclui RoPE, quantização, amostragem avançada, tokenizer subword nem treinamento.
+- A inferência MKAI v1 ainda não consome MKTOK BPE; o módulo BPE está implementado separadamente e aguarda MKAI v2.
 - A saída é greedy e o contexto usa embeddings posicionais aprendidos.
 - O arquivo usa float32; o tamanho pode ser alto. A validação de memória do app deve ser aplicada antes do carregamento.
 
 ## Próximas etapas
 
 1. Criar testes nativos para validar cabeçalho, dimensões, forward pass e cancelamento.
-2. Criar exportador e leitor de pesos com teste de ida e volta.
-3. Criar tokenizer treinável e treinamento do Transformer do zero.
+2. Criar MKAI v2 integrado ao tokenizer MKTOK, com exportador e leitor de pesos testados.
+3. Treinar o Transformer do zero usando exatamente o vocabulário MKTOK.
 4. Treinar, avaliar e exportar os primeiros pesos próprios.
 5. Otimizar a inferência com cache KV, quantização e benchmark ARM64.
