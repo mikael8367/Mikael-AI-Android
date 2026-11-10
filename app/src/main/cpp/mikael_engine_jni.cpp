@@ -162,6 +162,27 @@ std::string jstringToUtf8(JNIEnv* env,jstring value) {
     }
     env->ReleaseStringChars(value,p); return s;
 }
+jstring utf8ToJava(JNIEnv* env,const std::string& value) {
+    std::vector<jchar> out; out.reserve(value.size());
+    size_t i=0;
+    while(i<value.size()) {
+        const uint8_t first=static_cast<uint8_t>(value[i]);
+        uint32_t cp=0xFFFD; size_t count=1;
+        if(first<0x80) cp=first;
+        else if((first&0xE0)==0xC0 && i+1<value.size()) { cp=((first&0x1F)<<6)|(static_cast<uint8_t>(value[i+1])&0x3F); count=2; }
+        else if((first&0xF0)==0xE0 && i+2<value.size()) { cp=((first&0x0F)<<12)|((static_cast<uint8_t>(value[i+1])&0x3F)<<6)|(static_cast<uint8_t>(value[i+2])&0x3F); count=3; }
+        else if((first&0xF8)==0xF0 && i+3<value.size()) { cp=((first&7)<<18)|((static_cast<uint8_t>(value[i+1])&0x3F)<<12)|((static_cast<uint8_t>(value[i+2])&0x3F)<<6)|(static_cast<uint8_t>(value[i+3])&0x3F); count=4; }
+        bool valid=true;
+        for(size_t j=1;j<count;++j) if((static_cast<uint8_t>(value[i+j])&0xC0)!=0x80) valid=false;
+        const uint32_t min=count==2?0x80:(count==3?0x800:(count==4?0x10000:0));
+        if(!valid || cp<min || cp>0x10FFFF || (cp>=0xD800 && cp<=0xDFFF)) { cp=0xFFFD; count=1; }
+        if(cp<=0xFFFF) out.push_back(static_cast<jchar>(cp));
+        else { cp-=0x10000; out.push_back(static_cast<jchar>(0xD800+(cp>>10))); out.push_back(static_cast<jchar>(0xDC00+(cp&0x3FF))); }
+        i+=count;
+    }
+    if(out.size()>static_cast<size_t>(std::numeric_limits<jsize>::max())) return nullptr;
+    return env->NewString(out.data(),static_cast<jsize>(out.size()));
+}
 jstring error(JNIEnv* env,const std::string& s){return env->NewStringUTF(s.c_str());}
 }
 extern "C" JNIEXPORT jstring JNICALL
@@ -191,7 +212,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
         const uint8_t next=static_cast<uint8_t>(std::distance(logits.begin(),it));
         tokens.push_back(next); output.push_back(static_cast<char>(next));
     }
-    return env->NewStringUTF(output.c_str());
+    return utf8ToJava(env,output);
 }
 extern "C" JNIEXPORT void JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeCancel(JNIEnv*,jobject){gCancel.store(true);}
