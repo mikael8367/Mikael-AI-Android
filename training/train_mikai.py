@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import math
 import random
 import struct
 from pathlib import Path
@@ -145,7 +144,7 @@ def main() -> None:
     parser.add_argument("--output", default=Path("artifacts/mikael-base.mkai"), type=Path)
     parser.add_argument("--steps", default=2500, type=int)
     parser.add_argument("--batch-size", default=16, type=int)
-    parser.add_argument("--seq-len", default=128, type=int)
+    parser.add_argument("--seq-len", default=512, type=int)
     parser.add_argument("--dim", default=64, type=int)
     parser.add_argument("--layers", default=2, type=int)
     parser.add_argument("--heads", default=4, type=int)
