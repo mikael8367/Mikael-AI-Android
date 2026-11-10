@@ -114,11 +114,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         if (isFinishing) {
+            // Stop active inference, but keep engine state coherent if this Activity
+            // is recreated in the same process immediately after being finished.
+            // The OS reclaims native memory when it terminates the process; users
+            // can explicitly unload the model from the Models tab.
             LocalInferenceEngine.cancel()
-            // Use the process-scoped coroutine scope instead of an unmanaged thread.
-            ConversationSession.scope.launch(Dispatchers.IO) {
-                LocalInferenceEngine.unload()
-            }
         }
         super.onDestroy()
     }
@@ -177,15 +177,30 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
     var downloadStatus by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var attachments by remember { mutableStateOf<List<ChatAttachment>>(emptyList()) }
+    var importingAttachments by remember { mutableStateOf(false) }
     val attachmentPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isNotEmpty()) scope.launch {
-            try {
-                val added = withContext(Dispatchers.IO) { importChatAttachments(context, uris) }
-                attachments = (attachments + added).distinctBy { it.path }.take(5)
-                logEvent("INFO", "Anexos importados: ${added.size}")
-            } catch (error: Exception) {
-                engineStatus = error.message ?: "Falha ao anexar arquivos."
-                logEvent("ERROR", "Falha ao importar anexos: ${error.javaClass.simpleName}")
+        if (uris.isEmpty()) {
+            importingAttachments = false
+        } else {
+            scope.launch {
+                try {
+                    val availableSlots = (5 - attachments.size).coerceAtLeast(0)
+                    require(availableSlots > 0) { "O limite de 5 anexos por conversa já foi atingido." }
+                    val acceptedUris = uris.take(availableSlots)
+                    val added = withContext(Dispatchers.IO) {
+                        importChatAttachments(context, acceptedUris)
+                    }
+                    attachments = (attachments + added).take(5)
+                    if (uris.size > acceptedUris.size) {
+                        engineStatus = "Foram adicionados ${added.size} arquivos. O limite é de 5 anexos por conversa."
+                    }
+                    logEvent("INFO", "Anexos importados: ${added.size}")
+                } catch (error: Exception) {
+                    engineStatus = error.message ?: "Falha ao anexar arquivos."
+                    logEvent("ERROR", "Falha ao importar anexos: ${error.javaClass.simpleName}")
+                } finally {
+                    importingAttachments = false
+                }
             }
         }
     }
@@ -327,7 +342,14 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         input = input,
                         onInputChange = { input = it },
                         attachments = attachments,
-                        onAttach = { logEvent("INFO", "Toque: anexar arquivos"); attachmentPicker.launch(arrayOf("*/*")) },
+                        attachmentsBusy = importingAttachments,
+                        onAttach = {
+                            if (!importingAttachments && attachments.size < 5) {
+                                importingAttachments = true
+                                logEvent("INFO", "Toque: anexar arquivos")
+                                attachmentPicker.launch(arrayOf("*/*"))
+                            }
+                        },
                         onLog = { level, message -> logEvent(level, message) },
                         onRemoveAttachment = { item ->
                             logEvent("INFO", "Toque: remover anexo ${item.name}")
@@ -355,7 +377,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         },
                         onSend = {
                             val prompt = input.trim().ifBlank { if (attachments.isNotEmpty()) "Analise os anexos selecionados." else "" }
-                            if (prompt.isNotEmpty() && !generating) {
+                            if (prompt.isNotEmpty() && !generating && !importingAttachments) {
                                 logEvent("INFO", "Ação: enviar mensagem (${prompt.length} caracteres; ${attachments.size} anexos)")
                                 if (!engineReady) {
                                     logEvent("WARN", "Envio bloqueado: modelo local não está pronto")
@@ -630,6 +652,7 @@ private fun OfflineChatScreen(
     input: String,
     onInputChange: (String) -> Unit,
     attachments: List<ChatAttachment>,
+    attachmentsBusy: Boolean,
     onAttach: () -> Unit,
     onLog: (String, String) -> Unit,
     onRemoveAttachment: (ChatAttachment) -> Unit,
@@ -667,7 +690,7 @@ private fun OfflineChatScreen(
                     OutlinedButton(onClick = onReloadModel, enabled = !generating) { Text("Tentar carregar novamente") }
                 }
             }
-            OutlinedButton(onClick = { onLog("INFO", "Toque: nova conversa"); onNewChat() }, enabled = !generating) { Text("Nova conversa") }
+            OutlinedButton(onClick = { onLog("INFO", "Toque: nova conversa"); onNewChat() }, enabled = !generating && !attachmentsBusy) { Text("Nova conversa") }
         }
         if (messages.isEmpty()) {
             Column(
@@ -734,7 +757,7 @@ private fun OfflineChatScreen(
             Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-            OutlinedButton(onClick = { onLog("INFO", "Toque: anexar arquivos"); onAttach() }, enabled = !generating && attachments.size < 5, modifier = Modifier.height(54.dp)) { Text("＋") }
+            OutlinedButton(onClick = { onLog("INFO", "Toque: anexar arquivos"); onAttach() }, enabled = !generating && !attachmentsBusy && attachments.size < 5, modifier = Modifier.height(54.dp)) { Text(if (attachmentsBusy) "…" else "＋") }
             Spacer(Modifier.size(6.dp))
             OutlinedTextField(
                 value = input,
@@ -753,7 +776,7 @@ private fun OfflineChatScreen(
             } else {
                 Button(
                     onClick = { onLog("INFO", "Toque: botão enviar/verificar"); onSend() },
-                    enabled = !generating && (input.isNotBlank() || attachments.isNotEmpty()),
+                    enabled = !generating && !attachmentsBusy && (input.isNotBlank() || attachments.isNotEmpty()),
                     modifier = Modifier.height(54.dp)
                 ) { Text(if (ready) "Enviar" else "Verificar") }
             }
