@@ -1,10 +1,13 @@
 package com.mikael.ai
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 /** Motor Transformer autoral. Carrega somente arquivos MKAI versionados; não usa GGUF ou engines externos. */
 object LocalInferenceEngine {
     private val libraryLoaded: Boolean = runCatching { System.loadLibrary("mikael_engine") }.isSuccess
     @Volatile private var ready = false
     @Volatile private var loadedContextTokens = 0
+    private val cancelRequested = AtomicBoolean(false)
 
     /** Contexto efetivo em bytes/tokens do MKAI v1 (um byte por ID). */
     fun contextCapacityTokens(): Int = if (ready) loadedContextTokens else 0
@@ -28,12 +31,14 @@ object LocalInferenceEngine {
         check(ready) { "Carregue um modelo MKAI próprio antes de conversar." }
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa em UTF-8." }
+        cancelRequested.set(false)
         val answer = nativeGenerate(prompt, maxTokens)
+        check(!cancelRequested.get()) { "Geração cancelada pelo usuário." }
         if (answer == null) error("O motor local não retornou uma resposta.")
         answer
     }
 
-    fun cancel() { if (libraryLoaded) nativeCancel() }
+    fun cancel() { cancelRequested.set(true); if (libraryLoaded) nativeCancel() }
     @Synchronized fun unload() { if (libraryLoaded) nativeUnload(); ready = false; loadedContextTokens = 0 }
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
