@@ -500,7 +500,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         )
                     }
-                    val participation = "Equipe local: ${teamRun.participatedCount}/4 modelos participaram; ${teamRun.callCount} chamadas sequenciais."
+                    val participation = "Equipe local: ${teamRun.participatedCount}/4 modelos participaram; ${teamRun.attemptCount} tentativas sequenciais."
                     val failures = teamRun.failedParticipants.entries.joinToString("; ") { "${it.key}: ${it.value}" }
                     val participantNote = if (teamRun.failedParticipants.isEmpty()) "" else {
                         "\n\n[Participação parcial — ${teamRun.participatedCount}/4: ${failures}]"
