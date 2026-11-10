@@ -1,0 +1,34 @@
+name: MKAI v2 foundation checks
+
+on:
+  push:
+    branches: ["feature/mkai-v2-5gb-foundation"]
+    paths:
+      - "training/model_budget.py"
+      - "training/tests/test_model_budget.py"
+      - "docs/MKAI_V2_5GB_PLAN.md"
+      - ".github/workflows/mkai-v2-foundation-checks.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "training/model_budget.py"
+      - "training/tests/test_model_budget.py"
+      - "docs/MKAI_V2_5GB_PLAN.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  budget-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile Python sources
+        run: python -m py_compile training/model_budget.py training/tests/test_model_budget.py
+      - name: Run budget estimator tests
+        run: python -m unittest discover -s training/tests -p "test_model_budget.py" -v
