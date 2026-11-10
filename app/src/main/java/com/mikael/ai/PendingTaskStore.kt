@@ -33,7 +33,7 @@ object PendingTaskStore {
         val id = json.optString("conversationId")
         val prompt = json.optString("prompt")
         val model = json.optString("modelId")
-        if (id.isBlank() || prompt.isBlank() || model.isBlank()) null
+        if (id.isBlank() || prompt.isBlank() || model !in setOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")) null
         else PendingAiTask(id, prompt, model, json.optLong("createdAt"), json.optString("githubContext"), json.optString("completedResponse").takeIf { it.isNotBlank() })
     }.getOrNull()
 
