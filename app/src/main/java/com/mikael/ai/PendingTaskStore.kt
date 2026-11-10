@@ -16,19 +16,34 @@ data class PendingAiTask(
 object PendingTaskStore {
     private const val PREFS = "mikael_pending_tasks"
     private const val KEY_TASK = "pending_task"
+    private const val KEY_TASK_SECURE = "pending_task_secure_v1"
 
     fun save(context: Context, task: PendingAiTask) {
         val json = JSONObject().put("conversationId", task.conversationId)
             .put("prompt", task.prompt.take(24000)).put("modelId", task.modelId)
             .put("createdAt", task.createdAt).put("githubContext", task.githubContext.take(50000))
             .put("completedResponse", task.completedResponse)
-        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(KEY_TASK, json.toString()).commit()) { "Não foi possível salvar a tarefa para recuperação." }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encrypted = SecureLocalStorage.encrypt(json.toString())
+        check(prefs.edit().putString(KEY_TASK_SECURE, encrypted).remove(KEY_TASK).commit()) {
+            "Não foi possível salvar a tarefa criptografada para recuperação."
+        }
     }
 
     fun load(context: Context): PendingAiTask? = runCatching {
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_TASK, null)
-            ?: return@runCatching null
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encrypted = prefs.getString(KEY_TASK_SECURE, null)
+        val legacyRaw = prefs.getString(KEY_TASK, null)
+        val raw = if (!encrypted.isNullOrBlank()) {
+            runCatching { SecureLocalStorage.decrypt(encrypted) }.getOrNull() ?: legacyRaw
+        } else legacyRaw
+        if (raw.isNullOrBlank()) return@runCatching null
+        if (encrypted.isNullOrBlank() && legacyRaw != null) {
+            runCatching {
+                val payload = SecureLocalStorage.encrypt(legacyRaw)
+                prefs.edit().putString(KEY_TASK_SECURE, payload).remove(KEY_TASK).commit()
+            }
+        }
         val json = JSONObject(raw)
         val id = json.optString("conversationId")
         val prompt = json.optString("prompt")
@@ -44,6 +59,6 @@ object PendingTaskStore {
     }
 
     fun clear(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_TASK).commit()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_TASK).remove(KEY_TASK_SECURE).commit()
     }
 }
