@@ -174,7 +174,7 @@ def main() -> None:
     device = torch.device("cpu")
     tokens = torch.from_numpy(np.frombuffer(raw, dtype=np.uint8).astype(np.int64).copy()).to(device)
     split = max(args.seq_len + 1, int(len(tokens) * 0.95))
-    split = min(split, len(tokens) - args.seq_len - 1)
+    split = min(split, len(tokens) - args.seq_len - 2)
     train_data, val_data = tokens[:split], tokens[split:]
     if len(val_data) < args.seq_len + 1:
         raise SystemExit("Corpus insuficiente para separar treino e validação.")
