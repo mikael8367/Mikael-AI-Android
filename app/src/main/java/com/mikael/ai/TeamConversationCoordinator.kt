@@ -258,7 +258,12 @@ internal object TeamConversationCoordinator {
         participants: List<TeamParticipant>,
         maxPromptBytes: Int
     ): String? {
-        val prefix = "<|im_start|>system\nMikael AI: PT-BR, breve; sugira correções; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
+        val compactRole = if (isProgrammingTask(originalPrompt)) {
+            "Mikael AI: analista de requisitos PT-BR; defina objetivo, restrições e plano curto; sem raciocínio privado."
+        } else {
+            "Mikael AI: PT-BR, breve; sugira correções; sem raciocínio privado."
+        }
+        val prefix = "<|im_start|>system\n$compactRole\n<|im_end|>\n<|im_start|>user\n"
         val teamNames = participants.filterNot { it.id == "mikael-base" }.joinToString(", ") { it.name }
         val teamLine = "Equipe: $teamNames. Já falaram: ninguém; pendentes: todos.\nPedido: "
         val contextLine = "\nContexto: "
