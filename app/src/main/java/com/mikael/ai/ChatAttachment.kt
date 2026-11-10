@@ -31,7 +31,9 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
     check(directory.exists() || directory.mkdirs()) { "Não foi possível criar a pasta de anexos." }
 
     var remainingAnalysisBytes = MAX_TOTAL_ANALYSIS_BYTES
-    return uris.map { uri ->
+    val completedFiles = mutableListOf<File>()
+    try {
+        uris.map { uri ->
         val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
         val metadata = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -47,7 +49,7 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
             "$name ultrapassa o limite de 1 GB por arquivo."
         }
         val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100)
-        val destination = File(directory, "${System.currentTimeMillis()}_$safeName")
+        val destination = File(directory, "${System.currentTimeMillis()}_${System.nanoTime()}_$safeName")
         val temporary = File(directory, "${destination.name}.partial")
         try {
             context.contentResolver.openInputStream(uri).use { input ->
@@ -70,6 +72,7 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
                 }
             }
             check(temporary.renameTo(destination)) { "Não foi possível salvar $name." }
+            completedFiles += destination
             val extracted = extractAttachmentText(context, destination, mime, name)
             val availableForThisFile = remainingAnalysisBytes.coerceAtLeast(0)
             val safeExtracted = takeUtf8Prefix(extracted, availableForThisFile)
@@ -85,6 +88,12 @@ fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachmen
             destination.delete()
             throw error
         }
+        }
+    } catch (error: Exception) {
+        // Treat a multi-file import as one transaction: if any item fails,
+        // remove earlier copies too so a partial selection cannot leak storage.
+        completedFiles.forEach { it.delete() }
+        throw error
     }
 }
 
