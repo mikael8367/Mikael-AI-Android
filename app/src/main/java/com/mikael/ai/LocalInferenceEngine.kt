@@ -13,6 +13,9 @@ object LocalInferenceEngine {
     @Volatile
     private var diagnosticSink: ((String, String) -> Unit)? = null
 
+    @Volatile
+    private var tokenSink: ((String) -> Unit)? = null
+
     fun setDiagnosticSink(sink: ((String, String) -> Unit)?) {
         diagnosticSink = sink
     }
@@ -24,6 +27,12 @@ object LocalInferenceEngine {
     }
 
     fun isAvailable(): Boolean = libraryLoaded
+
+    /** Receives complete UTF-8 fragments emitted by the native decoder. */
+    @JvmStatic
+    fun onNativeToken(piece: String) {
+        runCatching { tokenSink?.invoke(piece) }
+    }
 
     @Synchronized
     fun load(modelPath: String, contextTokens: Int): Result<Unit> = runCatching {
@@ -41,15 +50,20 @@ object LocalInferenceEngine {
     }
 
     @Synchronized
-    fun generate(prompt: String, maxTokens: Int = 256): Result<String> = runCatching {
+    fun generate(prompt: String, maxTokens: Int = 256, onToken: ((String) -> Unit)? = null): Result<String> = runCatching {
         check(ready) { "Carregue um modelo antes de conversar." }
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
-        val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
-        if (result == null) error("E_NATIVE_NULL • O motor local não retornou uma resposta.")
-        if (result.startsWith(NATIVE_CANCELLED_PREFIX)) throw CancellationException("Geração interrompida pelo usuário.")
-        if (result.startsWith(NATIVE_ERROR_PREFIX)) error(result.removePrefix(NATIVE_ERROR_PREFIX))
-        result
+        tokenSink = onToken
+        try {
+            val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
+            if (result == null) error("E_NATIVE_NULL • O motor local não retornou uma resposta.")
+            if (result.startsWith(NATIVE_CANCELLED_PREFIX)) throw CancellationException("Geração interrompida pelo usuário.")
+            if (result.startsWith(NATIVE_ERROR_PREFIX)) error(result.removePrefix(NATIVE_ERROR_PREFIX))
+            result
+        } finally {
+            tokenSink = null
+        }
     }
 
     fun cancel() {
