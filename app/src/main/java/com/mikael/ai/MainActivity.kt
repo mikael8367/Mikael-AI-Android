@@ -267,8 +267,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             }
                                         },
                                         onFailure = { error ->
-                                            ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
-                                            ConversationStore.save(context, messages)
+                                            if (error.message != "Geração cancelada pelo usuário.") {
+                                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                                                ConversationStore.save(context, messages)
+                                            }
                                         }
                                     )
                                     isGenerating = false
