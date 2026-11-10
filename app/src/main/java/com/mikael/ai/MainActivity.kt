@@ -1044,7 +1044,7 @@ private fun SettingsScreen(
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Memória do usuário", fontWeight = FontWeight.SemiBold)
-            Text("$userMemoryCount lembranças salvas neste aparelho. Use \"Lembre: ...\" para guardar e \"Esqueça: ...\" para remover uma lembrança pelo chat.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            Text("$userMemoryCount lembranças salvas neste aparelho. Use \"Lembre: ...\" para guardar e \"Esqueça: ...\" para remover. As lembranças são agrupadas por assunto e repetições semelhantes são consolidadas.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
             userMemoryItems.groupBy { it.topic }.toSortedMap().forEach { (topic, entries) ->
                 Text(topic, fontWeight = FontWeight.SemiBold, color = Color(0xFF8BE7B7))
                 entries.forEach { item ->
