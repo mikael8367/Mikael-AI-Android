@@ -135,4 +135,23 @@ class TeamConversationCoordinatorTest {
         assertEquals(0, calls)
     }
 
+    @Test
+    fun ggufTeamContextScalesWithPromptAndConfiguredLimit() {
+        assertEquals(
+            1_024,
+            TeamConversationCoordinator.contextTokensFor("pergunta curta", 48, 512)
+        )
+        assertTrue(
+            TeamConversationCoordinator.contextTokensFor("x".repeat(4_500), 128, 512) > 1_024
+        )
+        assertEquals(
+            2_048,
+            TeamConversationCoordinator.contextTokensFor("x".repeat(6_000), 128, 512)
+        )
+        assertEquals(
+            2_048,
+            TeamConversationCoordinator.contextTokensFor("curto", 48, 2_048)
+        )
+    }
+
 }
