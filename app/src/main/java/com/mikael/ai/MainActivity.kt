@@ -221,6 +221,9 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
 
     val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
+            // Re-establish the lock if Android recreated the Activity while
+            // the system document picker was open.
+            busy = true
             scope.launch {
                 busy = true
                 try {
