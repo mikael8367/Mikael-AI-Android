@@ -32,6 +32,7 @@ internal object TeamConversationCoordinator {
     const val CONTRIBUTION_TOKENS = 48
     const val FINAL_TOKENS = 128
     const val MAX_CALLS = 5
+    const val MAX_ORIGINAL_PROMPT_BYTES = 3_000
 
     suspend fun run(
         originalPrompt: String,
@@ -41,6 +42,9 @@ internal object TeamConversationCoordinator {
         onStage: suspend (String) -> Unit = {}
     ): TeamRunResult {
         require(originalPrompt.isNotBlank()) { "A mensagem original está vazia." }
+        require(originalPrompt.toByteArray(Charsets.UTF_8).size <= MAX_ORIGINAL_PROMPT_BYTES) {
+            "A mensagem excede 3.000 bytes. Divida o pedido em mensagens menores para usar a equipe local."
+        }
         require(participants.size == 4) { "A equipe precisa ter exatamente quatro participantes." }
         require(participants.map { it.id }.distinct().size == participants.size) {
             "Há participantes duplicados na equipe."
@@ -127,19 +131,19 @@ internal object TeamConversationCoordinator {
         val spoken = contributions.map { it.participant.id }.toSet()
         val remaining = participants.filterNot { it.id in spoken }
         val roleInstruction = if (finalSynthesis) {
-            "Você está na etapa final. Consolide as contribuições em uma única resposta natural ao usuário. Resolva divergências com base em evidências, não invente verificações e não mencione raciocínio privado."
+            "Etapa final: consolide tudo em uma resposta natural. Resolva divergências por evidências; não invente verificações nem revele raciocínio privado."
         } else {
-            "Apresente uma contribuição breve e útil. Você pode responder a outro modelo, contestar uma proposta, pedir verificação ou sugerir correção. Se discordar, justifique objetivamente e proponha alternativa. Não revele raciocínio privado passo a passo."
+            "Contribua brevemente. Pode responder, contestar, pedir verificação ou corrigir outro modelo. Justifique discordâncias e proponha alternativa; sem raciocínio privado."
         }
         val transcript = if (contributions.isEmpty()) {
             "Nenhum modelo contribuiu ainda."
         } else {
             contributions.joinToString("\n\n") {
-                "[${it.participant.name}]\n${safe(it.text, 1_200)}"
+                "[${it.participant.name}]\n${safe(it.text, 150)}"
             }
         }
         val failureText = if (failures.isEmpty()) "Nenhuma falha registrada."
-            else failures.entries.joinToString("\n") { "${it.key}: ${safe(it.value, 180)}" }
+            else failures.entries.take(4).joinToString("\n") { "${it.key}: ${safe(it.value, 50)}" }
         val participantText = participants.joinToString(", ") { it.name }
         val spokenText = contributions.joinToString(", ") { it.participant.name }.ifBlank { "ninguém ainda" }
         val remainingText = remaining.joinToString(", ") { it.name }.ifBlank { "nenhum" }
@@ -154,9 +158,9 @@ internal object TeamConversationCoordinator {
             append("\n<|im_end|>\n")
             append("<|im_start|>user\n")
             append("PEDIDO ORIGINAL DO USUÁRIO:\n")
-            append(safe(originalPrompt, 4_000))
+            append(safe(originalPrompt, MAX_ORIGINAL_PROMPT_BYTES))
             append("\n\nCONTEXTO NECESSÁRIO DO CHAT:\n")
-            append(safe(chatContext, 3_000).ifBlank { "Sem contexto adicional." })
+            append(safe(chatContext, 180).ifBlank { "Sem contexto adicional." })
             append("\n\nMODELOS PARTICIPANTES:\n")
             append(participantText)
             append("\nJá contribuíram: ")
@@ -168,18 +172,49 @@ internal object TeamConversationCoordinator {
             append("\n\nFALHAS DE PARTICIPANTES:\n")
             append(failureText)
             if (finalSynthesis) {
-                append("\n\nEntregue somente a resposta consolidada ao usuário, sem listar respostas independentes.")
+                append("\n\nETAPA: Entregue somente a resposta consolidada ao usuário.")
             } else {
-                append("\n\nContribua agora considerando explicitamente o que os participantes anteriores disseram.")
+                append("\n\nETAPA: Contribua considerando explicitamente as falas anteriores.")
             }
             append("\n<|im_end|>\n<|im_start|>assistant\n")
         }
     }
 
-    private fun safe(value: String, maxChars: Int): String = value
-        .replace("<|im_start|>", "‹|im_start|›")
-        .replace("<|im_end|>", "‹|im_end|›")
-        .replace(Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]"), " ")
-        .trim()
-        .take(maxChars)
+    /** Prompt compacto para o MKAI v1, cujo runtime usa bytes UTF-8 como tokens e contexto 512. */
+    internal fun buildCompactMikaelPrompt(
+        originalPrompt: String,
+        chatContext: String,
+        participants: List<TeamParticipant>,
+        maxPromptBytes: Int
+    ): String? {
+        val prefix = "<|im_start|>system\nVocê é Mikael AI. Português BR; contribuição curta e objetiva; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
+        val teamLine = "Equipe: Qwen 2.5 0.5B, SmolLM2 360M, TinyLlama 1.1B.\nPedido original: "
+        val contextLine = "\nContexto: "
+        val closing = "\nContribua agora com uma ideia breve.\n<|im_end|>\n<|im_start|>assistant\n"
+        val compact = prefix + teamLine + safe(originalPrompt, Int.MAX_VALUE) +
+            (if (chatContext.isBlank()) "" else contextLine + safe(chatContext, 48)) + closing
+        return compact.takeIf { it.toByteArray(Charsets.UTF_8).size <= maxPromptBytes }
+    }
+
+    private fun safe(value: String, maxBytes: Int): String {
+        val sanitized = value
+            .replace("<|im_start|>", "‹|im_start|›")
+            .replace("<|im_end|>", "‹|im_end|›")
+            .replace(Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]"), " ")
+            .trim()
+        if (sanitized.toByteArray(Charsets.UTF_8).size <= maxBytes) return sanitized
+        val output = StringBuilder()
+        var used = 0
+        var index = 0
+        while (index < sanitized.length) {
+            val point = sanitized.codePointAt(index)
+            val part = String(Character.toChars(point))
+            val size = part.toByteArray(Charsets.UTF_8).size
+            if (used + size > maxBytes) break
+            output.append(part)
+            used += size
+            index += Character.charCount(point)
+        }
+        return output.toString()
+    }
 }
