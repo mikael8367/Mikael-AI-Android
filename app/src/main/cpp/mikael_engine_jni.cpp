@@ -60,7 +60,6 @@ bool loadModel(const std::string& path, uint32_t requestedContext, std::string& 
         error="Formato inválido. O motor próprio aceita somente MKAI0001, não GGUF."; return false;
     }
     const uint32_t dim=h[1], layers=h[2], heads=h[3], ffn=h[4], vocab=h[5], maxSeq=h[6];
-    if(requestedContext>maxSeq) { error="O contexto solicitado é maior que o suportado pelo modelo."; return false; }
     if(dim<16 || dim>1024 || layers==0 || layers>16 || heads==0 || heads>32 ||
        dim%heads!=0 || ffn<dim || ffn>4096 || vocab!=kVocab || maxSeq<16 || maxSeq>8192) {
         error="Configuração do modelo MKAI fora dos limites seguros."; return false;
