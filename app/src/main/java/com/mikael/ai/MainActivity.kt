@@ -44,6 +44,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -133,6 +134,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var isGenerating by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
+    var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
     var githubContext by remember { mutableStateOf("") }
 
     fun persistActiveConversation() {
@@ -518,6 +520,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         }
                     )
                     AppTab.SETTINGS -> SettingsScreen(
+                        allowOnlineFeatures = allowOnlineFeatures,
+                        onAllowOnlineFeaturesChange = {
+                            allowOnlineFeatures = it
+                            preferences.allowOnlineFeatures = it
+                        },
                         memoryLimit = memoryLimit,
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
@@ -850,6 +857,8 @@ private fun ModelsScreen(
 
 @Composable
 private fun SettingsScreen(
+    allowOnlineFeatures: Boolean,
+    onAllowOnlineFeaturesChange: (Boolean) -> Unit,
     memoryLimit: Int,
     contextTokens: Int,
     availableBytes: Long,
@@ -891,6 +900,17 @@ private fun SettingsScreen(
         }
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Serviços online", fontWeight = FontWeight.SemiBold)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Permitir recursos que usam internet")
+                    Text("Desativado por padrão. Ativar não envia conversas automaticamente; cada integração deverá pedir confirmação antes de compartilhar conteúdo.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(checked = allowOnlineFeatures, onCheckedChange = onAllowOnlineFeaturesChange)
+            }
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Tamanho do contexto", fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(512, 1024).forEach { value ->
@@ -916,7 +936,7 @@ private fun SettingsScreen(
             Text("Apagar histórico local")
         }
         Text(
-            "O chat não envia mensagens para servidores. A inferência é local e aceita somente pesos autorais no formato MKAI.",
+            "A conversa com modelos instalados continua local. Recursos online serão identificados separadamente e deverão explicar quais dados serão enviados antes de pedir sua confirmação.",
             color = Color(0xFF9EAAA2)
         )
     }
