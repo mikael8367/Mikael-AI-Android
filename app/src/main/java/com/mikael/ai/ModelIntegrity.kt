@@ -26,7 +26,7 @@ internal object ModelIntegrity {
                 digest.update(buffer, 0, count)
             }
         }
-        return digest.digest().joinToString("") { byte -> "%02x".format(byte) }
+        return digest.digest().joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 
     fun matches(file: File, expected: String): Boolean =
