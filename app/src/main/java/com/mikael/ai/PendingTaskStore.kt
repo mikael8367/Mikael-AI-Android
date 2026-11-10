@@ -25,23 +25,27 @@ object PendingTaskStore {
             .put("completedResponse", task.completedResponse)
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encrypted = SecureLocalStorage.encrypt(json.toString())
-        check(prefs.edit().putString(KEY_TASK_SECURE, encrypted).remove(KEY_TASK).commit()) {
+        check(prefs.edit().putString(KEY_TASK_SECURE, encrypted).commit()) {
             "Não foi possível salvar a tarefa criptografada para recuperação."
         }
+        prefs.edit().remove(KEY_TASK).commit()
     }
 
     fun load(context: Context): PendingAiTask? = runCatching {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encrypted = prefs.getString(KEY_TASK_SECURE, null)
         val legacyRaw = prefs.getString(KEY_TASK, null)
-        val raw = if (!encrypted.isNullOrBlank()) {
-            runCatching { SecureLocalStorage.decrypt(encrypted) }.getOrNull() ?: legacyRaw
-        } else legacyRaw
+        val decrypted = encrypted?.takeIf { it.isNotBlank() }?.let {
+            runCatching { SecureLocalStorage.decrypt(it) }.getOrNull()
+        }
+        val raw = decrypted ?: legacyRaw
         if (raw.isNullOrBlank()) return@runCatching null
+        if (decrypted != null && legacyRaw != null) prefs.edit().remove(KEY_TASK).apply()
         if (encrypted.isNullOrBlank() && legacyRaw != null) {
             runCatching {
                 val payload = SecureLocalStorage.encrypt(legacyRaw)
-                prefs.edit().putString(KEY_TASK_SECURE, payload).remove(KEY_TASK).commit()
+                val stored = prefs.edit().putString(KEY_TASK_SECURE, payload).commit()
+                if (stored) prefs.edit().remove(KEY_TASK).commit()
             }
         }
         val json = JSONObject(raw)
