@@ -95,10 +95,23 @@ class MemoryBudgetTest {
             selectedLimitMiB = 2_048,
             modelBytes = 622_000_000L,
             contextTokens = 1_024,
-            minimumEstimatedBytes = 3_000_000_000L
+            minimumEstimatedBytes = 3_170_000_000L
         )
         assertFalse(result.allowed)
-        assertEquals(3_000_000_000L, result.estimatedBytes)
+        assertEquals(3_170_000_000L, result.estimatedBytes)
+    }
+
+    @Test
+    fun highMemoryModelCanRunOnlyWhenDeviceAndSelectedBudgetAllowIt() {
+        val result = MemoryBudget.check(
+            availableBytes = 4L * 1024L * 1024L * 1024L,
+            selectedLimitMiB = 3_072,
+            modelBytes = 622_000_000L,
+            contextTokens = 1_024,
+            minimumEstimatedBytes = 3_170_000_000L
+        )
+        assertTrue(result.allowed)
+        assertEquals(3_170_000_000L, result.estimatedBytes)
     }
 
 }
