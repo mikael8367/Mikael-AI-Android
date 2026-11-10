@@ -86,8 +86,9 @@ fun ModelCatalogScreen(
                         color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall
                     )
                     Text(
-                        if (teamReady) "Todos os quatro modelos estão instalados."
-                        else "Faltam ${missingTeamModels.size} modelo(s). Download restante: ${formatModelBytes(teamDownloadBytes)}.",
+                        if (teamReady && missingTeamModels.isEmpty()) "Todos os quatro modelos estão instalados."
+                        else if (teamReady) "Equipe parcial pronta: ${4 - missingTeamModels.size}/4 modelos instalados. Os modelos disponíveis já podem responder."
+                        else "Instale o Mikael AI e pelo menos um modelo GGUF. Faltam ${missingTeamModels.size} modelo(s). Download restante: ${formatModelBytes(teamDownloadBytes)}.",
                         color = if (teamReady) Color(0xFF54E69C) else Color(0xFFFFD28A), style = MaterialTheme.typography.labelSmall
                     )
                     if (teamInstallStatus.isNotBlank()) Text(teamInstallStatus, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
