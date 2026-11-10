@@ -225,6 +225,9 @@ fun ModelCatalogScreen(
                     Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
                     Text("Espaço necessário estimado: ${formatModelBytes(requiredSpace)}")
                     Text("Licença: ${model.license}")
+                    if (model.license == "Licença não declarada") {
+                        Text("Os termos de redistribuição deste peso autoral ainda não foram definidos. A distribuição a terceiros deve aguardar a licença do autor.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                    }
                     Text("Fonte: ${model.sourceUrl}", style = MaterialTheme.typography.bodySmall)
                     Text(
                         if (estimate.allowed) "RAM estimada pelo orçamento do app: ${formatModelBytes(estimate.estimatedBytes)}. É uma estimativa, não um benchmark."
