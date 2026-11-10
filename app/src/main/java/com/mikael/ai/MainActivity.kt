@@ -1121,6 +1121,11 @@ private fun SettingsScreen(
     val partialBytes = remember(storageRefresh) { StorageManager.temporaryBytes(context) }
     val backupBytes = remember(storageRefresh) { StorageManager.recoveryBackupBytes(context) }
     val freeBytes = remember(storageRefresh) { context.filesDir.usableSpace }
+    val licenseNotices = remember(context) {
+        runCatching {
+            context.assets.open("licenses/THIRD_PARTY_NOTICES.txt").bufferedReader().use { it.readText() }
+        }.getOrDefault("Avisos de licença não disponíveis neste pacote.")
+    }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -1267,17 +1272,12 @@ private fun SettingsScreen(
         )
     }
     if (showLicenseDialog) {
-        val notices = remember {
-            runCatching {
-                context.assets.open("licenses/THIRD_PARTY_NOTICES.txt").bufferedReader().use { it.readText() }
-            }.getOrDefault("Avisos de licença não disponíveis neste pacote.")
-        }
         AlertDialog(
             onDismissRequest = { showLicenseDialog = false },
             title = { Text("Licenças de terceiros") },
             text = {
                 Column(Modifier.heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
-                    Text(notices, style = MaterialTheme.typography.bodySmall)
+                    Text(licenseNotices, style = MaterialTheme.typography.bodySmall)
                 }
             },
             confirmButton = { TextButton(onClick = { showLicenseDialog = false }) { Text("Fechar") } }
