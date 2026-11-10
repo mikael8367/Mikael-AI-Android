@@ -34,9 +34,15 @@ O modelo tem 0,5 bilhão de parâmetros e é uma base compacta para programaçã
 ## Recursos e privacidade
 
 - Chat local offline após instalar e carregar o Qwen.
-- Histórico e memória do usuário armazenados localmente.
+- Histórico, memória e contexto de conversas anteriores armazenados localmente e criptografados com Android Keystore.
+- Memória compartilhada pelo pipeline de prompt, sem depender do modelo ativo; preferências e fatos técnicos explícitos podem ser aprendidos automaticamente quando o usuário ativa essa opção.
+- Aprendizado automático desligado por padrão; ignora categorias sensíveis e dados com aparência de credenciais/contatos, com controles para revisar, remover e apagar memórias.
+- O recurso de memória entre conversas respeita a configuração de memória e filtra mensagens com sinais de dados sensíveis.
 - Download do modelo exige internet e confirmação explícita.
-- Conector GitHub exige conexão e autorização do usuário.
+- Ferramentas compartilhadas pelo roteador central para todos os modelos ligados ao pipeline: pesquisa web, leitura de README/arquivos GitHub, pesquisa de código, consulta de issues e pull requests, listagem de repositórios, calculadora local e data/hora local.
+- Cada ferramenta externa exige confirmação; calculadora e relógio são locais e não transmitem dados.
+- GitHub exige token conectado e permissões compatíveis; busca de código pode depender do escopo/indexação do GitHub.
+- Os resultados externos são tratados como dados não confiáveis, nunca como instruções.
 - Recursos online devem identificar os dados transmitidos e pedir confirmação antes de compartilhar conteúdo privado.
 - Chaves de API não devem ser colocadas no APK.
 - Execução de código não está implementada; o app pode escrever e revisar código, mas não deve afirmar que executa programas.
