@@ -137,7 +137,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
     var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
     var userMemoryEnabled by remember { mutableStateOf(UserMemoryStore.isEnabled(context)) }
-    var userMemoryCount by remember { mutableStateOf(UserMemoryStore.load(context).size) }
+    var userMemoryItems by remember { mutableStateOf(UserMemoryStore.load(context)) }
+    var userMemoryCount by remember { mutableStateOf(userMemoryItems.size) }
     var githubContext by remember { mutableStateOf("") }
 
     fun persistActiveConversation() {
@@ -391,7 +392,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 input = ""
                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 if (UserMemoryStore.rememberFromUserMessage(context, prompt)) {
-                                    userMemoryCount = UserMemoryStore.load(context).size
+                                    userMemoryItems = UserMemoryStore.load(context)
+                                    userMemoryCount = userMemoryItems.size
                                 }
                                 persistActiveConversation()
                                 isGenerating = true
@@ -535,12 +537,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     AppTab.SETTINGS -> SettingsScreen(
                         userMemoryEnabled = userMemoryEnabled,
                         userMemoryCount = userMemoryCount,
+                        userMemoryItems = userMemoryItems,
                         onUserMemoryEnabledChange = { enabled ->
                             UserMemoryStore.setEnabled(context, enabled)
                             userMemoryEnabled = enabled
                         },
                         onClearUserMemory = {
                             UserMemoryStore.clear(context)
+                            userMemoryItems = emptyList()
                             userMemoryCount = 0
                         },
                         allowOnlineFeatures = allowOnlineFeatures,
@@ -882,6 +886,7 @@ private fun ModelsScreen(
 private fun SettingsScreen(
     userMemoryEnabled: Boolean,
     userMemoryCount: Int,
+    userMemoryItems: List<String>,
     onUserMemoryEnabledChange: (Boolean) -> Unit,
     onClearUserMemory: () -> Unit,
     allowOnlineFeatures: Boolean,
