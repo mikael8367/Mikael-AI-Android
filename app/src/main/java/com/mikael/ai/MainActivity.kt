@@ -536,7 +536,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     } else {
                         LlamaInferenceEngine.contextCapacityTokens()
                     }
-                    val conversationPrompt = ConversationPrompt.build(
+                    val conversationPrompt = if (modelId == "mikael-base") {
+                        ConversationPrompt.buildMkai(
+                            messages = taskMessages,
+                            contextCapacityBytes = activeContext,
+                            reserveOutputBytes = 64
+                        )
+                    } else ConversationPrompt.build(
                         messages = taskMessages,
                         githubContext = taskGithubContext,
                         contextCapacityTokens = activeContext,
@@ -580,6 +586,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
                             persistActiveConversation()
                         }
+                        // Falha de inferência não é uma tarefa retomável. Remova o modelo antigo
+                        // pendente para que a seleção atual volte a controlar o chat.
+                        PendingTaskStore.clear(context)
+                        pendingTask = null
                     }
                 )
             } catch (error: Exception) {
