@@ -53,7 +53,7 @@ object MemoryBudget {
             availableBytes = availableBytes,
             safeBudgetBytes = budget,
             estimatedBytes = estimate,
-            reason = if (allowed) null else "A estimativa do modelo ultrapassa o orçamento seguro disponível. Tente um GGUF menor ou reduza o contexto."
+            reason = if (allowed) null else "A estimativa do modelo ultrapassa o orçamento seguro disponível. Tente um modelo MKAI menor ou reduza o contexto."
         )
     }
 
