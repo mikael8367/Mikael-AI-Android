@@ -821,12 +821,17 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                                         teamStatus = "Preparando downloads..."
                             val job = scope.launch(start = CoroutineStart.LAZY) {
                                 try {
-                                    val missing = ModelCatalog.models.filter { model ->
-                                        if (model.engine == ModelEngine.MKAI) {
-                                            modelPath.isNullOrBlank() || !File(modelPath!!).isFile
+                                    teamStatus = "Verificando integridade local dos modelos..."
+                                    val missing = mutableListOf<CatalogModel>()
+                                    for (model in ModelCatalog.models) {
+                                        val valid = if (model.engine == ModelEngine.MKAI) {
+                                            val file = modelPath?.let(::File)
+                                            file != null && MikaelModelInstaller.verifyInstalledFile(file)
                                         } else {
-                                            catalogInstalled[model.id] == null
+                                            val file = ModelInstaller.installedFile(context, model)
+                                            file != null && ModelInstaller.verifyInstalledFile(file)
                                         }
+                                        if (!valid) missing += model
                                     }
                                     missing.forEachIndexed { index, model ->
                                         teamStatus = "Baixando ${model.name} (${index + 1}/${missing.size})..."
@@ -867,23 +872,30 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onCancelInstall = { model -> catalogJobs[model.id]?.cancel() },
                         onCancelTeamInstall = { catalogJobs[ModelCatalog.TEAM_MODEL_ID]?.cancel() },
                         onDelete = { model ->
-                            scope.launch(Dispatchers.IO) {
-                                val file = catalogInstalled[model.id]
-                                val sharedIds = ModelCatalog.models
-                                    .filter { model.fileName != null && it.fileName == model.fileName }
-                                    .map { it.id }
-                                    .toSet()
-                                    .ifEmpty { setOf(model.id) }
-                                if (file != null) {
-                                    file.delete()
-                                    File(file.parentFile, "${file.name}.sha256").delete()
-                                }
-                                withContext(Dispatchers.Main) {
-                                    catalogInstalled = catalogInstalled.filterKeys { it !in sharedIds }
-                                    if (selectedCatalogModelId in sharedIds) {
-                                        selectedCatalogModelId = "qwen-0.5b"
-                                        preferences.selectedCatalogModelId = "qwen-0.5b"
+                            scope.launch {
+                                val file = if (model.engine == ModelEngine.MKAI) modelPath?.let(::File)
+                                    else catalogInstalled[model.id]
+                                withContext(Dispatchers.IO) {
+                                    if (file != null) {
+                                        file.delete()
+                                        File(file.parentFile, "${file.name}.sha256").delete()
                                     }
+                                }
+                                if (model.engine == ModelEngine.MKAI) {
+                                    preferences.modelPath = null
+                                    modelPath = null
+                                    installedModels = listInstalledModels(context)
+                                } else {
+                                    val sharedIds = ModelCatalog.models
+                                        .filter { model.fileName != null && it.fileName == model.fileName }
+                                        .map { it.id }
+                                        .toSet()
+                                        .ifEmpty { setOf(model.id) }
+                                    catalogInstalled = catalogInstalled.filterKeys { it !in sharedIds }
+                                }
+                                if (selectedCatalogModelId == model.id || selectedCatalogModelId == ModelCatalog.TEAM_MODEL_ID) {
+                                    selectedCatalogModelId = "qwen-0.5b"
+                                    preferences.selectedCatalogModelId = "qwen-0.5b"
                                 }
                             }
                         },
