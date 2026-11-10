@@ -132,6 +132,7 @@ object ModelInstaller {
     }
 
     fun installedFile(context: Context, model: CatalogModel): File? {
+        if (model.engine != ModelEngine.LLAMA_CPP) return null
         val name = model.fileName ?: return null
         val directory = File(context.filesDir, "models")
         val file = File(directory, name)
