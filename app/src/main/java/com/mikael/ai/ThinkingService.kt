@@ -15,6 +15,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.coroutines.coroutineContext
 
 /** Mantém prioridade de processo e notificação visível durante inferência local iniciada pelo usuário. */
@@ -71,13 +74,19 @@ class ThinkingService : Service() {
         private const val NOTIFICATION_ID = 7301
         private val taskScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         @Volatile private var activeJob: Job? = null
+        private val runningState = MutableStateFlow(false)
+        val isRunning: StateFlow<Boolean> = runningState.asStateFlow()
 
         /** Escopo do processo, não vinculado à composição da tela do chat. */
         fun hasActiveTask(): Boolean = activeJob?.isActive == true
 
         fun launchTask(block: suspend CoroutineScope.() -> Unit): Job = taskScope.launch {
             activeJob = coroutineContext[Job]
-            try { block() } finally { activeJob = null }
+            runningState.value = true
+            try { block() } finally {
+                activeJob = null
+                runningState.value = false
+            }
         }
 
         private fun cancelTask() {
