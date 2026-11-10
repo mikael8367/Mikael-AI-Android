@@ -54,10 +54,10 @@ object ModelCatalog {
             family = "Modelo compacto • GGUF • Q4_K_M",
             engine = ModelEngine.LLAMA_CPP,
             fileName = "SmolLM2-360M-Instruct-Q4_K_M.gguf",
-            downloadUrl = "https://huggingface.co/tensorblock/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
+            downloadUrl = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF/resolve/main/SmolLM2-360M-Instruct-Q4_K_M.gguf",
             approximateBytes = 271_000_000L,
             license = "Apache-2.0",
-            sourceUrl = "https://huggingface.co/tensorblock/SmolLM2-360M-Instruct-GGUF",
+            sourceUrl = "https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF",
             description = "Modelo de instruções de 360 milhões de parâmetros em GGUF Q4_K_M, compatível com a família de runtime llama.cpp."
         ),
         CatalogModel(
@@ -65,11 +65,11 @@ object ModelCatalog {
             name = "TinyLlama 1.1B Chat",
             family = "Modelo conversacional • GGUF • Q4_K_M",
             engine = ModelEngine.LLAMA_CPP,
-            fileName = "TinyLlama-1.1B-Chat-v1.0-Q4_K_M.gguf",
-            downloadUrl = "https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/TinyLlama-1.1B-Chat-v1.0-Q4_K_M.gguf",
-            approximateBytes = 622_000_000L,
+            fileName = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+            downloadUrl = "https://huggingface.co/pbatra/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
+            approximateBytes = 668_000_000L,
             license = "Apache-2.0",
-            sourceUrl = "https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF",
+            sourceUrl = "https://huggingface.co/pbatra/TinyLlama-1.1B-Chat-v1.0-GGUF",
             description = "Modelo conversacional de 1,1 bilhão de parâmetros. É o participante mais pesado; a referência Q4_K_M indica até ~3,17 GB de RAM em certas condições, então o app pode recusá-lo no Galaxy A12.",
             minimumRuntimeMemoryBytes = 3_170_000_000L
         )
