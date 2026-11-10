@@ -54,7 +54,7 @@ class MikaelModelInstallerTest {
     @Test
     fun rejectsUnsafeDimensions() {
         val header = validHeader()
-        ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN).putInt(8, 15)
+        ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN).putInt(12, 15)
         assertFalse(MikaelModelInstaller.validateHeader(header, expectedFileSize()))
     }
 }
