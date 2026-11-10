@@ -38,10 +38,16 @@ fun ModelCatalogScreen(
     errors: Map<String, String>,
     selectedModelId: String,
     mikaelAvailable: Boolean,
+    teamReady: Boolean,
+    teamInstallStatus: String,
+    teamInstalling: Boolean,
     busy: Boolean,
     onSelect: (CatalogModel) -> Unit,
+    onSelectTeam: () -> Unit,
     onInstall: (CatalogModel) -> Unit,
+    onInstallTeam: () -> Unit,
     onCancelInstall: (CatalogModel) -> Unit,
+    onCancelTeamInstall: () -> Unit,
     onImportMkai: () -> Unit,
     onTrainMkai: () -> Unit,
     onDelete: (CatalogModel) -> Unit,
@@ -52,22 +58,59 @@ fun ModelCatalogScreen(
 ) {
     var confirmationModel by remember { mutableStateOf<CatalogModel?>(null) }
     var deleteModelConfirmation by remember { mutableStateOf<CatalogModel?>(null) }
+    var confirmTeamInstall by remember { mutableStateOf(false) }
+    val missingTeamModels = ModelCatalog.models.filter { model ->
+        if (model.engine == ModelEngine.MKAI) !mikaelAvailable else installed[model.id] == null
+    }
+    val teamDownloadBytes = missingTeamModels.sumOf { it.approximateBytes }
+    val teamRequiredSpace = teamDownloadBytes + 64L * 1024L * 1024L
+
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(5.dp),
-                modifier = Modifier.padding(vertical = 8.dp)
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                 Text("Modelos disponíveis", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Qwen2.5-Coder é o único modelo de conversa do Mikael AI.", color = Color(0xFF9EAAA2))
-                Text(
-                    "Instale um modelo e toque em Usar modelo. O carregamento acontece automaticamente.",
-                    color = Color(0xFF9EAAA2),
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text("Escolha um modelo individual ou use a nova equipe com histórico compartilhado.", color = Color(0xFF9EAAA2))
+            }
+        }
+        item {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF173024)), modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Mikael AI — 4 modelos", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
+                    Text(
+                        "Uma conversa única. Mikael AI, Qwen 2.5, SmolLM2 e TinyLlama contribuem em sequência, recebendo o histórico compartilhado das falas anteriores. A consolidação é uma resposta só.",
+                        color = Color(0xFFE1EAE4), style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "Execução 100% local. Um modelo é carregado por vez; colaboração sequencial não significa execução simultânea.",
+                        color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        if (teamReady) "Todos os quatro modelos estão instalados."
+                        else "Faltam ${missingTeamModels.size} modelo(s). Download restante: ${formatModelBytes(teamDownloadBytes)}.",
+                        color = if (teamReady) Color(0xFF54E69C) else Color(0xFFFFD28A), style = MaterialTheme.typography.labelSmall
+                    )
+                    if (teamInstallStatus.isNotBlank()) Text(teamInstallStatus, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
+                    if (teamInstalling) {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        OutlinedButton(onClick = onCancelTeamInstall, modifier = Modifier.fillMaxWidth()) { Text("Cancelar instalação da equipe") }
+                    } else if (!teamReady) {
+                        Button(onClick = { confirmTeamInstall = true }, enabled = !busy && missingTeamModels.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
+                            Text("Baixar modelos faltantes")
+                        }
+                    }
+                    Button(
+                        onClick = onSelectTeam,
+                        enabled = teamReady && selectedModelId != ModelCatalog.TEAM_MODEL_ID && !busy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (selectedModelId == ModelCatalog.TEAM_MODEL_ID) "Equipe selecionada" else "Usar Mikael AI — 4 modelos") }
+                    Text(
+                        "O TinyLlama 1.1B é o participante mais pesado. A memória é verificada antes de cada carregamento; se um modelo não couber, ele será marcado como falha e não contará como participante.",
+                        color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall
+                    )
+                }
             }
         }
         items(ModelCatalog.models, key = { it.id }) { model ->
@@ -75,19 +118,14 @@ fun ModelCatalogScreen(
             val percent = progress[model.id]
             val isMikael = model.engine == ModelEngine.MKAI
             val isInstalled = if (isMikael) mikaelAvailable else file != null
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)),
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)), modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(model.name, fontWeight = FontWeight.Bold)
                             Text(model.family, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
                         }
-                        if (isInstalled) {
-                            Text("INSTALADO", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
-                        }
+                        if (isInstalled) Text("INSTALADO", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
                     }
                     Text(model.description, color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
                     Text("Licença: ${model.license}", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
@@ -95,7 +133,7 @@ fun ModelCatalogScreen(
                     if (isMikael) {
                         Text(
                             if (mikaelAvailable) "Checkpoint MKAI instalado neste aparelho."
-                            else "O checkpoint autoral MKAI v1 já está publicado. Toque em Baixar e instalar para usar. Também é possível treinar uma versão futura com seu próprio corpus.",
+                            else "Checkpoint autoral experimental publicado. A licença de distribuição não está declarada.",
                             color = if (mikaelAvailable) Color(0xFF54E69C) else Color(0xFFFFD28A),
                             style = MaterialTheme.typography.bodySmall
                         )
@@ -104,73 +142,38 @@ fun ModelCatalogScreen(
                             Text("Baixando Mikael AI: $percent%", color = Color(0xFF8BE7B7))
                             OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.fillMaxWidth()) { Text("Cancelar download") }
                         }
-                        errors[model.id]?.let {
-                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        }
+                        errors[model.id]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         Button(
                             onClick = { confirmationModel = model },
-                            enabled = percent == null,
+                            enabled = percent == null && !busy && !isInstalled,
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(if (percent != null) "Baixando..." else "Baixar e instalar Mikael AI")
-                        }
-                        OutlinedButton(onClick = onTrainMkai, modifier = Modifier.fillMaxWidth()) {
-                            Text("Treinar uma nova versão do Mikael AI")
-                        }
-                        OutlinedButton(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) {
-                            Text("Importar arquivo .mkai manualmente")
-                        }
+                        ) { Text(if (isInstalled) "Mikael AI instalado" else if (percent != null) "Baixando..." else "Baixar e instalar Mikael AI") }
+                        OutlinedButton(onClick = onTrainMkai, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Text("Treinar uma nova versão do Mikael AI") }
+                        OutlinedButton(onClick = onImportMkai, modifier = Modifier.fillMaxWidth(), enabled = !busy) { Text("Importar arquivo .mkai manualmente") }
                         if (mikaelAvailable) {
-                            OutlinedButton(
-                                onClick = { onSelect(model) },
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = selectedModelId != model.id && !busy
-                            ) {
+                            OutlinedButton(onClick = { onSelect(model) }, modifier = Modifier.fillMaxWidth(), enabled = selectedModelId != model.id && !busy) {
                                 Text(if (selectedModelId == model.id) "Mikael AI selecionado" else "Usar Mikael AI")
                             }
                         }
                     } else {
-                        Text(
-                            "Tamanho aproximado: ${model.approximateBytes / 1_000_000} MB • Q4_K_M",
-                            color = Color(0xFF9EAAA2),
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                        Text("Tamanho aproximado: ${formatModelBytes(model.approximateBytes)} • Q4_K_M", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
                         if (percent != null) {
                             LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
                             Text("Baixando: $percent%", color = Color(0xFF8BE7B7))
                             OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.fillMaxWidth()) { Text("Cancelar download") }
                         }
-                        errors[model.id]?.let {
-                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        errors[model.id]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (file != null) {
-                                Button(
-                                    onClick = { onSelect(model) },
-                                    enabled = selectedModelId != model.id && !busy,
-                                    modifier = Modifier.weight(1f)
-                                ) {
+                                Button(onClick = { onSelect(model) }, enabled = selectedModelId != model.id && !busy, modifier = Modifier.weight(1f)) {
                                     Text(if (selectedModelId == model.id) "Selecionado" else "Usar modelo")
                                 }
-                                OutlinedButton(
-                                    onClick = { deleteModelConfirmation = model },
-                                    modifier = Modifier.weight(1f),
-                                    enabled = !busy
-                                ) { Text("Desinstalar") }
+                                OutlinedButton(onClick = { deleteModelConfirmation = model }, modifier = Modifier.weight(1f), enabled = !busy) { Text("Desinstalar") }
                             } else {
-                                Button(
-                                    onClick = { confirmationModel = model },
-                                    enabled = percent == null && !busy,
-                                    modifier = Modifier.weight(1f)
-                                ) {
+                                Button(onClick = { confirmationModel = model }, enabled = percent == null && !busy, modifier = Modifier.weight(1f)) {
                                     Text(if (percent != null) "Baixando..." else "Instalar modelo")
                                 }
-                                if (percent != null) {
-                                    OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.weight(1f)) { Text("Cancelar") }
-                                }
+                                if (percent != null) OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.weight(1f)) { Text("Cancelar") }
                             }
                         }
                         Text("Fonte: Hugging Face • ${model.sourceUrl}", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
@@ -178,30 +181,45 @@ fun ModelCatalogScreen(
                 }
             }
         }
-        item {
-            Spacer(Modifier.size(8.dp))
-            Text(
-                "O Mikael AI mantém seu nome e sua interface, mas utiliza Qwen2.5-Coder como motor de conversa. Os pesos do modelo são de terceiros e são baixados separadamente do APK.",
-                color = Color(0xFF9EAAA2),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
+    }
+
+    if (confirmTeamInstall) {
+        AlertDialog(
+            onDismissRequest = { confirmTeamInstall = false },
+            title = { Text("Instalar equipe de quatro modelos?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text("Modelos que faltam:")
+                    missingTeamModels.forEach { model -> Text("• ${model.name}: ${formatModelBytes(model.approximateBytes)}") }
+                    Text("Download total aproximado: ${formatModelBytes(teamDownloadBytes)}")
+                    Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
+                    Text("Espaço necessário estimado: ${formatModelBytes(teamRequiredSpace)}")
+                    Text("Os arquivos serão baixados um por vez. Nenhum peso será baixado antes da confirmação.")
+                    Text("O uso de RAM é avaliado separadamente para cada modelo; ter espaço de armazenamento não garante que o TinyLlama consiga carregar.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                    if (missingTeamModels.any { it.license == "Licença não declarada" }) {
+                        Text("O checkpoint autoral Mikael AI está sem licença de distribuição declarada. O app informa essa condição e não o redistribui.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (availableStorageBytes <= teamRequiredSpace) Text("Armazenamento insuficiente. Libere espaço antes de continuar.", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { confirmTeamInstall = false; onInstallTeam() }, enabled = availableStorageBytes > teamRequiredSpace && !busy) {
+                    Text("Confirmar downloads")
+                }
+            },
+            dismissButton = { TextButton(onClick = { confirmTeamInstall = false }) { Text("Cancelar") } }
+        )
     }
 
     deleteModelConfirmation?.let { model ->
         AlertDialog(
             onDismissRequest = { deleteModelConfirmation = null },
             title = { Text("Desinstalar modelo?") },
-            text = { Text("Os pesos de ${model.name} serão removidos do armazenamento interno. Para usar novamente, será necessário baixar o arquivo outra vez. Histórico e memória não serão apagados.") },
+            text = { Text("Os pesos de ${model.name} serão removidos do armazenamento interno. Histórico e memória não serão apagados.") },
             confirmButton = {
-                TextButton(onClick = {
-                    onDelete(model)
-                    deleteModelConfirmation = null
-                }, enabled = !busy) { Text("Desinstalar") }
+                TextButton(onClick = { onDelete(model); deleteModelConfirmation = null }, enabled = !busy) { Text("Desinstalar") }
             },
-            dismissButton = {
-                TextButton(onClick = { deleteModelConfirmation = null }) { Text("Cancelar") }
-            }
+            dismissButton = { TextButton(onClick = { deleteModelConfirmation = null }) { Text("Cancelar") } }
         )
     }
 
@@ -225,9 +243,7 @@ fun ModelCatalogScreen(
                     Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
                     Text("Espaço necessário estimado: ${formatModelBytes(requiredSpace)}")
                     Text("Licença: ${model.license}")
-                    if (model.license == "Licença não declarada") {
-                        Text("Os termos de redistribuição deste peso autoral ainda não foram definidos. A distribuição a terceiros deve aguardar a licença do autor.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
-                    }
+                    if (model.license == "Licença não declarada") Text("Os termos de redistribuição deste peso autoral ainda não foram definidos. A distribuição a terceiros deve aguardar a licença do autor.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                     Text("Fonte: ${model.sourceUrl}", style = MaterialTheme.typography.bodySmall)
                     Text(
                         if (estimate.allowed) "RAM estimada pelo orçamento do app: ${formatModelBytes(estimate.estimatedBytes)}. É uma estimativa, não um benchmark."
@@ -235,25 +251,16 @@ fun ModelCatalogScreen(
                         color = if (estimate.allowed) Color(0xFF8BE7B7) else Color(0xFFFFD28A),
                         style = MaterialTheme.typography.bodySmall
                     )
-                    if (!hasSpace) {
-                        Text("Armazenamento insuficiente para baixar e validar este arquivo. Libere espaço antes de continuar.", color = MaterialTheme.colorScheme.error)
-                    }
+                    if (!hasSpace) Text("Armazenamento insuficiente para baixar e validar este arquivo. Libere espaço antes de continuar.", color = MaterialTheme.colorScheme.error)
                     Text("Nenhuma conversa ou arquivo pessoal será enviado. O app só baixa o modelo escolhido após sua confirmação.")
                 }
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        val selected = model
-                        confirmationModel = null
-                        onInstall(selected)
-                    },
-                    enabled = hasSpace && !busy
-                ) { Text("Baixar e instalar") }
+                TextButton(onClick = { val selected = model; confirmationModel = null; onInstall(selected) }, enabled = hasSpace && !busy) {
+                    Text("Baixar e instalar")
+                }
             },
-            dismissButton = {
-                TextButton(onClick = { confirmationModel = null }) { Text("Cancelar") }
-            }
+            dismissButton = { TextButton(onClick = { confirmationModel = null }) { Text("Cancelar") } }
         )
     }
 }
