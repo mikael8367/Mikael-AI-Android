@@ -144,7 +144,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
     val logEvent: (String, String) -> Unit = { level, message -> AppLogStore.add(appContext, level, message) }
     LaunchedEffect(Unit) {
         LocalInferenceEngine.setDiagnosticSink { level, message ->
-            AppLogStore.add(context, level, message)
+            AppLogStore.add(appContext, level, message)
         }
         logEvent("INFO", "Aplicativo iniciado • versão 1.8.3")
     }
