@@ -182,11 +182,15 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
         LocalInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+        val effectiveMkaiContext = minOf(
+            contextTokens,
+            MikaelModelInstaller.maxSequenceTokens(file) ?: contextTokens
+        )
         val check = MemoryBudget.check(
             availableBytes = MemoryBudget.availableBytes(activityManager),
             selectedLimitMiB = memoryLimit,
             modelBytes = file.length(),
-            contextTokens = contextTokens
+            contextTokens = effectiveMkaiContext
         )
         if (!check.allowed) {
             engineStatus = check.reason ?: "Memória insuficiente."
