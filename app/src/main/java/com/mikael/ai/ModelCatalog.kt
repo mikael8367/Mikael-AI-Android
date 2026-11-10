@@ -26,7 +26,7 @@ object ModelCatalog {
         ),
         CatalogModel(
             id = "mikael-assistant", name = "Mikael AI Assistente", family = "Mikael AI • base Qwen 2.5 0.5B • Q4_K_M",
-            engine = ModelEngine.LLAMA_CPP, fileName = "Mikael-AI-Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+            engine = ModelEngine.LLAMA_CPP, fileName = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
             downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
             approximateBytes = 430_000_000L, license = "Apache-2.0 (modelo-base)",
             sourceUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
