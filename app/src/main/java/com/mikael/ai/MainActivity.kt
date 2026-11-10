@@ -764,7 +764,16 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 ) { Text(if (connectorBusy) "Consultando…" else "Autorizar") }
             },
             dismissButton = {
-                TextButton(enabled = !connectorBusy, onClick = { connectorProposal = null }) { Text("Cancelar") }
+                TextButton(
+                    enabled = !connectorBusy && !isGenerating,
+                    onClick = {
+                        val userRequest = messages.lastOrNull { it.role == "user" }?.text
+                        connectorProposal = null
+                        if (!userRequest.isNullOrBlank() && activeEngineReady) {
+                            launchGeneration(userRequest)
+                        }
+                    }
+                ) { Text("Responder sem conector") }
             }
         )
     }
