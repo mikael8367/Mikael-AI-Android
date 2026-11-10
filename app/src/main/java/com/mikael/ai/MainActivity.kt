@@ -397,7 +397,14 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             LocalInferenceEngine.cancel()
                         },
                         onOpenModels = { logEvent("INFO", "Toque: abrir modelos"); tab = AppTab.MODELS },
-                        onReloadModel = { logEvent("INFO", "Toque: tentar carregar modelo novamente"); if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
+                        onReloadModel = {
+                            logEvent("INFO", "Toque: tentar carregar modelo novamente")
+                            if (!generating && !busy && !downloading && modelPath != null) {
+                                busy = true
+                                engineReady = false
+                                reloadKey++
+                            }
+                        },
                         onNewChat = {
                             logEvent("INFO", "Toque: nova conversa")
                             messages.clear()
