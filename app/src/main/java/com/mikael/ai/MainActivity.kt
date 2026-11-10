@@ -1220,7 +1220,7 @@ private fun SettingsScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(2048, 4096).forEach { value ->
+                listOf(2048).forEach { value ->
                     FilterChip(
                         selected = contextTokens == value,
                         onClick = { onContextChange(value) },
