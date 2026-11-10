@@ -4,6 +4,12 @@ on:
   push:
     branches: [main, "feature/**", "fix/**"]
   workflow_dispatch:
+    inputs:
+      build_apk:
+        description: "Gerar APK somente quando solicitado explicitamente"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -56,9 +62,11 @@ jobs:
         run: gradle :app:lintDebug
 
       - name: Build debug APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
         run: gradle :app:assembleDebug
 
       - name: Verify APK and ARM64 native libraries
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
         shell: bash
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
@@ -69,6 +77,7 @@ jobs:
           ls -lh "$APK"
 
       - name: Upload debug APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk == true
         uses: actions/upload-artifact@v4
         with:
           name: Mikael-AI-Android-debug-arm64
