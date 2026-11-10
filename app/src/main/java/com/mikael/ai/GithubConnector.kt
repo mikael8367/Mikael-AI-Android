@@ -79,7 +79,7 @@ private sealed interface GithubPollResult {
     data class Failed(val message: String) : GithubPollResult
 }
 
-private object GithubTokenStore {
+internal object GithubTokenStore {
     private const val PREFS = "github_secure_session"
     private const val TOKEN_KEY = "encrypted_access_token"
     private const val KEY_ALIAS = "mikael_ai_github_token_key"
@@ -107,6 +107,8 @@ private object GithubTokenStore {
         cipher.doFinal(encrypted).toString(Charsets.UTF_8)
     }.getOrNull()
 
+    fun hasToken(context: Context): Boolean = !read(context).isNullOrBlank()
+
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().remove(TOKEN_KEY).apply()
@@ -130,7 +132,7 @@ private object GithubTokenStore {
     }
 }
 
-private object GithubApi {
+internal object GithubApi {
     private const val API = "https://api.github.com"
 
     private fun request(
