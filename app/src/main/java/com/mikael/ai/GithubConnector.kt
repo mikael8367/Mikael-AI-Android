@@ -293,7 +293,7 @@ private object GithubApi {
 
     suspend fun formatRepositories(token: String): String = withContext(Dispatchers.IO) {
         val repos = listRepositories(token).take(30)
-        repos.joinToString("\\n") { repo ->
+        repos.joinToString("\n") { repo ->
             "- ${repo.fullName}: ${repo.description.take(180)}"
         }.ifBlank { "Nenhum repositório encontrado." }.take(6_000)
     }
