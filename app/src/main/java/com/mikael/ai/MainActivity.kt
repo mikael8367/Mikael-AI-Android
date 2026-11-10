@@ -395,14 +395,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         // Use uma única geração curta até o motor ganhar cache KV/otimizações.
                         LocalInferenceEngine.generate(conversationPrompt, 64)
                     } else {
-                        AnswerRevision.generate(
-                            originalRequest = prompt,
-                            conversationPrompt = conversationPrompt,
-                            contextCapacityBytes = activeContext,
-                            maxAnswerTokens = 256
-                        ) { candidatePrompt, tokenLimit ->
-                            LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
-                        }
+                        // Uma geração direta evita várias passagens lentas no celular.
+                        LlamaInferenceEngine.generate(conversationPrompt, 160)
                     }
                 }
                 result.fold(
