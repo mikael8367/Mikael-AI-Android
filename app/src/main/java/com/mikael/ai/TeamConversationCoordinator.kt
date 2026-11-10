@@ -15,10 +15,11 @@ data class TeamRunResult(
     val contributions: List<TeamContribution>,
     val failedParticipants: Map<String, String>,
     val finalizer: String,
-    val callCount: Int
+    val callCount: Int,
+    val finalizationFallback: Boolean
 ) {
     val participatedCount: Int get() = contributions.size
-    val allParticipated: Boolean get() = contributions.size == 4 && failedParticipants.isEmpty()
+    val allParticipated: Boolean get() = contributions.size == 4
 }
 
 /**
@@ -36,7 +37,7 @@ internal object TeamConversationCoordinator {
         chatContext: String,
         participants: List<TeamParticipant>,
         generate: suspend (TeamParticipant, String, Int) -> Result<String>,
-        onStage: (String) -> Unit = {}
+        onStage: suspend (String) -> Unit = {}
     ): TeamRunResult {
         require(originalPrompt.isNotBlank()) { "A mensagem original está vazia." }
         require(participants.size == 4) { "A equipe precisa ter exatamente quatro participantes." }
@@ -89,18 +90,25 @@ internal object TeamConversationCoordinator {
             finalSynthesis = true
         )
         val finalResponse = generate(finalizer, finalPrompt, FINAL_TOKENS)
-        val finalText = finalResponse.getOrNull()?.trim()?.takeIf { it.isNotBlank() }
+        val generatedFinal = finalResponse.getOrNull()?.trim()?.takeIf { it.isNotBlank() }
+        val finalizationFallback = generatedFinal == null
+        val finalText = generatedFinal
             ?: contributions.firstOrNull { it.participant.id == "qwen-0.5b" }?.text
             ?: contributions.last().text
 
-        val calls = contributions.size + 1
+        if (finalizationFallback) {
+            failures["Consolidação final"] = finalResponse.exceptionOrNull()?.message
+                ?.take(180) ?: "A síntese final ficou vazia; foi usada a melhor contribuição disponível."
+        }
+        val calls = participants.size + 1
         check(calls <= MAX_CALLS)
         return TeamRunResult(
             answer = finalText,
             contributions = contributions.toList(),
             failedParticipants = failures.toMap(),
             finalizer = finalizer.name,
-            callCount = calls
+            callCount = calls,
+            finalizationFallback = finalizationFallback
         )
     }
 
