@@ -116,7 +116,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var catalogErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var selectedCatalogModelId by remember { mutableStateOf(preferences.selectedCatalogModelId) }
     var llamaReady by remember { mutableStateOf(false) }
-    var llamaStatus by remember { mutableStateOf("Selecione um modelo GGUF instalado.") }
+    var llamaStatus by remember { mutableStateOf("Instale um modelo na aba Modelos para começar.") }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
@@ -521,7 +521,7 @@ private fun ChatScreen(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        "Importe um modelo próprio .mkai na aba Modelos para começar.",
+                        "Instale o Mikael AI Assistente ou outro modelo na aba Modelos para começar.",
                         modifier = Modifier.padding(top = 12.dp, start = 28.dp, end = 28.dp),
                         color = Color(0xFF8BE7B7),
                         textAlign = TextAlign.Center
