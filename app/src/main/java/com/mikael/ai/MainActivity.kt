@@ -409,12 +409,13 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             val prompt = input.trim().ifBlank { if (attachments.isNotEmpty()) "Analise os anexos selecionados." else "" }
                             if (prompt.isNotEmpty() && !generating && !importingAttachments) {
                                 logEvent("INFO", "Ação: enviar mensagem (${prompt.length} caracteres; ${attachments.size} anexos)")
-                                if (!engineReady) {
-                                    logEvent("WARN", "Envio bloqueado: modelo local não está pronto")
-                                    engineStatus = if (modelPath.isNullOrBlank()) {
-                                        "Nenhum modelo selecionado. Abra Modelos, selecione um GGUF e aguarde o carregamento."
-                                    } else {
-                                        "O modelo ainda não está pronto. Confira o status acima ou toque em Tentar carregar novamente."
+                                if (!engineReady || busy || downloading) {
+                                    logEvent("WARN", "Envio bloqueado: motor ocupado ou modelo não está pronto")
+                                    engineStatus = when {
+                                        busy -> "Aguarde a operação atual com o modelo terminar."
+                                        downloading -> "Aguarde o download e a preparação do modelo terminarem."
+                                        modelPath.isNullOrBlank() -> "Nenhum modelo selecionado. Abra Modelos, selecione um GGUF e aguarde o carregamento."
+                                        else -> "O modelo ainda não está pronto. Confira o status acima ou toque em Tentar carregar novamente."
                                     }
                                     return@OfflineChatScreen
                                 }
