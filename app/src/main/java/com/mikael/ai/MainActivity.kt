@@ -193,6 +193,9 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         if (uris.isEmpty()) {
             importingAttachments = false
         } else {
+            // Also set this in the result callback: Android may recreate the
+            // Activity while the document picker is open.
+            importingAttachments = true
             scope.launch {
                 try {
                     val availableSlots = (5 - attachments.size).coerceAtLeast(0)
