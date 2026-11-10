@@ -110,8 +110,8 @@ object ConversationStore {
         val normalized = text.lowercase()
         val sensitive = listOf("senha", "password", "token", "cpf", "cartão", "cartao", "endereço", "endereco", "telefone", "saúde", "saude", "diagnóstico", "diagnostico", "religião", "religiao", "política", "politica", "sexualidade", "orientação sexual", "orientacao sexual")
         if (sensitive.any { normalized.contains(it) }) return false
-        if (Regex("\\\\b[0-9]{8,}\\\\b").containsMatchIn(text)) return false
-        if (Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\\\.[A-Za-z]{2,}").containsMatchIn(text)) return false
+        if (Regex("\\b[0-9]{8,}\\b").containsMatchIn(text)) return false
+        if (Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}").containsMatchIn(text)) return false
         return true
     }
 
