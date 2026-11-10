@@ -367,8 +367,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 val attachmentContext = attachments.joinToString("\n\n") { it.promptContext }
                                 attachments.forEach { File(it.path).delete() }
                                 val completePrompt = buildString {
+                                    if (attachmentContext.isNotBlank()) {
+                                        append("Conteúdo dos anexos (pode estar parcialmente resumido):\n")
+                                        append(attachmentContext)
+                                        append("\n\nSolicitação do usuário:\n")
+                                    }
                                     append(prompt)
-                                    if (attachmentContext.isNotBlank()) append("\n\nAnexos selecionados:\n").append(attachmentContext)
                                 }
                                 messages.add(ChatMessage(nextMessageId(), "user", completePrompt))
                                 attachments = emptyList()
@@ -421,7 +425,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                                 }
                                             )
                                         }
-                                        ConversationStore.save(context, messages)
+                                        ConversationStore.save(appContext, messages)
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
                                         logEvent("INFO", "Geração local concluída em ${elapsedMs} ms (${response.length} caracteres)")
                                     } catch (cancelled: CancellationException) {
@@ -433,7 +437,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             messages[assistantIndex] = current.copy(
                                                 text = if (current.text.isBlank()) suffix else current.text + "\n\n" + suffix
                                             )
-                                            ConversationStore.save(context, messages)
+                                            ConversationStore.save(appContext, messages)
                                         }
                                         throw cancelled
                                     } catch (error: Exception) {
@@ -445,7 +449,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         } else {
                                             messages.add(ChatMessage(assistantMessageId, "assistant", errorText))
                                         }
-                                        ConversationStore.save(context, messages)
+                                        ConversationStore.save(appContext, messages)
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
                                         AppLogStore.addThrowable(appContext, "Falha na geração local após ${elapsedMs} ms", error)
                                         logEvent(
