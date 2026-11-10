@@ -382,21 +382,20 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 } else {
                     LlamaInferenceEngine.contextCapacityTokens()
                 }
+                val responseBudget = ConversationPrompt.responseTokenBudget(prompt)
                 val conversationPrompt = ConversationPrompt.build(
                     messages = messages.toList(),
                     githubContext = githubContext,
                     contextCapacityTokens = activeContext,
+                    reserveOutputTokens = responseBudget,
                     userMemory = UserMemoryStore.contextForPrompt(context)
                 )
                 val result = withContext(Dispatchers.IO) {
                     if (modelId == "mikael-base") {
-                        // MKAI v1 é experimental e a inferência Android recalcula o contexto
-                        // a cada token. Uma autocrítica + revisão triplicava o trabalho no A12.
-                        // Use uma única geração curta até o motor ganhar cache KV/otimizações.
                         LocalInferenceEngine.generate(conversationPrompt, 64)
                     } else {
-                        // Uma geração direta evita várias passagens lentas no celular.
-                        LlamaInferenceEngine.generate(conversationPrompt, 160)
+                        // Mais espaço para código; menos tokens em conversas simples.
+                        LlamaInferenceEngine.generate(conversationPrompt, responseBudget)
                     }
                 }
                 result.fold(
