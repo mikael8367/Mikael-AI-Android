@@ -376,7 +376,15 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     fun resumePendingTask() {
         val task = pendingTask ?: return
-        if (!activeEngineReady || isGenerating) return
+        if (isGenerating) return
+        if (selectedCatalogModelId != task.modelId) {
+            selectedCatalogModelId = task.modelId
+            preferences.selectedCatalogModelId = task.modelId
+            modelReloadCounter++
+            android.widget.Toast.makeText(context, "Carregando o modelo usado na tarefa interrompida.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        if (!activeEngineReady) return
         val conversation = conversations.firstOrNull { it.id == task.conversationId }
         if (conversation != null) {
             messages.clear()
@@ -992,10 +1000,13 @@ private fun SettingsScreen(
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Memória do usuário", fontWeight = FontWeight.SemiBold)
             Text("$userMemoryCount lembranças salvas neste aparelho. Use \"Lembre: ...\" para guardar e \"Esqueça: ...\" para remover uma lembrança pelo chat.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
-            userMemoryItems.forEach { item ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("[${item.topic}] ${item.text}", modifier = Modifier.weight(1f), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
-                    TextButton(onClick = { onRemoveUserMemory(item) }) { Text("Remover") }
+            userMemoryItems.groupBy { it.topic }.toSortedMap().forEach { (topic, entries) ->
+                Text(topic, fontWeight = FontWeight.SemiBold, color = Color(0xFF8BE7B7))
+                entries.forEach { item ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(item.text, modifier = Modifier.weight(1f), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = { onRemoveUserMemory(item) }) { Text("Remover") }
+                    }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
