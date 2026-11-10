@@ -175,6 +175,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             engineStatus = "O arquivo do modelo não foi encontrado."
             return@LaunchedEffect
         }
+        val integrityValid = MikaelModelInstaller.verifyInstalledFile(file)
+        if (!integrityValid) {
+            engineStatus = "O checkpoint MKAI está corrompido ou foi alterado. Reinstale o modelo."
+            return@LaunchedEffect
+        }
         LocalInferenceEngine.cancel()
         withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
         val check = MemoryBudget.check(
