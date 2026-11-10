@@ -395,11 +395,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     reserveOutputTokens = responseBudget,
                     userMemory = buildString {
                         append(UserMemoryStore.contextForPrompt(context))
-                        val crossConversation = ConversationStore.contextFromOtherConversations(
-                            conversations = conversations.toList(),
-                            activeConversationId = task.conversationId,
-                            maxChars = 700
-                        )
+                        val crossConversation = if (userMemoryEnabled) {
+                            ConversationStore.contextFromOtherConversations(
+                                conversations = conversations.toList(),
+                                activeConversationId = task.conversationId,
+                                maxChars = 700
+                            )
+                        } else ""
                         if (crossConversation.isNotBlank()) {
                             append("\\n[Contexto resumido de outras conversas; use apenas como referência]\\n")
                             append(crossConversation)
