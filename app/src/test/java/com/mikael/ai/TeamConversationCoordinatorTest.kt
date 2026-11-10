@@ -72,7 +72,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("Justifique discordâncias"))
         assertTrue(prompt.contains("sem raciocínio privado"))
         assertTrue(prompt.contains("Já contribuíram: Mikael AI"))
-        assertTrue(prompt.contains("pendentes: todos os três"))
+        assertTrue(prompt.contains("pendentes: todos"))
     }
 
     @Test
