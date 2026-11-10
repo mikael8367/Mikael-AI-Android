@@ -140,6 +140,27 @@ object MikaelModelInstaller {
         validateHeader(header, file.length())
     }.getOrDefault(false)
 
+    fun maxSequenceTokens(file: File): Int? = runCatching {
+        if (!isValidMkai(file)) return@runCatching null
+        val header = ByteArray(HEADER_BYTES.toInt())
+        file.inputStream().use { input ->
+            var offset = 0
+            while (offset < header.size) {
+                val count = input.read(header, offset, header.size - offset)
+                if (count < 0) return@runCatching null
+                offset += count
+            }
+        }
+        val data = ByteBuffer.wrap(header, 8, 32).order(ByteOrder.LITTLE_ENDIAN)
+        data.int // version
+        data.int // dim
+        data.int // layers
+        data.int // heads
+        data.int // ffn
+        data.int // vocab
+        data.int // max sequence
+    }.getOrNull()
+
     suspend fun verifyInstalledFile(file: File): Boolean = withContext(Dispatchers.IO) {
         if (!isValidMkai(file)) return@withContext false
         val checksum = File(file.parentFile, "${file.name}.sha256")
