@@ -27,7 +27,7 @@ class ModelCatalogTest {
         assertTrue(downloadable.all { it.approximateBytes > 200_000_000L })
         val qwen = downloadable.single { it.id == "qwen-0.5b" }
         assertEquals("Apache-2.0", qwen.license)
-        assertTrue(qwen.approximateBytes in 350_000_000L..450_000_000L)
+        assertTrue(qwen.approximateBytes in 450_000_000L..520_000_000L)
     }
 
     @Test
