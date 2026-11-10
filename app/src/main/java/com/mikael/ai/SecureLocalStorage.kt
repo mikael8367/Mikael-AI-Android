@@ -1,6 +1,5 @@
 package com.mikael.ai
 
-import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
