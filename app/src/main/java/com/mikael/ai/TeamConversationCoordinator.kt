@@ -15,7 +15,7 @@ data class TeamRunResult(
     val contributions: List<TeamContribution>,
     val failedParticipants: Map<String, String>,
     val finalizer: String,
-    val callCount: Int,
+    val attemptCount: Int,
     val finalizationFallback: Boolean,
     val finalizationError: String?
 ) {
@@ -114,7 +114,7 @@ internal object TeamConversationCoordinator {
             contributions = contributions.toList(),
             failedParticipants = failures.toMap(),
             finalizer = finalizer.name,
-            callCount = calls,
+            attemptCount = calls,
             finalizationFallback = finalizationFallback,
             finalizationError = finalizationError
         )
