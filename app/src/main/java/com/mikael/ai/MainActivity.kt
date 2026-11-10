@@ -6,6 +6,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.app.ActivityManager
 import androidx.activity.ComponentActivity
+import androidx.core.content.ContextCompat
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -382,6 +383,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onCancel = {
                             if (selectedCatalogModelId == "mikael-base") LocalInferenceEngine.cancel()
                             else LlamaInferenceEngine.cancel()
+                            context.stopService(Intent(context, ThinkingService::class.java))
                         },
                         onSend = {
                             val prompt = input.trim()
@@ -393,7 +395,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 }
                                 persistActiveConversation()
                                 isGenerating = true
+                                ContextCompat.startForegroundService(context, Intent(context, ThinkingService::class.java))
                                 scope.launch {
+                                    try {
                                     val activeContext = if (selectedCatalogModelId == "mikael-base") {
                                         LocalInferenceEngine.contextCapacityTokens()
                                     } else {
@@ -433,7 +437,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             }
                                         }
                                     )
-                                    isGenerating = false
+                                    } finally {
+                                        isGenerating = false
+                                        context.stopService(Intent(context, ThinkingService::class.java))
+                                    }
                                 }
                             } else if (!activeEngineReady) {
                                 android.widget.Toast.makeText(context, activeEngineStatus, android.widget.Toast.LENGTH_SHORT).show()
