@@ -155,7 +155,7 @@ bool forward(const std::vector<uint8_t>& tokens, std::vector<float>& logits) {
         if(gCancel.load()) return false;
     }
     rmsNorm(x.data()+static_cast<size_t>(seq-1)*d,gModel.finalNorm,projected.data(),d);
-    matvec(gModel.lmHead,projected.data(),logits,kVocab,d);
+    matvec(gModel.lmHead,projected.data(),logits.data(),kVocab,d);
     return true;
 }
 std::string jstringToUtf8(JNIEnv* env,jstring value) {
