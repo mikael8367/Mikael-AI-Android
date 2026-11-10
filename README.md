@@ -31,6 +31,13 @@ O modelo tem 0,5 bilhão de parâmetros e é uma base compacta para programaçã
 - O Qwen Q4_K_M ocupa aproximadamente 491 MB em armazenamento. O orçamento de RAM depende também do contexto e dos buffers do runtime.
 - Não declarar compatibilidade prática ou desempenho confirmado sem teste físico no dispositivo.
 
+## Inteligência de programação
+
+- O prompt usa orientações específicas para depuração, implementação, revisão de código e explicações técnicas.
+- Tarefas de programação reservam até 256 tokens para a resposta, dentro do limite do runtime e do contexto disponível; perguntas simples usam menos.
+- As orientações exigem separar evidências de hipóteses, não inventar execução/testes e revisar segurança, compatibilidade, concorrência e casos de borda.
+- Essas melhorias organizam melhor o trabalho do modelo, mas não treinam os pesos nem removem as limitações do Qwen 0.5B.
+
 ## Recursos e privacidade
 
 - Chat local offline após instalar e carregar o Qwen.
