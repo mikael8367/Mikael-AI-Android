@@ -397,13 +397,18 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onDelete = { model ->
                             scope.launch(Dispatchers.IO) {
                                 val file = catalogInstalled[model.id]
+                                val sharedIds = ModelCatalog.models
+                                    .filter { model.fileName != null && it.fileName == model.fileName }
+                                    .map { it.id }
+                                    .toSet()
+                                    .ifEmpty { setOf(model.id) }
                                 if (file != null) {
                                     file.delete()
                                     File(file.parentFile, "${file.name}.sha256").delete()
                                 }
                                 withContext(Dispatchers.Main) {
-                                    catalogInstalled = catalogInstalled - model.id
-                                    if (selectedCatalogModelId == model.id) {
+                                    catalogInstalled = catalogInstalled.filterKeys { it !in sharedIds }
+                                    if (selectedCatalogModelId in sharedIds) {
                                         selectedCatalogModelId = "mikael-base"
                                         preferences.selectedCatalogModelId = "mikael-base"
                                     }
