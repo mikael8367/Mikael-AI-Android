@@ -1,4 +1,4 @@
-name: Mikael AI Android checks (sem APK)
+name: Mikael AI Android build and tests
 
 on:
   push:
@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: mikael-ai-checks-${{ github.ref }}
+  group: mikael-ai-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,7 +32,6 @@ jobs:
           SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | sort -V | tail -n 1)"
           if [ -z "$SDKMANAGER" ]; then
             echo "sdkmanager não encontrado em $SDK_ROOT/cmdline-tools"
-            find /usr/local/lib/android -type f -name sdkmanager 2>/dev/null | head -20
             exit 1
           fi
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
@@ -46,7 +45,7 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Compile native ARM64 inference engine
+      - name: Compile native ARM64 inference engines
         run: gradle :app:externalNativeBuildDebug
 
       - name: Run unit tests
@@ -55,4 +54,23 @@ jobs:
       - name: Run Android lint
         run: gradle :app:lintDebug
 
-      # Este workflow valida código e runtime nativo; não gera nem publica APK.
+      - name: Build debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Verify APK and ARM64 native libraries
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -l "$APK" | grep -q "lib/arm64-v8a/libmikael_engine.so"
+          unzip -l "$APK" | grep -q "lib/arm64-v8a/libmikael_llama.so"
+          sha256sum "$APK"
+          ls -lh "$APK"
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mikael-AI-Android-debug-arm64
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
