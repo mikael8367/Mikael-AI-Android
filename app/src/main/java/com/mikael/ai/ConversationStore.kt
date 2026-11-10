@@ -16,14 +16,32 @@ data class ChatConversation(
 object ConversationStore {
     private const val PREFS = "local_conversation"
     private const val KEY_CONVERSATIONS = "conversations"
+    private const val KEY_CONVERSATIONS_SECURE = "conversations_secure_v1"
     private const val LEGACY_KEY_MESSAGES = "messages"
     private const val MAX_CONVERSATIONS = 100
     private const val MAX_MESSAGES_PER_CONVERSATION = 80
 
     fun loadAll(context: Context): List<ChatConversation> = runCatching {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val raw = prefs.getString(KEY_CONVERSATIONS, null)
-        if (raw.isNullOrBlank()) return@runCatching migrateLegacy(prefs.getString(LEGACY_KEY_MESSAGES, "[]") ?: "[]")
+        val encrypted = prefs.getString(KEY_CONVERSATIONS_SECURE, null)
+        val legacyRaw = prefs.getString(KEY_CONVERSATIONS, null)
+        val raw = when {
+            !encrypted.isNullOrBlank() -> runCatching { SecureLocalStorage.decrypt(encrypted) }.getOrNull() ?: legacyRaw
+            else -> legacyRaw
+        }
+        if (raw.isNullOrBlank()) {
+            val migrated = migrateLegacy(prefs.getString(LEGACY_KEY_MESSAGES, "[]") ?: "[]")
+            if (migrated.isNotEmpty()) saveAll(context, migrated)
+            return@runCatching migrated
+        }
+        if (encrypted.isNullOrBlank()) {
+            // Encrypt existing history before removing the previous plaintext copy.
+            runCatching {
+                val payload = SecureLocalStorage.encrypt(raw)
+                prefs.edit().putString(KEY_CONVERSATIONS_SECURE, payload)
+                    .remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).commit()
+            }
+        }
         val json = JSONArray(raw)
         buildList {
             for (index in 0 until json.length()) {
@@ -75,13 +93,17 @@ object ConversationStore {
                     .put("messages", messageArray)
             )
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit().putString(KEY_CONVERSATIONS, json.toString()).remove(LEGACY_KEY_MESSAGES).apply()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encrypted = SecureLocalStorage.encrypt(json.toString())
+        check(prefs.edit().putString(KEY_CONVERSATIONS_SECURE, encrypted)
+            .remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).commit()) {
+            "Não foi possível salvar o histórico criptografado."
+        }
     }
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).apply()
+            .remove(KEY_CONVERSATIONS).remove(KEY_CONVERSATIONS_SECURE).remove(LEGACY_KEY_MESSAGES).apply()
     }
 
     private fun titleFrom(messages: List<ChatMessage>): String {
