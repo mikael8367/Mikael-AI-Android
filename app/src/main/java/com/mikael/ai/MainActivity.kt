@@ -15,6 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -510,8 +512,25 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         ConversationHistoryScreen(
                             conversations = conversations,
                             activeConversationId = activeConversationId,
+                            canModifyHistory = !isGenerating && pendingTask == null,
                             onNewConversation = { startNewConversation() },
-                            onOpenConversation = { openConversation(it) }
+                            onOpenConversation = { openConversation(it) },
+                            onDeleteConversation = { conversation ->
+                                conversations.removeAll { it.id == conversation.id }
+                                ConversationStore.saveAll(context, conversations)
+                                if (activeConversationId == conversation.id) {
+                                    val next = conversations.firstOrNull()
+                                    activeConversationId = next?.id ?: java.util.UUID.randomUUID().toString()
+                                    messages.clear()
+                                    messages.addAll(next?.messages.orEmpty())
+                                }
+                            },
+                            onClearHistory = {
+                                ConversationStore.clear(context)
+                                conversations.clear()
+                                messages.clear()
+                                activeConversationId = java.util.UUID.randomUUID().toString()
+                            }
                         )
                     } else ChatScreen(
                         messages = messages,
@@ -848,9 +867,14 @@ private fun ChatScreen(
 private fun ConversationHistoryScreen(
     conversations: List<ChatConversation>,
     activeConversationId: String,
+    canModifyHistory: Boolean,
     onNewConversation: () -> Unit,
-    onOpenConversation: (ChatConversation) -> Unit
+    onOpenConversation: (ChatConversation) -> Unit,
+    onDeleteConversation: (ChatConversation) -> Unit,
+    onClearHistory: () -> Unit
 ) {
+    var conversationToDelete by remember { mutableStateOf<ChatConversation?>(null) }
+    var confirmClearHistory by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -861,9 +885,12 @@ private fun ConversationHistoryScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Conversas", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Seu histórico salvo neste aparelho", color = Color(0xFF9EAAA2))
+                Text("Histórico criptografado neste aparelho", color = Color(0xFF9EAAA2))
             }
-            Button(onClick = onNewConversation) { Text("+ Nova") }
+            if (conversations.isNotEmpty()) {
+                TextButton(onClick = { confirmClearHistory = true }, enabled = canModifyHistory) { Text("Limpar tudo") }
+            }
+            Button(onClick = onNewConversation, enabled = canModifyHistory) { Text("+ Nova") }
         }
         if (conversations.isEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -876,30 +903,69 @@ private fun ConversationHistoryScreen(
             ) {
                 items(conversations, key = { it.id }) { conversation ->
                     Card(
-                        onClick = { onOpenConversation(conversation) },
                         colors = CardDefaults.cardColors(
                             containerColor = if (conversation.id == activeConversationId) Color(0xFF1B3829) else Color(0xFF151D19)
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Text(conversation.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
-                            Text(
-                                conversation.messages.lastOrNull()?.text.orEmpty().take(100),
-                                color = Color(0xFF9EAAA2),
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 2
-                            )
-                            Text(
-                                "${conversation.messages.size} mensagens",
-                                color = Color(0xFF8BE7B7),
-                                style = MaterialTheme.typography.labelSmall
-                            )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f).clickable { onOpenConversation(conversation) }.padding(2.dp),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Text(conversation.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                                Text(
+                                    conversation.messages.lastOrNull()?.text.orEmpty().take(100),
+                                    color = Color(0xFF9EAAA2),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 2
+                                )
+                                Text(
+                                    "${conversation.messages.size} mensagens",
+                                    color = Color(0xFF8BE7B7),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                            TextButton(onClick = { conversationToDelete = conversation }, enabled = canModifyHistory) {
+                                Text("Excluir")
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    conversationToDelete?.let { selected ->
+        AlertDialog(
+            onDismissRequest = { conversationToDelete = null },
+            title = { Text("Excluir conversa?") },
+            text = { Text("A conversa \"${selected.title}\" será removida do histórico local.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteConversation(selected)
+                    conversationToDelete = null
+                }) { Text("Excluir") }
+            },
+            dismissButton = { TextButton(onClick = { conversationToDelete = null }) { Text("Cancelar") } }
+        )
+    }
+    if (confirmClearHistory) {
+        AlertDialog(
+            onDismissRequest = { confirmClearHistory = false },
+            title = { Text("Limpar todo o histórico?") },
+            text = { Text("Todas as conversas salvas neste aparelho serão apagadas. Essa ação não pode ser desfeita.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onClearHistory()
+                    confirmClearHistory = false
+                }) { Text("Limpar tudo") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClearHistory = false }) { Text("Cancelar") } }
+        )
     }
 }
 
