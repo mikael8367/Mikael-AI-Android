@@ -37,10 +37,16 @@ object StorageManager {
     fun cacheAndTemporaryBytes(context: Context): Long =
         cacheBytes(context) + temporaryBytes(context)
 
+    private fun clearDirectoryContents(directory: File): Boolean {
+        if (!directory.exists()) return true
+        val children = directory.listFiles() ?: return false
+        return children.all { it.deleteRecursively() || !it.exists() }
+    }
+
     /** Removes cache and orphaned .part downloads; installed models and .previous recovery backups are preserved. */
     fun clearCacheAndTemporaryFiles(context: Context): Boolean {
-        val cacheCleared = context.cacheDir.deleteRecursively() || !context.cacheDir.exists()
-        val codeCacheCleared = context.codeCacheDir.deleteRecursively() || !context.codeCacheDir.exists()
+        val cacheCleared = clearDirectoryContents(context.cacheDir)
+        val codeCacheCleared = clearDirectoryContents(context.codeCacheDir)
         val models = File(context.filesDir, "models")
         // .previous files are recovery backups, not cache; never delete them here.
         val temporaryCleared = models.listFiles()?.filter {
