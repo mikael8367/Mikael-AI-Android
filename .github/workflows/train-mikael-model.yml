@@ -51,7 +51,7 @@ jobs:
         env:
           CORPUS_PATH: ${{ inputs.corpus_path }}
         run: |
-          test -f -- "$CORPUS_PATH" || { echo "Corpus não encontrado."; exit 1; }
+          test -f "$CORPUS_PATH" || { echo "Corpus não encontrado."; exit 1; }
           CORPUS_REAL="$(realpath "$CORPUS_PATH")"
           case "$CORPUS_REAL" in
             "$GITHUB_WORKSPACE"/*) ;;
