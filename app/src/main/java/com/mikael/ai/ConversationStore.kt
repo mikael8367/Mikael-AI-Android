@@ -27,6 +27,12 @@ object ConversationStore {
         }
     }.getOrDefault(emptyList())
 
+    /** Mantém o histórico em memória limitado, evitando crescimento ilimitado em conversas longas. */
+    fun append(messages: MutableList<ChatMessage>, message: ChatMessage) {
+        messages.add(message)
+        while (messages.size > MAX_MESSAGES) messages.removeAt(0)
+    }
+
     fun save(context: Context, messages: List<ChatMessage>) {
         val json = JSONArray()
         messages.takeLast(MAX_MESSAGES).forEach { message ->
