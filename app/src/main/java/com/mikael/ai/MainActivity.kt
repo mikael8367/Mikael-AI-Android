@@ -127,6 +127,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
     var githubContext by remember { mutableStateOf("") }
 
+    LaunchedEffect(Unit) {
+        if (modelPath.isNullOrBlank() && catalogInstalled.isEmpty()) {
+            tab = AppTab.MODELS
+        }
+    }
+
     val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
