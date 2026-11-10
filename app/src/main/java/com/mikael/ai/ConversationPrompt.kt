@@ -20,9 +20,9 @@ Nunca diga que compilou, executou ou testou algo sem ter realmente executado.
 
     private fun taskGuidance(request: String): String {
         val text = request.lowercase(java.util.Locale.ROOT)
-        val debug = listOf("erro", "exception", "stacktrace", "bug", "crash", "falha", "não funciona", "nao funciona", "corrija", "corrigir").any(text::contains)
-        val review = listOf("revise", "revisar", "analise", "analisar", "audite", "auditoria", "otimize", "otimizar", "refatore", "refatorar").any(text::contains)
-        val implementation = listOf("crie", "criar", "desenvolva", "implemente", "implementar", "adicione", "adicionar", "escreva", "escrever", "gere", "gerar", "construa", "construir", "programa", "código", "codigo", "função", "funcao", "classe").any(text::contains)
+        val debug = listOf("erro", "exception", "stacktrace", "bug", "crash", "falha", "não funciona", "nao funciona", "corrija", "corrigir").any { text.contains(it) }
+        val review = listOf("revise", "revisar", "analise", "analisar", "audite", "auditoria", "otimize", "otimizar", "refatore", "refatorar").any { text.contains(it) }
+        val implementation = listOf("crie", "criar", "desenvolva", "implemente", "implementar", "adicione", "adicionar", "escreva", "escrever", "gere", "gerar", "construa", "construir", "programa", "código", "codigo", "função", "funcao", "classe").any { text.contains(it) }
         val guidance = when {
             debug -> """MODO DE DEPURAÇÃO: localize a causa antes de sugerir mudanças. Separe evidências de hipóteses. Verifique fluxo, entradas, estados, dependências e versões. Dê passos reproduzíveis, correção mínima e testes de regressão."""
             review -> """MODO DE REVISÃO: procure defeitos funcionais, segurança, desempenho, compatibilidade, concorrência e casos de borda. Priorize achados por gravidade e aponte arquivo/trecho, impacto e correção concreta."""
@@ -46,7 +46,7 @@ Nunca diga que compilou, executou ou testou algo sem ter realmente executado.
         )
         if (codeSignals.any { signal -> text.contains(signal) }) return 256
         val technicalSignals = listOf("arquitetura", "algoritmo", "banco de dados", "estrutura", "sistema")
-        return if (technicalSignals.any(text::contains)) 192 else 128
+        return if (technicalSignals.any { text.contains(it) }) 192 else 128
     }
 
     fun build(
