@@ -116,7 +116,7 @@ class MikaelTokenizer private constructor(
          */
         fun train(
             corpus: List<String>,
-            targetVocabularySize: Int = 1024,
+            targetVocabularySize: Int = BASE_VOCAB_SIZE + MAX_TRAINING_MERGES,
             minimumPairFrequency: Int = 2
         ): MikaelTokenizer {
             require(targetVocabularySize in BASE_VOCAB_SIZE..(BASE_VOCAB_SIZE + MAX_TRAINING_MERGES)) {
