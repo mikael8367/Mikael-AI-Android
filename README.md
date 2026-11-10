@@ -38,7 +38,8 @@ Os tamanhos dos GGUF são aproximados e podem mudar conforme a revisão publicad
 - Histórico, memória e tarefas interrompidas: armazenados localmente e criptografados com AES-GCM usando uma chave não exportável do Android Keystore.
 - Downloads de modelos: exigem internet e confirmação explícita.
 - Conector GitHub: exige conexão e autorização do usuário; o token é protegido com Android Keystore.
-- Pesquisa geral na web por API ainda não está implementada.
+- Pesquisa na web pela aba Pesquisa, usando o backend Mikael AI no Render com OpenRouter + Exa. A cada busca, o usuário confirma o envio; somente o texto digitado no campo é transmitido, sem histórico, memória, arquivos ou código privado. O uso pode consumir créditos/limites do provedor.
+- A sessão do Render é armazenada criptografada com Android Keystore; a senha não é persistida no app.
 - Execução de código ainda não está implementada. O app pode ajudar a escrever e revisar código, mas não deve afirmar que executa programas.
 
 ## Treinamento autoral
