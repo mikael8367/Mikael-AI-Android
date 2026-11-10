@@ -160,6 +160,25 @@ std::string applyModelChatTemplate(const llama_model * model, const std::string 
         contents.emplace_back(prompt);
     }
 
+    // Modelos de chat normalmente aceitam apenas uma mensagem system inicial.
+    // Consolida blocos system adjacentes (instruções + contexto GitHub) sem
+    // reordenar mensagens user/assistant do histórico.
+    std::vector<std::string> normalizedRoles;
+    std::vector<std::string> normalizedContents;
+    normalizedRoles.reserve(roles.size());
+    normalizedContents.reserve(contents.size());
+    for (size_t i = 0; i < roles.size(); ++i) {
+        if (roles[i] == "system" && !normalizedRoles.empty() &&
+            normalizedRoles.back() == "system") {
+            normalizedContents.back() += "\n" + contents[i];
+        } else {
+            normalizedRoles.push_back(roles[i]);
+            normalizedContents.push_back(contents[i]);
+        }
+    }
+    roles.swap(normalizedRoles);
+    contents.swap(normalizedContents);
+
     if (templateText) {
         std::vector<llama_chat_message> messages;
         messages.reserve(roles.size());
