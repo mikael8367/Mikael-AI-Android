@@ -55,6 +55,7 @@ object ModelInstaller {
                     setRequestProperty("User-Agent", "MikaelAI-Android")
                 }
                 activeConnection.set(next)
+                currentCoroutineContext().ensureActive()
                 next.connect()
                 val status = next.responseCode
                 if (status in 300..399) {
