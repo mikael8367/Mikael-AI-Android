@@ -93,6 +93,8 @@ private object ConversationSession {
     val generating = mutableStateOf(false)
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     var generationJob: Job? = null
+    @Volatile var activeGenerationId: Long = 0L
+    @Volatile var generationStreamingFinished: Boolean = true
 }
 
 private enum class AppTab(val label: String, val symbol: String) {
@@ -375,6 +377,11 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 ConversationStore.save(appContext, messages)
                                 generating = true
                                 val selectedMode = mode
+                                val generationId = assistantMessageId
+                                ConversationSession.activeGenerationId = generationId
+                                ConversationSession.generationStreamingFinished = false
+                                // Reset the native cancel flag before the worker starts.
+                                LocalInferenceEngine.beginGeneration()
                                 ConversationSession.generationJob = ConversationSession.scope.launch {
                                     val startedAt = android.os.SystemClock.elapsedRealtime()
                                     try {
@@ -391,14 +398,21 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         val response = withContext(Dispatchers.IO) {
                                             LocalInferenceEngine.generate(conversationPrompt, tokenLimit) { piece ->
                                                 ConversationSession.scope.launch(Dispatchers.Main.immediate) {
-                                                    val index = messages.indexOfFirst { it.id == assistantMessageId }
-                                                    if (index >= 0) {
-                                                        val current = messages[index]
-                                                        messages[index] = current.copy(text = current.text + piece)
+                                                    if (
+                                                        ConversationSession.activeGenerationId == generationId &&
+                                                        !ConversationSession.generationStreamingFinished
+                                                    ) {
+                                                        val index = messages.indexOfFirst { it.id == assistantMessageId }
+                                                        if (index >= 0) {
+                                                            val current = messages[index]
+                                                            messages[index] = current.copy(text = current.text + piece)
+                                                        }
                                                     }
                                                 }
                                             }.getOrThrow()
                                         }
+                                        // The final full response is authoritative; ignore queued fragments.
+                                        ConversationSession.generationStreamingFinished = true
                                         val assistantIndex = messages.indexOfFirst { it.id == assistantMessageId }
                                         if (assistantIndex >= 0) {
                                             messages[assistantIndex] = messages[assistantIndex].copy(
@@ -411,6 +425,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
                                         logEvent("INFO", "Geração local concluída em ${elapsedMs} ms (${response.length} caracteres)")
                                     } catch (cancelled: CancellationException) {
+                                        ConversationSession.generationStreamingFinished = true
                                         val assistantIndex = messages.indexOfFirst { it.id == assistantMessageId }
                                         if (assistantIndex >= 0) {
                                             val current = messages[assistantIndex]
@@ -422,6 +437,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         }
                                         throw cancelled
                                     } catch (error: Exception) {
+                                        ConversationSession.generationStreamingFinished = true
                                         val assistantIndex = messages.indexOfFirst { it.id == assistantMessageId }
                                         val errorText = "Erro no motor local: ${error.message ?: "não foi possível gerar a resposta."}"
                                         if (assistantIndex >= 0) {
@@ -437,6 +453,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             "Falha na geração local após ${elapsedMs} ms: ${error.javaClass.name} • ${error.message ?: "sem detalhes"}"
                                         )
                                     } finally {
+                                        ConversationSession.generationStreamingFinished = true
                                         generating = false
                                         ConversationSession.generationJob = null
                                     }
