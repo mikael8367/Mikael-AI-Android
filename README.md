@@ -5,7 +5,9 @@ Aplicativo Android nativo da Mikael AI, com inferência local e integração opc
 ## Recursos
 
 - Chat e inferência com modelos GGUF no próprio aparelho.
-- Modelos armazenados no espaço privado do aplicativo.
+- Catálogo integrado para baixar modelos GGUF diretamente no Android, com progresso, validação do cabeçalho e verificação SHA-256.
+- Modelos instalados armazenados no espaço privado do aplicativo.
+- Catálogo inicial com SmolLM2 360M, Qwen2.5 0.5B e Qwen2.5-Coder 0.5B (Apache-2.0; confira os cartões e licenças das fontes).
 - Conector GitHub nativo por Device Flow do GitHub App.
 - Lista de repositórios que o GitHub App instalado pode acessar.
 - Importação do README selecionado para o contexto do chat local.
@@ -18,6 +20,12 @@ Aplicativo Android nativo da Mikael AI, com inferência local e integração opc
 - O aplicativo não contém App Secret nem chave privada do GitHub App.
 - O token de acesso é criptografado no dispositivo. Desconectar remove a cópia local; para revogar a autorização também é necessário removê-la nas configurações de aplicações autorizadas do GitHub.
 - O que o app consegue ler depende das permissões configuradas no GitHub App e dos repositórios nos quais ele foi instalado.
+
+## Catálogo de modelos e Mikael AI Base
+
+A aba **Modelos** permite baixar os modelos pequenos listados no catálogo ou importar um GGUF. O download é feito em arquivo temporário, validado pelo cabeçalho GGUF e pelo SHA-256, e só depois movido para a pasta privada do aplicativo. É necessário espaço livre adicional para concluir a instalação.
+
+O cartão **Mikael AI Base** identifica o modelo autoral em desenvolvimento. Ele não usa os pesos do Qwen ou do SmolLM e ainda não possui um arquivo pronto para baixar. A especificação de arquitetura, treinamento, dados e exportação está em [docs/MIKAEL_AI_MODEL.md](docs/MIKAEL_AI_MODEL.md). O Galaxy A12 é destinado à execução de modelos quantizados, não ao treinamento do modelo do zero; o treinamento requer infraestrutura separada.
 
 ## Configurar o conector GitHub
 
@@ -40,7 +48,7 @@ O Device Flow não usa Client Secret. Se o GitHub informar que o Device Flow est
 
 ## Compilar
 
-O projeto usa Gradle, Android NDK e CMake. O workflow GitHub Actions compila o APK de depuração e publica o arquivo como artefato.
+O projeto usa Gradle, Android NDK e CMake. Em branches de funcionalidade, o workflow executa testes e lint; a geração de APK fica restrita à branch principal e só deve ocorrer quando solicitada.
 
     gradle :app:assembleDebug
 
