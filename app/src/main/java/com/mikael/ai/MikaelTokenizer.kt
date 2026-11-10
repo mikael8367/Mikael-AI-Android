@@ -132,6 +132,7 @@ class MikaelTokenizer private constructor(
             val merges = ArrayList<Pair<Int, Int>>(targetVocabularySize - BASE_VOCAB_SIZE)
             val tokenBytes = ArrayList<ByteArray>(targetVocabularySize)
             repeat(BASE_VOCAB_SIZE) { tokenBytes.add(byteArrayOf(it.toByte())) }
+            var totalTokenBytes = BASE_VOCAB_SIZE.toLong()
 
             while (BASE_VOCAB_SIZE + merges.size < targetVocabularySize) {
                 val counts = HashMap<Long, Int>()
@@ -157,6 +158,11 @@ class MikaelTokenizer private constructor(
                 merges.add(left to right)
                 val leftBytes = tokenBytes[left]
                 val rightBytes = tokenBytes[right]
+                val mergedLength = leftBytes.size.toLong() + rightBytes.size.toLong()
+                totalTokenBytes += mergedLength
+                require(mergedLength <= MAX_DECODE_BYTES && totalTokenBytes <= MAX_DECODE_BYTES) {
+                    "O vocabulário treinado excede o limite de memória de 16 MiB."
+                }
                 tokenBytes.add(leftBytes + rightBytes)
                 for (index in sequences.indices) sequences[index] = replacePair(sequences[index], left, right, newId)
             }
@@ -191,12 +197,18 @@ class MikaelTokenizer private constructor(
             val merges = ArrayList<Pair<Int, Int>>(mergeCount)
             val tokenBytes = ArrayList<ByteArray>(vocabularySize)
             repeat(BASE_VOCAB_SIZE) { tokenBytes.add(byteArrayOf(it.toByte())) }
+            var totalTokenBytes = BASE_VOCAB_SIZE.toLong()
             repeat(mergeCount) {
                 val left = buffer.int
                 val right = buffer.int
                 val newId = BASE_VOCAB_SIZE + it
                 require(left in 0 until newId && right in 0 until newId) { "Referência inválida na tabela de merges." }
                 merges.add(left to right)
+                val mergedLength = tokenBytes[left].size.toLong() + tokenBytes[right].size.toLong()
+                totalTokenBytes += mergedLength
+                require(mergedLength <= MAX_DECODE_BYTES && totalTokenBytes <= MAX_DECODE_BYTES) {
+                    "O vocabulário MKTOK excede o limite seguro de memória."
+                }
                 tokenBytes.add(tokenBytes[left] + tokenBytes[right])
             }
             return MikaelTokenizer(merges, tokenBytes)
