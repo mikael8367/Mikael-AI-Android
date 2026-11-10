@@ -61,7 +61,7 @@ class TeamConversationCoordinatorTest {
     @Test
     fun disagreementInstructionsAreExplicitAndDoNotRequestPrivateReasoning() {
         val prompt = TeamConversationCoordinator.buildPrompt(
-            originalPrompt = "Revise o código",
+            originalPrompt = "Me ajude a escolher uma ideia",
             chatContext = "",
             participants = team,
             contributions = listOf(TeamContribution(team.first(), "Sugestão inicial")),
@@ -165,8 +165,9 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = true
         )
-        assertTrue(prompt.contains("revise criticamente todas as contribuições recebidas"))
-        assertTrue(prompt.contains("Entregue uma resposta natural única"))
+        assertTrue(prompt.contains("ETAPA FINAL DE PROGRAMAÇÃO"))
+        assertTrue(prompt.contains("código completo ou patch aplicável"))
+        assertTrue(prompt.contains("testes unitários/integrados"))
         assertTrue(prompt.contains("Sugestão de TinyLlama 1.1B"))
     }
 
@@ -218,8 +219,8 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = true
         )
-        assertTrue(prompt.contains("A".repeat(400)))
-        assertTrue(!prompt.contains("A".repeat(401)))
+        assertTrue(prompt.contains("A".repeat(300)))
+        assertTrue(!prompt.contains("A".repeat(301)))
     }
 
 
@@ -257,7 +258,8 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("ETAPA FINAL DE PROGRAMAÇÃO"))
         assertTrue(prompt.contains("código completo ou patch aplicável"))
         assertTrue(prompt.contains("testes necessários"))
-        assertTrue(prompt.contains("não invente verificações"))
+        assertTrue(prompt.contains("Não diga que editou arquivos"))
+        assertTrue(prompt.contains("limitações"))
     }
 
     @Test
@@ -273,10 +275,10 @@ class TeamConversationCoordinatorTest {
             }
         )
         assertEquals(
-            listOf(192, 192, 192, 192, 512),
+            listOf(256, 256, 256, 256, 768),
             limits
         )
-        assertTrue(limits.sum() <= 1_280)
+        assertTrue(limits.sum() <= 1_792)
     }
 
     @Test
@@ -300,6 +302,9 @@ class TeamConversationCoordinatorTest {
         assertTrue(TeamConversationCoordinator.isProgrammingTask("Crie um site para meu projeto"))
         assertTrue(TeamConversationCoordinator.isProgrammingTask("Corrija esse bug no aplicativo"))
         assertTrue(TeamConversationCoordinator.isProgrammingTask("Implemente uma função Kotlin"))
+        assertTrue(TeamConversationCoordinator.isProgrammingTask("Adicione um botão na interface do aplicativo"))
+        assertTrue(TeamConversationCoordinator.isProgrammingTask("Fix this crash in the Android app"))
+        assertTrue(TeamConversationCoordinator.isProgrammingTask("Faça um repositório com testes"))
         assertTrue(!TeamConversationCoordinator.isProgrammingTask("Explique como funciona a fotossíntese"))
     }
 

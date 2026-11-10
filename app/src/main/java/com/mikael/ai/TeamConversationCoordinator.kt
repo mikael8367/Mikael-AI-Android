@@ -30,9 +30,9 @@ data class TeamRunResult(
  */
 internal object TeamConversationCoordinator {
     const val CONTRIBUTION_TOKENS = 96
-    const val PROGRAMMING_CONTRIBUTION_TOKENS = 192
+    const val PROGRAMMING_CONTRIBUTION_TOKENS = 256
     const val FINAL_TOKENS = 192
-    const val PROGRAMMING_FINAL_TOKENS = 512
+    const val PROGRAMMING_FINAL_TOKENS = 768
     const val MAX_CALLS = 5
     const val MAX_ORIGINAL_PROMPT_BYTES = 3_000
 
@@ -154,7 +154,7 @@ internal object TeamConversationCoordinator {
 
     internal fun isProgrammingTask(prompt: String): Boolean {
         val pattern = Regex(
-            "(?i)\\b(c[oó]digo|programa(r|ção|cao)?|programação|implementar|implemente|implementa|desenvolver|desenvolva|criar|crie|cria|bug|corrigir|corrija|depura(r|ção|cao)?|depure|refatorar|refatore|compilar|kotlin|java|android|gradle|github|api|função|funções|classe|m[eé]todo|arquivo|script|html|css|javascript|typescript|python|sql|mod|minecraft|aplicativo|app|site|projeto)\\b"
+            "(?i)\\b(c[oó]digo|programa(r|ção|cao)?|programação|programming|code|coding|write|build|fix|implement|refactor|implementar|implemente|implementa|desenvolver|desenvolva|criar|crie|cria|adicionar|adicione|adiciona|melhorar|melhore|otimizar|otimize|construir|construa|conserte|faz|fazer|bug|erro|falha|crash|stacktrace|exception|debug|teste|testes|corrigir|corrija|depura(r|ção|cao)?|depure|refatorar|refatore|compilar|kotlin|java|android|gradle|github|api|função|funções|classe|m[eé]todo|arquivo|script|html|css|javascript|typescript|python|sql|mod|minecraft|aplicativo|app|site|projeto|reposit[oó]rio|repo|commit|pull request|deploy|interface|bot[aã]o|tela|componente|frontend|backend|node|react|compose|xml|sql)\\b"
         )
         return pattern.containsMatchIn(prompt)
     }
@@ -184,19 +184,19 @@ internal object TeamConversationCoordinator {
         val remaining = participants.filterNot { it.id in spoken }
         val roleInstruction = when {
             finalSynthesis && programmingTask ->
-                "ETAPA FINAL DE PROGRAMAÇÃO: revise as propostas, resolva divergências e entregue uma solução integrada. Inclua caminhos dos arquivos, código completo ou patch aplicável, testes necessários e limitações. Não diga que editou arquivos, compilou ou executou testes se isso não aconteceu. Não revele raciocínio privado."
+                "ETAPA FINAL DE PROGRAMAÇÃO: aja como engenheiro sênior responsável pela entrega. Compare todas as propostas, elimine erros e resolva divergências por evidências. Entregue: resumo da solução; arquivos e pontos exatos de alteração; código completo ou patch aplicável; dependências e compatibilidade; testes unitários/integrados e comandos para reproduzi-los; riscos e limitações. Confira mentalmente imports, assinaturas, tipos, nullability, fluxo de erros, concorrência, segurança e casos de borda. Não invente APIs, arquivos, resultados ou verificações. Não diga que editou arquivos, compilou ou executou testes se isso não aconteceu. Se faltar contexto, declare exatamente o que falta. Não revele raciocínio privado."
             finalSynthesis ->
                 "Etapa final: revise criticamente todas as contribuições recebidas, corrija erros e resolva divergências por evidências. Entregue uma resposta natural única; não invente verificações nem revele raciocínio privado."
             programmingTask ->
                 when (currentParticipant?.id) {
                     "mikael-base" ->
-                        "PAPEL: analista de requisitos. Identifique objetivo, restrições, arquitetura mínima e riscos. Não invente APIs. Passe um plano curto e verificável ao próximo modelo."
+                        "PAPEL: analista de requisitos e arquiteto. Extraia objetivo, requisitos funcionais e não funcionais, ambiente/versões, restrições, critérios de aceitação e riscos. Identifique ambiguidades sem inventar fatos. Proponha arquitetura mínima, arquivos prováveis e um plano verificável para a equipe."
                     "qwen-0.5b" ->
-                        "PAPEL: implementador principal. Use o pedido e o plano anterior para propor código concreto, com nomes de arquivos, funções e alterações necessárias. Preserve compatibilidade e não invente resultados de execução."
+                        "PAPEL: engenheiro implementador principal. Transforme os requisitos e o plano anterior em uma implementação concreta. Informe caminhos dos arquivos, imports, assinaturas e código completo dos trechos alterados. Prefira soluções simples, idiomáticas e compatíveis com as versões informadas. Evite pseudocódigo, TODOs e dependências desnecessárias. Não invente resultados de execução."
                     "smollm2-360m" ->
-                        "PAPEL: revisor de código. Revise as propostas anteriores procurando bugs, erros de compilação prováveis, casos de borda, segurança e incompatibilidades. Aponte correções concretas, sem repetir o plano."
+                        "PAPEL: revisor adversarial de código e QA. Tente encontrar falhas na implementação: sintaxe e compilação, imports e APIs inexistentes, tipos/nullability, índices e limites, concorrência, ciclo de vida Android, vazamentos, desempenho/RAM, segurança, compatibilidade e regressões. Para cada problema, indique trecho/arquivo, condição de reprodução, impacto e correção. Diferencie bug confirmado de risco provável."
                     "tinyllama-1.1b" ->
-                        "PAPEL: integrador. Compare a implementação e a revisão, resolva conflitos e proponha a versão mais consistente. Aponte o que ainda precisa ser testado."
+                        "PAPEL: integrador técnico. Compare requisitos, implementação e revisão; resolva conflitos sem descartar correções válidas. Verifique consistência entre arquivos, nomes, assinaturas, dependências e fluxo de dados. Proponha patch coerente, testes de regressão e uma lista curta do que ainda não pode ser confirmado."
                     else ->
                         "PAPEL: colaborador de programação. Analise o código anterior, conteste erros com evidências e proponha alterações concretas."
                 }
@@ -224,7 +224,7 @@ internal object TeamConversationCoordinator {
             append("Responda em português do Brasil, com conclusões curtas e justificativas verificáveis. ")
             append(roleInstruction)
             if (programmingTask) {
-                append(" Para código, priorize uma alteração pequena, compatível e aplicável. Quando possível, cite arquivo/função, mostre trecho de código e proponha um teste reproduzível. Responda diretamente ao trabalho anterior, não apenas ao usuário.")
+                append(" PROTOCOLO DE QUALIDADE: seja preciso e técnico; separe fatos, hipóteses e dúvidas; não invente APIs, versões, caminhos ou testes. Preserve o comportamento existente fora do escopo. Considere tratamento de erros, entradas inválidas, limites, concorrência, segurança, acessibilidade e custo de memória/desempenho quando relevantes. Toda correção deve explicar causa, cenário de reprodução e prevenção de regressão. Cite arquivo/função, mostre código aplicável e proponha teste reproduzível. Responda diretamente ao trabalho anterior, não apenas ao usuário.")
             }
             append("\n<|im_end|>\n")
             append("<|im_start|>user\n")
