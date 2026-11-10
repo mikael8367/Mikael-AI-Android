@@ -109,7 +109,7 @@ fun ModelCatalogScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (selectedModelId == ModelCatalog.TEAM_MODEL_ID) "Equipe selecionada" else "Usar Mikael AI — 4 modelos") }
                     Text(
-                        "O TinyLlama 1.1B é o participante mais pesado. O MKAI v1 tem apenas 512 bytes de contexto e pode ser ignorado em pedidos longos. Pedidos acima de 3.000 bytes precisam ser divididos. A memória é verificada antes de cada carga; se um modelo não couber, ele será marcado como falha. Para TinyLlama, o orçamento pode precisar ser 1024 MiB ou maior, se houver RAM livre. O contexto GGUF começa em 1024 e cresce até 2048 conforme o prompt. As cinco etapas em CPU podem demorar, consumir bateria e aquecer o aparelho.",
+                        "O TinyLlama 1.1B é o participante mais pesado. O MKAI v1 tem apenas 512 bytes de contexto e pode ser ignorado em pedidos longos. Pedidos acima de 3.000 bytes precisam ser divididos. A memória é verificada antes de cada carga; se um modelo não couber, ele será marcado como falha. A referência pública do TinyLlama Q4_K_M estima até ~3,17 GB de RAM em certas condições; como o orçamento do app chega a 2 GB, ele será recusado no Galaxy A12 em vez de arriscar falta de memória. O contexto GGUF começa em 1024 e cresce até 2048 conforme o prompt. As cinco etapas em CPU podem demorar, consumir bateria e aquecer o aparelho.",
                         color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall
                     )
                 }
@@ -240,7 +240,8 @@ fun ModelCatalogScreen(
             availableBytes = availableMemoryBytes,
             selectedLimitMiB = memoryLimitMiB,
             modelBytes = model.approximateBytes,
-            contextTokens = if (model.engine == ModelEngine.MKAI) contextTokens.coerceIn(16, 8192) else contextTokens.coerceIn(128, 2048)
+            contextTokens = if (model.engine == ModelEngine.MKAI) contextTokens.coerceIn(16, 8192) else contextTokens.coerceIn(128, 2048),
+            minimumEstimatedBytes = model.minimumRuntimeMemoryBytes
         )
         AlertDialog(
             onDismissRequest = { confirmationModel = null },
