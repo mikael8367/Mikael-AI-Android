@@ -265,9 +265,6 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     }
 
     std::lock_guard<std::mutex> lock(g_mutex);
-    // Reset only after owning the engine lock, so a queued generation cannot
-    // erase a cancellation intended for the active generation.
-    g_cancel.store(false, std::memory_order_relaxed);
     const auto generationStart = std::chrono::steady_clock::now();
     nativeLog(env, "INFO", "GEN_BEGIN • prompt_bytes=" + std::to_string(prompt.size()) + " • max_tokens=" + std::to_string(maxTokens));
     if (g_model == nullptr || g_context == nullptr || g_vocab == nullptr || g_context_size == 0) {
@@ -393,6 +390,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
     if (decodeFailed) return errorString(env, "E_GENERATION_DECODE", "Falha em llama_decode durante a geração; consulte GEN_DECODE_FAILED para o código de retorno.");
     if (cancelled) return cancelledString(env);
     return utf8ToJava(env, output);
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_mikael_ai_LocalInferenceEngine_nativeBeginGeneration(JNIEnv*, jobject) {
+    g_cancel.store(false, std::memory_order_relaxed);
 }
 
 extern "C" JNIEXPORT void JNICALL
