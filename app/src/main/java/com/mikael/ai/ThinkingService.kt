@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.graphics.drawable.Icon
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
@@ -37,7 +38,7 @@ class ThinkingService : Service() {
             .setContentTitle("Mikael AI está trabalhando")
             .setContentText("A geração local continua enquanto você usa outro aplicativo.")
             .setOngoing(true)
-            .addAction(Notification.Action.Builder(null, "Parar", stopPendingIntent).build())
+            .addAction(Notification.Action.Builder(Icon.createWithResource(this, R.drawable.ic_mikael_logo), "Parar", stopPendingIntent).build())
             .build()
 
         if (Build.VERSION.SDK_INT >= 34) {
