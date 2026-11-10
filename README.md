@@ -52,7 +52,7 @@ gradle :app:lintDebug
 gradle :app:assembleDebug
 ```
 
-A CI executa compilação nativa ARM64, testes unitários e Android Lint. Build bem-sucedido não prova que o modelo foi carregado ou que gerou respostas corretas no aparelho; isso requer teste manual no dispositivo.
+A CI executa compilação nativa ARM64, testes unitários e Android Lint. Build bem-sucedido não prova que o modelo foi carregado ou que gerou respostas corretas no aparelho; isso requer teste manual no dispositivo. O orçamento do prompt converte a capacidade em tokens para bytes UTF-8 e limita a memória contextual para preservar a mensagem atual.
 
 ## Licenças
 
