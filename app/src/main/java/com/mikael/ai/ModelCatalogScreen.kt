@@ -109,7 +109,7 @@ fun ModelCatalogScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) { Text(if (selectedModelId == ModelCatalog.TEAM_MODEL_ID) "Equipe selecionada" else "Usar Mikael AI — 4 modelos") }
                     Text(
-                        "O TinyLlama 1.1B é o participante mais pesado. O checkpoint MKAI tem contexto de apenas 512 bytes e pode ser ignorado em pedidos longos. A memória é verificada antes de cada carregamento; se um modelo não couber, ele será marcado como falha e não contará como participante. Para TinyLlama, o orçamento configurado pode precisar ser 1024 MiB ou maior, se houver RAM livre.",
+                        "O TinyLlama 1.1B é o participante mais pesado. O MKAI v1 tem apenas 512 bytes de contexto e pode ser ignorado em pedidos longos. Pedidos acima de 3.000 bytes precisam ser divididos. A memória é verificada antes de cada carga; se um modelo não couber, ele será marcado como falha. Para TinyLlama, o orçamento pode precisar ser 1024 MiB ou maior, se houver RAM livre. As cinco etapas em CPU podem demorar, consumir bateria e aquecer o aparelho.",
                         color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall
                     )
                 }
