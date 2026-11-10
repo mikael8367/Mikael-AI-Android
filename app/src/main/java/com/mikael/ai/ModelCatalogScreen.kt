@@ -203,7 +203,7 @@ fun ModelCatalogScreen(
                     Text("Download estimado se os arquivos estiverem ausentes: ${formatModelBytes(teamDownloadBytes)}")
                     Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
                     Text("Espaço necessário estimado: ${formatModelBytes(teamRequiredSpace)}")
-                    Text("Os arquivos serão baixados um por vez. Nenhum peso será baixado antes da confirmação.")
+                    Text("Os arquivos serão baixados um por vez. Nenhum peso será baixado antes da confirmação. Se a verificação encontrar um arquivo corrompido, o app exigirá espaço para baixar somente esse arquivo novamente.")
                     Text("O uso de RAM é avaliado separadamente para cada modelo; ter espaço de armazenamento não garante que o TinyLlama consiga carregar.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                     if (missingTeamModels.any { it.license == "Licença não declarada" }) {
                         Text("O checkpoint autoral Mikael AI está sem licença de distribuição declarada. O app informa essa condição e não o redistribui.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
