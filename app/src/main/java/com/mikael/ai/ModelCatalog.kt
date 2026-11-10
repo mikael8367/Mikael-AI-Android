@@ -12,7 +12,8 @@ data class CatalogModel(
     val approximateBytes: Long,
     val license: String,
     val sourceUrl: String,
-    val description: String
+    val description: String,
+    val expectedSha256: String? = null
 )
 
 object ModelCatalog {
@@ -31,7 +32,8 @@ object ModelCatalog {
             downloadUrl = "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
             approximateBytes = 491_000_000L, license = "Apache-2.0",
             sourceUrl = "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
-            description = "Modelo especializado em geração, raciocínio e correção de código; 0,49B parâmetros. Q4_K_M requer cerca de 491 MB. A documentação marca foco em inglês; qualidade de instruções em português e velocidade ainda precisam ser medidas no celular."
+            description = "Modelo especializado em geração, raciocínio e correção de código; 0,49B parâmetros. Q4_K_M requer cerca de 491 MB. A documentação marca foco em inglês; qualidade de instruções em português e velocidade ainda precisam ser medidas no celular.",
+            expectedSha256 = "1d9614638d18024d0fbb36575a15f1302a3adf044df10345688ec4f6e1c4ff32"
         ),
         CatalogModel(
             id = "smollm2-360m", name = "SmolLM2 360M Instruct", family = "GGUF • Q4_K_M",
