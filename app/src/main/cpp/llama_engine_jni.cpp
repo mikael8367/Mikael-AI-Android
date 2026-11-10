@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
+#include <cctype>
 #include <mutex>
 #include <limits>
 #include <string>
