@@ -121,7 +121,7 @@ object ModelDownloader {
                         downloaded += count
                         val now = System.currentTimeMillis()
                         if (now - lastUpdate >= 400L || downloaded == total) {
-                            onProgress(downloaded, total)
+                            withContext(Dispatchers.Main) { onProgress(downloaded, total) }
                             lastUpdate = now
                         }
                     }
@@ -134,7 +134,7 @@ object ModelDownloader {
                 input.read(magic) == 4 && magic.decodeToString() == "GGUF"
             }
             require(headerOk) { "O arquivo recebido não é um modelo GGUF válido." }
-            val actualHash = digest.digest().joinToString("") { "%02x".format(it) }
+            val actualHash = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
             require(actualHash.equals(model.sha256, ignoreCase = true)) {
                 "A verificação SHA-256 falhou. O arquivo foi descartado."
             }
@@ -142,7 +142,7 @@ object ModelDownloader {
                 "Não foi possível substituir o modelo anterior."
             }
             check(temporary.renameTo(destination)) { "Não foi possível salvar o modelo instalado." }
-            onProgress(downloaded, total)
+            withContext(Dispatchers.Main) { onProgress(downloaded, total) }
             destination.absolutePath
         } catch (error: Exception) {
             temporary.delete()
