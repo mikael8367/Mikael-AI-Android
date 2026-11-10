@@ -1,4 +1,4 @@
-name: Verify Mikael AI engine fixes
+name: Verify Mikael AI engine fixes and build APK
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  verify-and-build:
     runs-on: ubuntu-latest
     timeout-minutes: 100
     steps:
@@ -47,7 +47,7 @@ jobs:
       - name: Compile Kotlin
         run: gradle :app:compileDebugKotlin
 
-      - name: Compile native ARM64 engine (no APK packaging)
+      - name: Compile native ARM64 engine
         run: gradle :app:externalNativeBuildDebug
 
       - name: Verify debug native optimization flags
@@ -58,3 +58,19 @@ jobs:
             echo "Unexpected -O0 found in native compile commands"
             exit 1
           fi
+
+      - name: Assemble debug APK
+        run: gradle :app:assembleDebug
+
+      - name: Verify APK output
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mikael-AI-Android-debug-v1.9.3
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
