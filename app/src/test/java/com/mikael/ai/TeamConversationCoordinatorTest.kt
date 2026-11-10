@@ -99,6 +99,7 @@ class TeamConversationCoordinatorTest {
         )
         assertTrue(prompt != null)
         assertTrue(prompt!!.contains(original))
+        assertTrue(prompt.contains("analista de requisitos"))
         assertTrue(prompt.contains("Qwen 2.5 0.5B"))
         assertTrue(prompt.contains("Já falaram: ninguém"))
         assertTrue(prompt.contains("pendentes: todos"))
