@@ -679,18 +679,22 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
                         onMemoryChange = {
-                            busy = true
-                            engineReady = false
-                            memoryLimit = it
-                            preferences.memoryLimitMiB = it
-                            logEvent("INFO", "Configuração alterada: limite de memória = $it MiB")
+                            if (it != memoryLimit) {
+                                busy = true
+                                engineReady = false
+                                memoryLimit = it
+                                preferences.memoryLimitMiB = it
+                                logEvent("INFO", "Configuração alterada: limite de memória = $it MiB")
+                            }
                         },
                         onContextChange = {
-                            busy = true
-                            engineReady = false
-                            contextTokens = it
-                            preferences.contextTokens = it
-                            logEvent("INFO", "Configuração alterada: contexto = $it tokens")
+                            if (it != contextTokens) {
+                                busy = true
+                                engineReady = false
+                                contextTokens = it
+                                preferences.contextTokens = it
+                                logEvent("INFO", "Configuração alterada: contexto = $it tokens")
+                            }
                         },
                         onClearHistory = {
                             logEvent("WARN", "Histórico local apagado pelo usuário")
