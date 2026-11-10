@@ -9,6 +9,13 @@ import org.junit.Test
 
 class MikaelTokenizerTest {
     @Test
+    fun defaultTrainingConfigurationIsWithinSupportedVocabularyLimit() {
+        val tokenizer = MikaelTokenizer.train(listOf("texto repetido texto repetido"))
+        assertTrue(tokenizer.vocabularySize in MikaelTokenizer.BASE_VOCAB_SIZE..(MikaelTokenizer.BASE_VOCAB_SIZE + 128))
+        assertEquals("texto repetido texto repetido", tokenizer.decode(tokenizer.encode("texto repetido texto repetido")))
+    }
+
+    @Test
     fun byteFallbackRoundTripsPortugueseAndCode() {
         val tokenizer = MikaelTokenizer.train(listOf("Olá, mundo!\nfunção() { println(\"ação\") }"), 256)
         val input = "Olá, mundo!\nfunção() { println(\"ação\") }"
