@@ -32,6 +32,13 @@ class MemoryBudgetTest {
     }
 
     @Test
+    fun qwenCoderEstimateIncludesConservativeRuntimeBuffersAtShortContext() {
+        val estimate = MemoryBudget.estimateRequiredBytes(491_000_000L, 512)!!
+        val mib = MemoryBudget.mib(estimate)
+        assertTrue(mib in 690L..710L)
+    }
+
+    @Test
     fun acceptsSmallModelWithinBudget() {
         val result = MemoryBudget.check(
             availableBytes = 2L * 1024 * 1024 * 1024,
