@@ -22,7 +22,14 @@ internal object AnswerRevision {
         generate: (String, Int) -> Result<String>
     ): Result<String> {
         val draft = generate(conversationPrompt, maxAnswerTokens).getOrThrow()
-        if (draft.isBlank() || contextCapacityBytes < MIN_REVIEW_CONTEXT_BYTES) {
+        if (draft.isBlank()) {
+            return Result.failure(
+                IllegalStateException(
+                    "O modelo Mikael AI não gerou texto. O checkpoint pode estar pouco treinado ou ter parado antes da primeira palavra. Verifique o treinamento e tente novamente."
+                )
+            )
+        }
+        if (contextCapacityBytes < MIN_REVIEW_CONTEXT_BYTES) {
             return Result.success(draft)
         }
 
