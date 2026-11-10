@@ -189,7 +189,8 @@ object ModelInstaller {
         val normalized = host.lowercase(java.util.Locale.ROOT)
         return normalized == "huggingface.co" ||
             normalized.endsWith(".huggingface.co") ||
-            normalized.endsWith(".xethub.hf.co")
+            normalized == "hf.co" ||
+            normalized.endsWith(".hf.co")
     }
 
     fun installedFile(context: Context, model: CatalogModel): File? {
