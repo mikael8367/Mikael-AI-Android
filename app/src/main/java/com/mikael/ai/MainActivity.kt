@@ -360,7 +360,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                     try {
                                         val conversationPrompt = AssistantPromptBuilder.build(
                                             mode = selectedMode,
-                                            history = messages.takeLast(6).map { it.role to it.text },
+                                            history = messages.filterNot { it.id == assistantMessageId }.takeLast(6).map { it.role to it.text },
                                             contextTokens = contextTokens
                                         )
                                         val tokenLimit = AssistantPromptBuilder.maxTokens(selectedMode, contextTokens)
