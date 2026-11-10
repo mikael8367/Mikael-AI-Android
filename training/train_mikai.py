@@ -52,7 +52,8 @@ class MikaelLayer(nn.Module):
         att = att.transpose(1, 2).contiguous().view(batch, seq, dim)
         x = x + self.o(att)
         h = self.norm_ffn(x)
-        return x + self.down(F.silu(self.gate(h)) * self.up(h))
+        gate = self.gate(h).clamp(-20.0, 20.0)
+        return x + self.down(F.silu(gate) * self.up(h))
 
 
 class MikaelTransformer(nn.Module):
