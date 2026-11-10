@@ -118,7 +118,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
     var engineReady by remember { mutableStateOf(false) }
-    var engineStatus by remember { mutableStateOf("Importe um modelo GGUF para começar.") }
+    var engineStatus by remember { mutableStateOf("Importe um modelo autoral .mkai para começar.") }
     var isGenerating by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
@@ -146,7 +146,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter) {
         engineReady = false
         if (modelPath.isNullOrBlank()) {
-            engineStatus = "Importe um modelo GGUF para começar."
+            engineStatus = "Importe um modelo autoral .mkai para começar."
             return@LaunchedEffect
         }
         val file = File(modelPath!!)
@@ -291,7 +291,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         activeDownloadId = activeDownloadId,
                         downloadProgress = downloadProgress,
                         downloadStatus = downloadStatus,
-                        onImport = { modelPicker.launch(arrayOf("*/*")) },
+                        onImport = { modelPicker.launch(arrayOf("application/octet-stream")) },
                         onDownload = { model ->
                             if (activeDownloadId == null) {
                                 scope.launch {
@@ -384,11 +384,11 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
     val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
-    } ?: "modelo.gguf"
-    require(displayName.lowercase().endsWith(".gguf")) {
-        "Selecione um arquivo com extensão .gguf."
+    } ?: "modelo.mkai"
+    require(displayName.lowercase().endsWith(".mkai")) {
+        "Selecione um arquivo de pesos autorais com extensão .mkai."
     }
-    val directory = File(context.filesDir, "models").apply { mkdirs() }
+    val directory = File(context.filesDir, "models").apply { check(mkdirs() || isDirectory) }
     val safeName = displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
     val uniqueName = "${System.currentTimeMillis()}_$safeName"
     val destination = File(directory, uniqueName)
@@ -398,15 +398,12 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
             requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
             temporary.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
         }
-        require(temporary.length() > 1024L * 1024L) {
-            "O arquivo parece pequeno demais para ser um modelo GGUF válido."
+        require(temporary.length() >= 1024L) { "O arquivo MKAI está vazio ou incompleto." }
+        val headerOk = temporary.inputStream().use { stream ->
+            val bytes = ByteArray(8)
+            stream.read(bytes) == 8 && bytes.decodeToString() == "MKAI0001"
         }
-        val header = temporary.inputStream().use { stream ->
-            val bytes = ByteArray(4)
-            val read = stream.read(bytes)
-            read == 4 && bytes.decodeToString() == "GGUF"
-        }
-        require(header) { "O arquivo selecionado não tem o cabeçalho GGUF esperado." }
+        require(headerOk) { "Cabeçalho inválido. Este arquivo não é um modelo Mikael AI (.mkai)." }
         check(temporary.renameTo(destination)) { "Não foi possível concluir a cópia do modelo." }
         return destination.absolutePath
     } catch (error: Exception) {
@@ -518,7 +515,7 @@ private fun MessageBubble(message: ChatMessage) {
 private fun listInstalledModels(context: Context): List<File> {
     return File(context.filesDir, "models")
         .listFiles()
-        ?.filter { it.isFile && it.extension.equals("gguf", ignoreCase = true) }
+        ?.filter { it.isFile && it.extension.equals("mkai", ignoreCase = true) }
         ?.sortedByDescending { it.lastModified() }
         ?: emptyList()
 }
@@ -545,7 +542,7 @@ private fun ModelsScreen(
     ) {
         Text("Modelos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
-            "Baixe modelos GGUF diretamente no celular ou importe um arquivo. Os downloads são verificados por SHA-256 antes de serem instalados.",
+            "Importe um modelo Mikael AI (.mkai) treinado com pesos próprios. O motor não aceita GGUF nem modelos de terceiros.",
             color = Color(0xFF9EAAA2)
         )
         Card(
@@ -566,7 +563,7 @@ private fun ModelsScreen(
             }
         }
         Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
-            Text("Importar arquivo GGUF")
+            Text("Importar modelo próprio (.mkai)")
         }
         if (activeDownloadId != null) {
             Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202B25))) {
@@ -600,7 +597,7 @@ private fun ModelsScreen(
                     }
                 }
             }
-            item { Text("Catálogo para instalar", fontWeight = FontWeight.Bold) }
+            item { Text("Modelos autorais", fontWeight = FontWeight.Bold) }
             items(ModelCatalog.models, key = { it.id }) { model ->
                 val installed = installedModels.firstOrNull { it.name == model.fileName }
                 Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
@@ -638,7 +635,7 @@ private fun ModelsScreen(
                 Text("Modelos instalados neste aparelho", fontWeight = FontWeight.Bold)
             }
             if (installedModels.isEmpty()) {
-                item { Text("Nenhum modelo instalado ainda.", color = Color(0xFF9EAAA2)) }
+                item { Text("Nenhum modelo .mkai instalado. O modelo autoral ainda precisa ser treinado e exportado.", color = Color(0xFF9EAAA2)) }
             } else {
                 items(installedModels, key = { it.absolutePath }) { file ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
