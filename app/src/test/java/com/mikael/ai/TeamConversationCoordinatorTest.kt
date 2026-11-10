@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TeamConversationCoordinatorTest {
+
     private val team = listOf(
         TeamParticipant("mikael-base", "Mikael AI"),
         TeamParticipant("qwen-0.5b", "Qwen 2.5 0.5B"),
@@ -68,6 +69,7 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = false
         )
+
         assertTrue(prompt.contains("Pode responder, contestar"))
         assertTrue(prompt.contains("Justifique discordâncias"))
         assertTrue(prompt.contains("sem raciocínio privado"))
@@ -85,9 +87,11 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = false
         )
+
         assertTrue(prompt.contains("‹|im_start|›system"))
         assertEquals(3, Regex("<\\|im_start\\|>").findAll(prompt).count())
     }
+
     @Test
     fun compactMikaelPromptKeepsTheOriginalRequestWhenItFits() {
         val original = "Corrija este bug em Kotlin"
@@ -97,6 +101,7 @@ class TeamConversationCoordinatorTest {
             participants = team,
             maxPromptBytes = 480
         )
+
         assertTrue(prompt != null)
         assertTrue(prompt!!.contains(original))
         assertTrue(prompt.contains("analista de requisitos"))
@@ -115,6 +120,7 @@ class TeamConversationCoordinatorTest {
             participants = team,
             maxPromptBytes = 480
         )
+
         assertTrue(prompt == null)
     }
 
@@ -132,6 +138,7 @@ class TeamConversationCoordinatorTest {
                 }
             )
         }
+
         assertTrue(result.isFailure)
         assertEquals(0, calls)
     }
@@ -165,6 +172,7 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = true
         )
+
         assertTrue(prompt.contains("ETAPA FINAL DE PROGRAMAÇÃO"))
         assertTrue(prompt.contains("código completo ou patch aplicável"))
         assertTrue(prompt.contains("testes unitários/integrados"))
@@ -182,6 +190,7 @@ class TeamConversationCoordinatorTest {
                 else Result.failure(IllegalStateException("Sem memória suficiente"))
             }
         )
+
         assertEquals(1, result.participatedCount)
         assertEquals(4, result.attemptCount)
         assertTrue(result.finalizationFallback)
@@ -202,6 +211,7 @@ class TeamConversationCoordinatorTest {
                 else Result.success("Contribuição de ${participant.name}")
             }
         )
+
         assertTrue(result.finalizer == "TinyLlama 1.1B")
         assertTrue(prompts.last().second.contains("HISTÓRICO COMPARTILHADO"))
         assertTrue(prompts.last().second.contains("Contribuição de SmolLM2 360M"))
@@ -219,10 +229,10 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = true
         )
+
         assertTrue(prompt.contains("A".repeat(300)))
         assertTrue(!prompt.contains("A".repeat(301)))
     }
-
 
     @Test
     fun programmingPromptsAssignDistinctRolesAndAskForConcreteCodeReview() {
@@ -237,6 +247,7 @@ class TeamConversationCoordinatorTest {
                 currentParticipant = participant
             )
         }
+
         assertTrue(prompts[0].contains("PAPEL: analista de requisitos"))
         assertTrue(prompts[1].contains("PAPEL: engenheiro implementador principal"))
         assertTrue(prompts[2].contains("PAPEL: revisor adversarial de código"))
@@ -255,6 +266,7 @@ class TeamConversationCoordinatorTest {
             finalSynthesis = true,
             currentParticipant = team[1]
         )
+
         assertTrue(prompt.contains("ETAPA FINAL DE PROGRAMAÇÃO"))
         assertTrue(prompt.contains("código completo ou patch aplicável"))
         assertTrue(prompt.contains("testes unitários/integrados e comandos"))
@@ -274,6 +286,7 @@ class TeamConversationCoordinatorTest {
                 Result.success("Contribuição curta")
             }
         )
+
         assertEquals(
             listOf(256, 256, 256, 256, 768),
             limits
@@ -293,9 +306,9 @@ class TeamConversationCoordinatorTest {
                 Result.success("Resposta curta")
             }
         )
+
         assertEquals(listOf(96, 96, 96, 96, 192), limits)
     }
-
 
     @Test
     fun codingTaskDetectionCoversNaturalPortugueseRequestsWithoutFlaggingGeneralChat() {
@@ -307,8 +320,6 @@ class TeamConversationCoordinatorTest {
         assertTrue(TeamConversationCoordinator.isProgrammingTask("Faça um repositório com testes"))
         assertTrue(!TeamConversationCoordinator.isProgrammingTask("Explique como funciona a fotossíntese"))
     }
-
-
 
     @Test
     fun partialTeamWithMikaelAndOneInstalledGgufCanRespond() = runBlocking {
@@ -323,10 +334,13 @@ class TeamConversationCoordinatorTest {
                 Result.success("Resposta de ${participant.name}")
             }
         )
-        assertEquals(listOf("mikael-base", "qwen-0.5b"), seen)
+
+        // Duas contribuições + a chamada final de síntese feita pelo próprio Qwen.
+        assertEquals(listOf("mikael-base", "qwen-0.5b", "qwen-0.5b"), seen)
         assertTrue(result.answer.isNotBlank())
         assertEquals(2, result.participatedCount)
         assertEquals(3, result.attemptCount)
+        assertEquals(2, result.participantCount)
     }
 
     @Test
@@ -348,6 +362,30 @@ class TeamConversationCoordinatorTest {
         assertTrue(result.allParticipated)
         assertEquals(3, result.attemptCount)
         assertTrue(stages.all { !it.contains("/4") })
+    }
+
+    @Test
+    fun userCancellationStopsTheWholeTeamInsteadOfFailingOneParticipant() = runBlocking {
+        var calls = 0
+        val result = runCatching {
+            TeamConversationCoordinator.run(
+                originalPrompt = "Oi",
+                chatContext = "",
+                participants = team,
+                generate = { participant, _, _ ->
+                    calls++
+                    if (participant.id == "qwen-0.5b") {
+                        Result.failure(IllegalStateException("Geração cancelada pelo usuário."))
+                    } else {
+                        Result.success("Resposta de ${participant.name}")
+                    }
+                }
+            )
+        }
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is kotlinx.coroutines.CancellationException)
+        assertEquals(2, calls)
     }
 
 }
