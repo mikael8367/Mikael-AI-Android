@@ -198,6 +198,19 @@ def main() -> None:
 
     model = MikaelTransformer(args.dim, args.layers, args.heads, args.ffn, args.seq_len).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=0.01)
+
+    # Validação fixa: evita que a variação de amostras esconda overfitting.
+    max_val_start = len(val_data) - args.seq_len - 1
+    val_count = min(args.batch_size, max_val_start + 1)
+    val_starts = torch.linspace(0, max_val_start, steps=val_count).round().long()
+    val_x = torch.stack([val_data[int(i):int(i) + args.seq_len] for i in val_starts])
+    val_y = torch.stack([val_data[int(i) + 1:int(i) + args.seq_len + 1] for i in val_starts])
+
+    best_val_loss = float("inf")
+    best_state = None
+    best_step = 0
+    stale_evaluations = 0
+    patience = 5
     model.train()
     for step in range(1, args.steps + 1):
         x, y = batch(train_data)
@@ -211,14 +224,42 @@ def main() -> None:
         if step == 1 or step % 100 == 0 or step == args.steps:
             model.eval()
             with torch.no_grad():
-                vx, vy = batch(val_data)
-                val_loss = F.cross_entropy(model(vx).reshape(-1, VOCAB_SIZE), vy.reshape(-1))
-            print(f"step={step}/{args.steps} train_loss={loss.item():.4f} val_loss={val_loss.item():.4f}", flush=True)
+                val_loss = F.cross_entropy(
+                    model(val_x).reshape(-1, VOCAB_SIZE), val_y.reshape(-1)
+                )
             if not torch.isfinite(val_loss):
                 raise SystemExit("Loss de validação inválida.")
+            current_val_loss = float(val_loss.item())
+            if current_val_loss < best_val_loss - 1.0e-4:
+                best_val_loss = current_val_loss
+                best_step = step
+                best_state = {
+                    name: tensor.detach().cpu().clone()
+                    for name, tensor in model.state_dict().items()
+                }
+                stale_evaluations = 0
+            else:
+                stale_evaluations += 1
+            print(
+                f"step={step}/{args.steps} train_loss={loss.item():.4f} "
+                f"val_loss={current_val_loss:.4f} best_val_loss={best_val_loss:.4f} "
+                f"best_step={best_step}",
+                flush=True,
+            )
+            if stale_evaluations >= patience and step >= min(500, args.steps):
+                print(
+                    f"Early stopping: validação não melhorou por {patience} avaliações; "
+                    f"restaurando checkpoint do passo {best_step}.",
+                    flush=True,
+                )
+                break
             model.train()
 
+    if best_state is None:
+        raise SystemExit("Nenhum checkpoint válido foi produzido durante o treinamento.")
+    model.load_state_dict(best_state)
     model.eval()
+    print(f"Melhor checkpoint: passo={best_step}, val_loss={best_val_loss:.4f}", flush=True)
     export_mkai(model, args.output, args.dim, args.layers, args.heads, args.ffn, args.seq_len)
     print(f"Modelo MKAI v1 exportado: {args.output} ({args.output.stat().st_size} bytes)")
 
