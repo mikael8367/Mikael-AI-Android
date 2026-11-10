@@ -71,6 +71,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("Pode responder, contestar"))
         assertTrue(prompt.contains("Justifique discordâncias"))
         assertTrue(prompt.contains("sem raciocínio privado"))
+        assertTrue(prompt.contains("revise criticamente as quatro contribuições"))
         assertTrue(prompt.contains("Já contribuíram: Mikael AI"))
         assertTrue(prompt.contains("Ainda não contribuíram: Qwen 2.5 0.5B"))
     }
@@ -100,6 +101,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt != null)
         assertTrue(prompt!!.contains(original))
         assertTrue(prompt.contains("Qwen 2.5 0.5B"))
+        assertTrue(prompt.contains("Já contribuíram: ninguém"))
         assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 480)
     }
 
