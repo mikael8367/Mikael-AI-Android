@@ -47,7 +47,7 @@ fun ModelCatalogScreen(
                 modifier = Modifier.padding(vertical = 8.dp)
             ) {
                 Text("Modelos disponíveis", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Mikael AI autoral + três modelos GGUF para instalar.", color = Color(0xFF9EAAA2))
+                Text("Mikael AI Assistente, Mikael AI autoral e três modelos GGUF.", color = Color(0xFF9EAAA2))
                 Text(
                     "Escolha um modelo, instale-o e toque em Usar modelo. O carregamento acontece automaticamente.",
                     color = Color(0xFF9EAAA2),
