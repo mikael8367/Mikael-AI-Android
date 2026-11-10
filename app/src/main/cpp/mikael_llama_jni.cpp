@@ -112,6 +112,43 @@ std::string javaToUtf8(JNIEnv* env, jstring value) {
     return output;
 }
 
+size_t completeUtf8Prefix(const std::string& value, size_t start) {
+    size_t i = start;
+    while (i < value.size()) {
+        const uint8_t lead = static_cast<uint8_t>(value[i]);
+        size_t count = lead < 0x80 ? 1 : ((lead & 0xE0) == 0xC0 ? 2 :
+                ((lead & 0xF0) == 0xE0 ? 3 : ((lead & 0xF8) == 0xF0 ? 4 : 1)));
+        if (i + count > value.size()) break;
+        bool valid = true;
+        for (size_t j = 1; j < count; ++j) {
+            if ((static_cast<uint8_t>(value[i + j]) & 0xC0) != 0x80) valid = false;
+        }
+        if (!valid) count = 1;
+        i += count;
+    }
+    return i;
+}
+
+void notifyNativeToken(JNIEnv* env, const std::string& piece) {
+    if (piece.empty()) return;
+    jclass bridge = env->FindClass("com/mikael/ai/LocalInferenceEngine");
+    if (bridge == nullptr) {
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        return;
+    }
+    jmethodID callback = env->GetStaticMethodID(bridge, "onNativeToken", "(Ljava/lang/String;)V");
+    if (callback == nullptr) {
+        if (env->ExceptionCheck()) env->ExceptionClear();
+        env->DeleteLocalRef(bridge);
+        return;
+    }
+    jstring javaPiece = utf8ToJava(env, piece);
+    if (javaPiece != nullptr) env->CallStaticVoidMethod(bridge, callback, javaPiece);
+    if (env->ExceptionCheck()) env->ExceptionClear();
+    if (javaPiece != nullptr) env->DeleteLocalRef(javaPiece);
+    env->DeleteLocalRef(bridge);
+}
+
 jstring utf8ToJava(JNIEnv* env, const std::string& value) {
     std::vector<jchar> utf16;
     utf16.reserve(value.size());
@@ -297,6 +334,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
 
     nativeLog(env, "INFO", "SAMPLER_READY • geração iniciada");
     std::string output;
+    size_t streamedBytes = 0;
     std::vector<char> piece(4096);
     int generatedTokens = 0;
     const int remainingContext = static_cast<int>(g_context_size) - tokenCount;
@@ -322,6 +360,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
         }
         if (pieceSize > 0 && pieceSize <= static_cast<int32_t>(piece.size())) {
             output.append(piece.data(), static_cast<size_t>(pieceSize));
+            const size_t completeBytes = completeUtf8Prefix(output, streamedBytes);
+            if (completeBytes > streamedBytes) {
+                notifyNativeToken(env, output.substr(streamedBytes, completeBytes - streamedBytes));
+                streamedBytes = completeBytes;
+            }
         }
 
         llama_token nextToken = token;
