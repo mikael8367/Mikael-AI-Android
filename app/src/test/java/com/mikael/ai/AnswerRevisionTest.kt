@@ -7,6 +7,16 @@ import org.junit.Test
 
 class AnswerRevisionTest {
     @Test
+    fun internalPromptsReserveSpaceForGeneratedTokens() {
+        val review = AnswerRevision.buildReviewPrompt("pedido", "rascunho", 512)
+        val revision = AnswerRevision.buildRevisionPrompt("pedido", "rascunho", "REVISAR: erro", 512)
+        assertTrue(review != null)
+        assertTrue(revision != null)
+        assertTrue(review!!.toByteArray(Charsets.UTF_8).size + 32 < 512)
+        assertTrue(revision!!.toByteArray(Charsets.UTF_8).size + 128 < 512)
+    }
+
+    @Test
     fun onlyExplicitReviewDecisionRequestsRevision() {
         assertTrue(AnswerRevision.shouldRevise("REVISAR: o código não compila"))
         assertTrue(AnswerRevision.shouldRevise("revisar - requisito ignorado"))
