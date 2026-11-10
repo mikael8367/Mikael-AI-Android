@@ -60,6 +60,8 @@ class UserMemoryStoreTest {
         assertNull(UserMemoryStore.autoLearningCandidate("Minha senha é exemplo-seguro"))
         assertNull(UserMemoryStore.autoLearningCandidate("Hoje está fazendo calor"))
         assertNull(UserMemoryStore.autoLearningCandidate("Meu diagnóstico é ansiedade"))
+        assertNull(UserMemoryStore.autoLearningCandidate("Meu projeto usa contato teste@example.com"))
+        assertNull(UserMemoryStore.autoLearningCandidate("Meu aparelho tem identificador 12345678901"))
     }
 
 }
