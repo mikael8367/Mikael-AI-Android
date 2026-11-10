@@ -178,7 +178,7 @@ private object GithubApi {
             request(
                 "https://github.com/login/device/code",
                 method = "POST",
-                body = form("client_id" to clientId, "scope" to "read:user public_repo"),
+                body = form("client_id" to clientId),
                 accept = "application/json"
             )
         )
@@ -209,7 +209,9 @@ private object GithubApi {
             when (json.optString("error")) {
                 "authorization_pending" -> GithubPollResult.Pending
                 "slow_down" -> GithubPollResult.SlowDown
-                "expired_token", "device_flow_expired" -> GithubPollResult.Expired
+                "expired_token", "token_expired", "device_flow_expired" -> GithubPollResult.Expired
+                "device_flow_disabled" -> GithubPollResult.Failed("Ative Enable Device Flow nas configurações do seu GitHub App.")
+                "incorrect_client_credentials" -> GithubPollResult.Failed("Client ID incorreto. Use o Client ID, não o App ID.")
                 "access_denied" -> GithubPollResult.Failed("Autorização recusada no GitHub.")
                 else -> GithubPollResult.Failed(json.optString("error_description", "Falha na autorização GitHub."))
             }
@@ -299,12 +301,12 @@ internal fun GithubConnectorScreen(
                 value = clientId,
                 onValueChange = onClientIdChange,
                 modifier = Modifier.fillMaxWidth(),
-                label = { Text("GitHub OAuth App Client ID") },
+                label = { Text("GitHub App Client ID") },
                 placeholder = { Text("Iv1.xxxxxxxxxxxxxxxx") },
                 singleLine = true
             )
             Text(
-                "Use o Client ID de um OAuth App com Device Flow ativado. O app solicita read:user e public_repo; não precisa de Client Secret.",
+                "Use o Client ID do GitHub App com Enable Device Flow ativado. O acesso aos repositórios depende das permissões configuradas e da instalação do App. Não precisa de Client Secret.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.68f)
             )
