@@ -18,11 +18,12 @@ data class CatalogModel(
 object ModelCatalog {
     val models = listOf(
         CatalogModel(
-            id = "mikael-base", name = "Mikael AI", family = "Modelo autoral",
-            engine = ModelEngine.MKAI, fileName = null, downloadUrl = null,
-            approximateBytes = 0L, license = "Treinamento próprio",
-            sourceUrl = "https://github.com/mikael8367/Mikael-AI-Android",
-            description = "Motor próprio MKAI. Aguardando corpus licenciado e pesos treinados; ainda não há um modelo pronto para instalar."
+            id = "mikael-base", name = "Mikael AI", family = "Modelo autoral • MKAI v1",
+            engine = ModelEngine.MKAI, fileName = "mikael-base.mkai",
+            downloadUrl = "https://github.com/mikael8367/Mikael-AI-Android/releases/download/mikael-ai-model-v1/mikael-base.mkai",
+            approximateBytes = 1_000_000L, license = "Treinamento próprio",
+            sourceUrl = "https://github.com/mikael8367/Mikael-AI-Android/actions/workflows/train-mikael-model.yml",
+            description = "Checkpoint autoral MKAI. Treine e publique o primeiro modelo pelo GitHub Actions; depois instale diretamente por aqui."
         ),
         CatalogModel(
             id = "qwen-0.5b", name = "Qwen 2.5 0.5B Instruct", family = "GGUF • Q4_K_M",
