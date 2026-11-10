@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicReference
 
 object ModelInstaller {
     suspend fun install(
@@ -36,15 +37,16 @@ object ModelInstaller {
         val checksumTemporary = File(directory, "$name.sha256.part")
         val backup = File(directory, "$name.previous")
         val checksumBackup = File(directory, "$name.sha256.previous")
-        var activeConnection: HttpURLConnection? = null
+        val activeConnection = AtomicReference<HttpURLConnection?>(null)
         val downloadJob = currentCoroutineContext()[Job]
-        downloadJob?.invokeOnCompletion { cause -> if (cause != null) activeConnection?.disconnect() }
+        downloadJob?.invokeOnCompletion { cause -> if (cause != null) activeConnection.get()?.disconnect() }
 
         try {
             var currentUrl = URL(address)
             var redirects = 0
             var remoteSha256: String? = null
             while (true) {
+                currentCoroutineContext().ensureActive()
                 val next = (currentUrl.openConnection() as HttpURLConnection).apply {
                     connectTimeout = 20_000
                     readTimeout = 15_000
@@ -52,7 +54,7 @@ object ModelInstaller {
                     requestMethod = "GET"
                     setRequestProperty("User-Agent", "MikaelAI-Android")
                 }
-                activeConnection = next
+                activeConnection.set(next)
                 next.connect()
                 val status = next.responseCode
                 if (status in 300..399) {
@@ -81,7 +83,7 @@ object ModelInstaller {
                 )
                 break
             }
-            val connection = requireNotNull(activeConnection)
+            val connection = requireNotNull(activeConnection.get())
             val expected = connection.contentLengthLong
             check(expected <= MAX_MODEL_BYTES) { "O arquivo excede o limite de 1 GB." }
             val pinnedSha256 = model.expectedSha256?.lowercase()
@@ -178,7 +180,7 @@ object ModelInstaller {
             checksumTemporary.delete()
             throw error
         } finally {
-            activeConnection?.disconnect()
+            activeConnection.get()?.disconnect()
         }
     }
 
