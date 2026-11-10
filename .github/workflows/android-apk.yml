@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: mikael-ai-android-apk-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: mikael-ai-android-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
