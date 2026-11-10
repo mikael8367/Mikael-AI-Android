@@ -50,6 +50,7 @@ fun ModelCatalogScreen(
     contextTokens: Int
 ) {
     var confirmationModel by remember { mutableStateOf<CatalogModel?>(null) }
+    var deleteModelConfirmation by remember { mutableStateOf<CatalogModel?>(null) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -153,7 +154,7 @@ fun ModelCatalogScreen(
                                     Text(if (selectedModelId == model.id) "Selecionado" else "Usar modelo")
                                 }
                                 OutlinedButton(
-                                    onClick = { onDelete(model) },
+                                    onClick = { deleteModelConfirmation = model },
                                     modifier = Modifier.weight(1f)
                                 ) { Text("Desinstalar") }
                             } else {
@@ -182,6 +183,23 @@ fun ModelCatalogScreen(
                 style = MaterialTheme.typography.bodySmall
             )
         }
+    }
+
+    deleteModelConfirmation?.let { model ->
+        AlertDialog(
+            onDismissRequest = { deleteModelConfirmation = null },
+            title = { Text("Desinstalar modelo?") },
+            text = { Text("Os pesos de ${model.name} serão removidos do armazenamento interno. Para usar novamente, será necessário baixar o arquivo outra vez. Histórico e memória não serão apagados.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(model)
+                    deleteModelConfirmation = null
+                }) { Text("Desinstalar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteModelConfirmation = null }) { Text("Cancelar") }
+            }
+        )
     }
 
     confirmationModel?.let { model ->
