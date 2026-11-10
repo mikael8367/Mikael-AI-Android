@@ -558,6 +558,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         )
                     } else ChatScreen(
+                        activeModelName = run {
+                            val activeModelId = pendingTask?.modelId ?: selectedCatalogModelId
+                            when (activeModelId) {
+                                "mikael-base" -> "MKAI local"
+                                else -> ModelCatalog.models.firstOrNull { it.id == activeModelId }?.name
+                                    ?: activeModelId
+                            }
+                        },
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
@@ -877,6 +885,7 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
 
 @Composable
 private fun ChatScreen(
+    activeModelName: String,
     messages: List<ChatMessage>,
     input: String,
     onInputChange: (String) -> Unit,
@@ -894,6 +903,42 @@ private fun ChatScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = Color(0xFF17251D),
+                contentColor = Color(0xFFB8E8CA),
+                shape = RoundedCornerShape(50)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(if (isGenerating) Color(0xFF39D98A) else Color(0xFF8BE7B7), CircleShape)
+                    )
+                    Text("Modelo:", style = MaterialTheme.typography.labelSmall, color = Color(0xFF9EAAA2))
+                    AnimatedContent(
+                        targetState = activeModelName,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "active-model-name"
+                    ) { name ->
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
         if (pendingTask != null && !isGenerating) {
             Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF26382D))) {
