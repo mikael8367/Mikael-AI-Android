@@ -88,4 +88,49 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("‹|im_start|›system"))
         assertEquals(2, Regex("<\\|im_start\\|>").findAll(prompt).count())
     }
+    @Test
+    fun compactMikaelPromptKeepsTheOriginalRequestWhenItFits() {
+        val original = "Corrija este bug em Kotlin"
+        val prompt = TeamConversationCoordinator.buildCompactMikaelPrompt(
+            originalPrompt = original,
+            chatContext = "Projeto Android",
+            participants = team,
+            maxPromptBytes = 480
+        )
+        assertTrue(prompt != null)
+        assertTrue(prompt!!.contains(original))
+        assertTrue(prompt.contains("Qwen 2.5 0.5B"))
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 480)
+    }
+
+    @Test
+    fun compactMikaelPromptRejectsLongRequestsInsteadOfTruncatingThem() {
+        val original = "código".repeat(100)
+        val prompt = TeamConversationCoordinator.buildCompactMikaelPrompt(
+            originalPrompt = original,
+            chatContext = "",
+            participants = team,
+            maxPromptBytes = 480
+        )
+        assertTrue(prompt == null)
+    }
+
+    @Test
+    fun oversizedOriginalRequestIsRejectedBeforeCallingAnyModel() = runBlocking {
+        var calls = 0
+        val result = runCatching {
+            TeamConversationCoordinator.run(
+                originalPrompt = "x".repeat(3_001),
+                chatContext = "",
+                participants = team,
+                generate = { _, _, _ ->
+                    calls++
+                    Result.success("não deveria executar")
+                }
+            )
+        }
+        assertTrue(result.isFailure)
+        assertEquals(0, calls)
+    }
+
 }
