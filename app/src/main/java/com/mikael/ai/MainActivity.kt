@@ -137,12 +137,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     fun persistActiveConversation() {
         if (messages.isEmpty()) return
+        val index = conversations.indexOfFirst { it.id == activeConversationId }
         val firstPrompt = messages.firstOrNull { it.role == "user" }?.text.orEmpty()
-        val title = firstPrompt.replace(Regex("\\s+"), " ").trim().let {
+        val generatedTitle = firstPrompt.replace(Regex("\\s+"), " ").trim().let {
             if (it.length > 42) it.take(42).trimEnd() + "…" else it
         }.ifBlank { "Nova conversa" }
+        val title = conversations.getOrNull(index)?.title ?: generatedTitle
         val updated = ChatConversation(activeConversationId, title, System.currentTimeMillis(), messages.toList())
-        val index = conversations.indexOfFirst { it.id == activeConversationId }
         if (index >= 0) conversations[index] = updated else conversations.add(updated)
         val ordered = conversations.sortedByDescending { it.updatedAt }
         conversations.clear()
