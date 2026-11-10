@@ -347,7 +347,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             availableBytes = MemoryBudget.availableBytes(activityManager),
             selectedLimitMiB = memoryLimit,
             modelBytes = file.length(),
-            contextTokens = contextTokens.coerceIn(128, 2048)
+            contextTokens = contextTokens.coerceIn(128, 2048),
+            minimumEstimatedBytes = ModelCatalog.models.firstOrNull { it.id == selectedCatalogModelId }
+                ?.minimumRuntimeMemoryBytes ?: 0L
         )
         if (!memoryCheck.allowed) {
             llamaStatus = memoryCheck.reason ?: "Memória insuficiente para carregar este GGUF."
@@ -493,7 +495,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             availableBytes = MemoryBudget.availableBytes(activityManager),
                                             selectedLimitMiB = memoryLimit,
                                             modelBytes = file.length(),
-                                            contextTokens = modelContext
+                                            contextTokens = modelContext,
+                                            minimumEstimatedBytes = model.minimumRuntimeMemoryBytes
                                         )
                                         check(memory.allowed) { memory.reason ?: "Memória insuficiente para ${participant.name}." }
                                         try {
