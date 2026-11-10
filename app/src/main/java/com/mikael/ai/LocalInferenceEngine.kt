@@ -32,6 +32,8 @@ object LocalInferenceEngine {
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa em UTF-8." }
         cancelRequested.set(false)
+        nativeResetCancel()
+        check(!cancelRequested.get()) { "Geração cancelada pelo usuário." }
         val answer = nativeGenerate(prompt, maxTokens)
         check(!cancelRequested.get()) { "Geração cancelada pelo usuário." }
         if (answer == null) error("O motor local não retornou uma resposta.")
@@ -43,6 +45,7 @@ object LocalInferenceEngine {
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?
+    private external fun nativeResetCancel()
     private external fun nativeContextCapacity(): Int
     private external fun nativeCancel()
     private external fun nativeUnload()
