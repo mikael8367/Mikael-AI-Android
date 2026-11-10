@@ -11,6 +11,7 @@ data class UserMemoryItem(val text: String, val topic: String, val createdAt: Lo
 object UserMemoryStore {
     private const val PREFS = "mikael_user_memory"
     private const val KEY_ITEMS = "items"
+    private const val KEY_ITEMS_SECURE = "items_secure_v1"
     private const val KEY_ENABLED = "enabled"
     const val MAX_ITEMS = 100
     const val MAX_ITEM_CHARS = 300
@@ -69,7 +70,7 @@ object UserMemoryStore {
     }
 
     fun clear(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ITEMS).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ITEMS).remove(KEY_ITEMS_SECURE).apply()
     }
 
     fun contextForPrompt(context: Context): String {
@@ -131,11 +132,26 @@ object UserMemoryStore {
             json.put(JSONObject().put("text", item.text.take(MAX_ITEM_CHARS))
                 .put("topic", item.topic).put("createdAt", item.createdAt))
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_ITEMS, json.toString()).apply()
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encrypted = SecureLocalStorage.encrypt(json.toString())
+        check(prefs.edit().putString(KEY_ITEMS_SECURE, encrypted).remove(KEY_ITEMS).commit()) {
+            "Não foi possível salvar a memória criptografada."
+        }
     }
 
     private fun read(context: Context): List<UserMemoryItem> = runCatching {
-        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ITEMS, "[]") ?: "[]"
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val encrypted = prefs.getString(KEY_ITEMS_SECURE, null)
+        val legacyRaw = prefs.getString(KEY_ITEMS, "[]") ?: "[]"
+        val raw = if (!encrypted.isNullOrBlank()) {
+            runCatching { SecureLocalStorage.decrypt(encrypted) }.getOrNull() ?: legacyRaw
+        } else legacyRaw
+        if (encrypted.isNullOrBlank() && prefs.contains(KEY_ITEMS)) {
+            runCatching {
+                val payload = SecureLocalStorage.encrypt(raw)
+                prefs.edit().putString(KEY_ITEMS_SECURE, payload).remove(KEY_ITEMS).commit()
+            }
+        }
         val json = JSONArray(raw)
         val parsed = buildList {
             for (i in 0 until json.length()) {
