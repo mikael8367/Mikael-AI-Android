@@ -1058,6 +1058,7 @@ private fun installedModels(context: Context): List<File> =
 
 private suspend fun importModel(context: Context, uri: Uri): File {
     val coroutineContext = currentCoroutineContext()
+    coroutineContext.ensureActive()
     val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
