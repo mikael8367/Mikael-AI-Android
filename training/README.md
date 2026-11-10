@@ -16,7 +16,7 @@ Este pipeline treina um Transformer pequeno com pesos inicializados aleatoriamen
 
 **O projeto ainda não inclui um corpus de treinamento.** Não é correto inventar um modelo pronto ou treinar com meia dúzia de frases e chamá-lo de assistente inteligente.
 
-O usuário precisa adicionar um arquivo UTF-8 licenciado, por exemplo training/corpus.txt, com exemplos de português brasileiro, programação, explicações, perguntas e respostas. Inclua apenas conteúdo que possa ser usado legalmente. Não inclua dados pessoais, senhas ou segredos.
+O repositório agora contém training/corpus.txt, um corpus inicial autoral com exemplos simples de português e programação. Ele é apenas um conjunto didático pequeno para validar o primeiro ciclo de treinamento, não um conjunto de dados suficiente para um assistente avançado. Amplie-o com exemplos originais, revisados e legalmente utilizáveis. Nunca inclua dados pessoais, senhas ou segredos.
 
 Para ensinar formato de conversa, organize cada exemplo com separadores textuais consistentes, por exemplo:
 
@@ -27,19 +27,19 @@ Para ensinar formato de conversa, organize cada exemplo com separadores textuais
     Uma variável é um nome associado a um valor...
     <|im_end|>
 
-O motor MKAI v1 prevê bytes, não possui tokens especiais de fim de resposta e ainda não integra o BPE MKTOK. Por isso, o corpus e a avaliação precisam considerar essa limitação. O modelo pode aprender padrões de texto, mas o protótipo pequeno não deve ser considerado equivalente a um assistente moderno.
+O motor MKAI v1 prevê bytes, não possui tokens especiais de fim de resposta e ainda não integra o BPE MKTOK. Por isso, o corpus e a avaliação precisam considerar essa limitação. O modelo aprende padrões de bytes e texto. Com este corpus pequeno, espere respostas simples e experimentais; não espere conhecimento geral ou programação avançada.
 
 ## Como treinar usando somente o celular
 
-1. No GitHub, abra o repositório e a branch feature/github-native-connector.
+1. No GitHub, abra o repositório e selecione a branch fix/ai-runtime-stability.
 2. Crie training/corpus.txt e adicione seu corpus UTF-8 licenciado. O arquivo precisa ter pelo menos 4 KiB e não pode ultrapassar 100 MiB.
 3. Abra a aba Actions do repositório.
 4. Escolha Treinar modelo próprio Mikael AI e toque em Run workflow.
-5. Informe o caminho do corpus e mantenha inicialmente 1200 passos e contexto 512.
+5. Informe o caminho do corpus e mantenha inicialmente 2500 passos e contexto 512.
 6. Quando terminar, baixe o artefato mikael-ai-original-mkai-v1.
 7. Importe o arquivo .mkai pela aba Modelos do aplicativo.
 
-O treinamento ocorre nos runners de CPU do GitHub Actions, não no Galaxy A12. O aparelho executa somente a inferência local.
+O treinamento inicial ocorre nos runners de CPU do GitHub Actions, não no Galaxy A12. O arquivo .mkai exportado deve ser baixado e importado no app; depois disso, a inferência acontece localmente no Android. O app não treina os pesos no telefone nesta etapa.
 
 ## Configuração inicial
 
