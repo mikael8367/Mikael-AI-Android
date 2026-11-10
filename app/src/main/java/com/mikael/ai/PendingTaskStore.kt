@@ -7,7 +7,8 @@ data class PendingAiTask(
     val conversationId: String,
     val prompt: String,
     val modelId: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val githubContext: String = ""
 )
 
 /** Diário durável para oferecer retomada manual após encerramento inesperado do processo. */
@@ -18,7 +19,7 @@ object PendingTaskStore {
     fun save(context: Context, task: PendingAiTask) {
         val json = JSONObject().put("conversationId", task.conversationId)
             .put("prompt", task.prompt.take(24000)).put("modelId", task.modelId)
-            .put("createdAt", task.createdAt)
+            .put("createdAt", task.createdAt).put("githubContext", task.githubContext.take(50000))
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_TASK, json.toString()).commit()) { "Não foi possível salvar a tarefa para recuperação." }
     }
@@ -31,7 +32,7 @@ object PendingTaskStore {
         val prompt = json.optString("prompt")
         val model = json.optString("modelId")
         if (id.isBlank() || prompt.isBlank() || model.isBlank()) null
-        else PendingAiTask(id, prompt, model, json.optLong("createdAt"))
+        else PendingAiTask(id, prompt, model, json.optLong("createdAt"), json.optString("githubContext"))
     }.getOrNull()
 
     fun clear(context: Context) {
