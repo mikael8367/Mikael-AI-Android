@@ -568,7 +568,20 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (pendingTask != null) {
                                 android.widget.Toast.makeText(context, "Retome ou descarte a tarefa interrompida antes de enviar outra mensagem.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
-                                    persistActiveConversation()
+                                val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
+                                    UserMemoryStore.forgetFromUserMessage(context, prompt)
+                                if (memoryChanged) {
+                                    userMemoryItems = UserMemoryStore.load(context)
+                                    userMemoryCount = userMemoryItems.size
+                                }
+                                val proposal = ConnectorRouter.detect(prompt)
+                                input = ""
+                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                persistActiveConversation()
+                                if (proposal != null) {
+                                    connectorProposal = proposal
+                                    connectorError = ""
+                                } else {
                                     launchGeneration(prompt)
                                 }
                             } else if (!activeEngineReady) {
