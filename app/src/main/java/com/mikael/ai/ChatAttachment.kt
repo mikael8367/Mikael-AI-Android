@@ -39,7 +39,7 @@ suspend fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatA
     var remainingAnalysisBytes = MAX_TOTAL_ANALYSIS_BYTES
     val completedFiles = mutableListOf<File>()
     try {
-        uris.map { uri ->
+        return uris.map { uri ->
             coroutineContext.ensureActive()
             val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
             val metadata = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
