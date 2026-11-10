@@ -72,7 +72,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("Justifique discordâncias"))
         assertTrue(prompt.contains("sem raciocínio privado"))
         assertTrue(prompt.contains("Já contribuíram: Mikael AI"))
-        assertTrue(prompt.contains("pendentes: todos"))
+        assertTrue(prompt.contains("Ainda não contribuíram: Qwen 2.5 0.5B"))
     }
 
     @Test
@@ -86,7 +86,7 @@ class TeamConversationCoordinatorTest {
             finalSynthesis = false
         )
         assertTrue(prompt.contains("‹|im_start|›system"))
-        assertEquals(2, Regex("<\\|im_start\\|>").findAll(prompt).count())
+        assertEquals(3, Regex("<\\|im_start\\|>").findAll(prompt).count())
     }
     @Test
     fun compactMikaelPromptKeepsTheOriginalRequestWhenItFits() {
@@ -100,8 +100,8 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt != null)
         assertTrue(prompt!!.contains(original))
         assertTrue(prompt.contains("Qwen 2.5 0.5B"))
-        assertTrue(prompt.contains("Já contribuíram: ninguém"))
-        assertTrue(prompt.contains("Ainda não contribuíram: Qwen 2.5 0.5B"))
+        assertTrue(prompt.contains("Já falaram: ninguém"))
+        assertTrue(prompt.contains("pendentes: todos"))
         assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= 480)
     }
 
