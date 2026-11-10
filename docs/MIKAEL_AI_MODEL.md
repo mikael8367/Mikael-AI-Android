@@ -16,7 +16,7 @@ Treinar um modelo de linguagem próprio, especializado em programação e portug
 - Existe uma primeira implementação C++ própria de inferência Transformer no Android.
 - O motor carrega somente o formato MKAI v1; não depende de llama.cpp nem aceita GGUF.
 - O formato está descrito em [MKAI_FORMAT_V1.md](MKAI_FORMAT_V1.md).
-- Ainda não há pesos treinados nem um arquivo MKAI oficial. Logo, ainda não existe um assistente funcional com qualidade de linguagem.
+- O pipeline de treinamento do zero e o exportador MKAI v1 foram implementados em training/train_mikai.py.\n- Ainda não há corpus de treinamento no repositório nem pesos treinados. Logo, ainda não existe um assistente funcional com qualidade de linguagem.
 
 ## Arquitetura de inferência inicial
 
