@@ -10,7 +10,7 @@ Este pipeline treina um Transformer pequeno com pesos inicializados aleatoriamen
 - Separação de treino e validação, loss, clipping de gradiente e AdamW.
 - Exportação float32 little-endian na ordem exata esperada pelo carregador MKAI v1.
 - Validação de cabeçalho, dimensões, tamanho do arquivo e valores finitos.
-- Workflow GitHub Actions manual, executado em CPU, que publica o arquivo .mkai como artefato. Não compila nem publica APK.
+- Workflow GitHub Actions que treina em CPU, publica o artefato e atualiza uma release com o checkpoint para instalação direta no app. Não compila nem publica APK.
 
 ## O que ainda é necessário antes de obter um modelo útil
 
