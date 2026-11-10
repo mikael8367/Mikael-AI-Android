@@ -94,7 +94,7 @@ class AssistantPromptBuilderTest {
         )
 
         assertTrue(prompt.contains("PERGUNTA ATUAL"))
-        assertTrue(prompt.endsWith("<|im_start|>assistant\\n"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
         assertTrue(!prompt.contains("resposta antiga"))
     }
 
