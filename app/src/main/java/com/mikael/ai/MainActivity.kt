@@ -67,7 +67,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -127,6 +130,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
     var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
     var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var catalogJobs by remember { mutableStateOf<Map<String, Job>>(emptyMap()) }
     var catalogErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var selectedCatalogModelId by remember { mutableStateOf(preferences.selectedCatalogModelId) }
     var llamaReady by remember { mutableStateOf(false) }
@@ -571,7 +575,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onInstall = { model ->
                             catalogErrors = catalogErrors - model.id
                             catalogProgress = catalogProgress + (model.id to 0)
-                            scope.launch {
+                            val job = scope.launch(start = CoroutineStart.LAZY) {
                                 try {
                                     if (model.engine == ModelEngine.MKAI) {
                                         val file = MikaelModelInstaller.install(context, model) { percent ->
@@ -593,14 +597,21 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                             .ifEmpty { mapOf(model.id to file) }
                                         catalogInstalled = catalogInstalled + sharedModels
                                     }
-                                    catalogProgress = catalogProgress - model.id
                                     catalogErrors = catalogErrors - model.id
+                                } catch (error: CancellationException) {
+                                    catalogErrors = catalogErrors + (model.id to "Download cancelado. O arquivo parcial será descartado.")
+                                    throw error
                                 } catch (error: Exception) {
-                                    catalogProgress = catalogProgress - model.id
                                     catalogErrors = catalogErrors + (model.id to (error.message ?: "Falha no download."))
+                                } finally {
+                                    catalogProgress = catalogProgress - model.id
+                                    catalogJobs = catalogJobs - model.id
                                 }
                             }
+                            catalogJobs = catalogJobs + (model.id to job)
+                            job.start()
                         },
+                        onCancelInstall = { model -> catalogJobs[model.id]?.cancel() },
                         onDelete = { model ->
                             scope.launch(Dispatchers.IO) {
                                 val file = catalogInstalled[model.id]
