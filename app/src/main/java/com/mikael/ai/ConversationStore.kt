@@ -25,9 +25,12 @@ object ConversationStore {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encrypted = prefs.getString(KEY_CONVERSATIONS_SECURE, null)
         val legacyRaw = prefs.getString(KEY_CONVERSATIONS, null)
-        val raw = when {
-            !encrypted.isNullOrBlank() -> runCatching { SecureLocalStorage.decrypt(encrypted) }.getOrNull() ?: legacyRaw
-            else -> legacyRaw
+        val decrypted = encrypted?.takeIf { it.isNotBlank() }?.let {
+            runCatching { SecureLocalStorage.decrypt(it) }.getOrNull()
+        }
+        val raw = decrypted ?: legacyRaw
+        if (decrypted != null && legacyRaw != null) {
+            prefs.edit().remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).apply()
         }
         if (raw.isNullOrBlank()) {
             val migrated = migrateLegacy(prefs.getString(LEGACY_KEY_MESSAGES, "[]") ?: "[]")
@@ -38,8 +41,8 @@ object ConversationStore {
             // Encrypt existing history before removing the previous plaintext copy.
             runCatching {
                 val payload = SecureLocalStorage.encrypt(raw)
-                prefs.edit().putString(KEY_CONVERSATIONS_SECURE, payload)
-                    .remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).commit()
+                val stored = prefs.edit().putString(KEY_CONVERSATIONS_SECURE, payload).commit()
+                if (stored) prefs.edit().remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).commit()
             }
         }
         val json = JSONArray(raw)
@@ -95,10 +98,10 @@ object ConversationStore {
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encrypted = SecureLocalStorage.encrypt(json.toString())
-        check(prefs.edit().putString(KEY_CONVERSATIONS_SECURE, encrypted)
-            .remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).commit()) {
+        check(prefs.edit().putString(KEY_CONVERSATIONS_SECURE, encrypted).commit()) {
             "Não foi possível salvar o histórico criptografado."
         }
+        prefs.edit().remove(KEY_CONVERSATIONS).remove(LEGACY_KEY_MESSAGES).commit()
     }
 
     fun clear(context: Context) {
