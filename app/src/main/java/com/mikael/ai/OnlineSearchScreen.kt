@@ -177,6 +177,7 @@ fun OnlineSearchScreen(
                         try {
                             result = OnlineSearchClient.search(context, query)
                         } catch (failure: Exception) {
+                            hasSession = OnlineSearchClient.hasSession(context)
                             error = failure.message ?: "Não foi possível concluir a pesquisa."
                         } finally {
                             isSearching = false
