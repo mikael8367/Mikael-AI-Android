@@ -26,7 +26,7 @@ object ModelCatalog {
             description = "Checkpoint autoral MKAI v1 já publicado. Baixe e instale diretamente no aplicativo; versões futuras podem ser treinadas com corpus próprio."
         ),
         CatalogModel(
-            id = "qwen-0.5b", name = "Qwen 2.5 0.5B Instruct", family = "GGUF • Q4_K_M",
+            id = "qwen-0.5b", name = "Qwen2.5-Coder 0.5B Instruct", family = "GGUF • Q4_K_M",
             engine = ModelEngine.LLAMA_CPP, fileName = "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
             downloadUrl = "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
             approximateBytes = 491_000_000L, license = "Apache-2.0",
