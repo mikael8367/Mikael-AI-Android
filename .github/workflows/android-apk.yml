@@ -75,6 +75,7 @@ jobs:
           unzip -l "$APK" | grep -q "lib/arm64-v8a/libmikael_engine.so"
           sha256sum "$APK"
           ls -lh "$APK"
+          echo "APK verificado: ambas as bibliotecas ARM64 estão presentes."
 
       - name: Upload debug APK
         if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/') && contains(github.event.head_commit.message, '[build-apk-once]'))
