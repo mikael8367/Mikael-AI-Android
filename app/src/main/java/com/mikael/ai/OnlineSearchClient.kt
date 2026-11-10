@@ -72,7 +72,8 @@ object OnlineSearchClient {
                 val title = item.optString("title").ifBlank { item.optString("url") }
                 val url = item.optString("url")
                 val uri = runCatching { Uri.parse(url) }.getOrNull()
-                if (title.isNotBlank() && uri?.scheme in setOf("http", "https") && !uri.host.isNullOrBlank()) {
+                val scheme = uri?.scheme
+                if (title.isNotBlank() && (scheme == "http" || scheme == "https") && !uri?.host.isNullOrBlank()) {
                     add(WebSearchSource(title.take(180), url))
                 }
             }
