@@ -34,6 +34,7 @@ class ModelCatalogTest {
             assertTrue(model.fileName!!.endsWith(".gguf"))
             assertTrue(model.downloadUrl!!.startsWith("https://huggingface.co/"))
             assertTrue(model.approximateBytes > 200_000_000L)
+            if (id == "tinyllama-1.1b") assertTrue(model.minimumRuntimeMemoryBytes >= 3_000_000_000L)
         }
     }
 
