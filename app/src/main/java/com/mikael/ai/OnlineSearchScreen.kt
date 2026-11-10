@@ -206,6 +206,9 @@ fun OnlineSearchScreen(
                         singleLine = true,
                         enabled = !isLoggingIn
                     )
+                    if (error.isNotBlank()) {
+                        Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             },
             confirmButton = {
