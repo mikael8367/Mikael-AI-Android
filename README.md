@@ -29,7 +29,7 @@ Os tamanhos dos GGUF são aproximados e podem mudar conforme a revisão publicad
 - O runtime GGUF usa llama.cpp em CPU ARM64.
 - Antes de carregar, o app consulta a memória disponível do Android e aplica um orçamento configurável.
 - A estimativa de RAM é uma proteção aproximada, não substitui medição de pico no aparelho.
-- O Galaxy A12 é um dispositivo de recursos limitados. Qwen2.5-Coder-0.5B Q4_K_M é a primeira opção a testar para programação; o arquivo tem cerca de 491 MB e o orçamento interno estima aproximadamente 596 MiB para o modelo com contexto de 512 tokens, antes de medição real. Velocidade, temperatura, estabilidade e consumo real ainda precisam ser medidos fisicamente.
+- O Galaxy A12 é um dispositivo de recursos limitados. Qwen2.5-Coder-0.5B Q4_K_M é a primeira opção a testar para programação; o arquivo tem cerca de 491 MB e o orçamento interno estima aproximadamente 698 MiB para o modelo com contexto de 512 tokens, antes de medição real. Velocidade, temperatura, estabilidade e consumo real ainda precisam ser medidos fisicamente.
 - Não declarar compatibilidade prática ou desempenho confirmado sem teste no aparelho.
 
 ## Offline e recursos online
