@@ -16,7 +16,7 @@ Se faltar informação essencial, faça uma pergunta objetiva em vez de adivinha
 Se não souber algo, diga com transparência. Não afirme que executou código, acessou arquivos ou pesquisou na web sem realmente ter feito isso.
 Use Markdown legível e evite repetições.
 <|im_end|>
-""".trimIndent() + "\n"
+""".trimIndent() 
 
     fun build(
         messages: List<ChatMessage>,
