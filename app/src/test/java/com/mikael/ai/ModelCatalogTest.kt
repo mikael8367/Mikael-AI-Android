@@ -16,8 +16,9 @@ class ModelCatalogTest {
     fun mikaelModelUsesOnlyItsOwnEngineAndHasNoThirdPartyDownload() {
         val model = ModelCatalog.models.single { it.id == "mikael-base" }
         assertEquals(ModelEngine.MKAI, model.engine)
-        assertEquals(null, model.downloadUrl)
-        assertTrue(model.description.contains("pesos treinados"))
+        assertTrue(model.downloadUrl!!.startsWith("https://github.com/"))
+        assertEquals("mikael-base.mkai", model.fileName)
+        assertTrue(model.description.contains("checkpoint autoral"))
     }
 
     @Test
