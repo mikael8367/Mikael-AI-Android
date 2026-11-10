@@ -4,6 +4,10 @@ package com.mikael.ai
 object LocalInferenceEngine {
     private val libraryLoaded: Boolean = runCatching { System.loadLibrary("mikael_engine") }.isSuccess
     @Volatile private var ready = false
+    @Volatile private var loadedContextTokens = 0
+
+    /** Contexto efetivo em bytes/tokens do MKAI v1 (um byte por ID). */
+    fun contextCapacityTokens(): Int = if (ready) loadedContextTokens else 0
 
     fun isAvailable(): Boolean = libraryLoaded
 
@@ -14,6 +18,7 @@ object LocalInferenceEngine {
         check(contextTokens in 16..8192) { "O contexto precisa ficar entre 16 e 8192 tokens." }
         val message = nativeLoad(modelPath, contextTokens, Runtime.getRuntime().availableProcessors().coerceIn(1, 4))
         if (message != null) error(message)
+        loadedContextTokens = contextTokens
         ready = true
     }
 
@@ -27,7 +32,7 @@ object LocalInferenceEngine {
     }
 
     fun cancel() { if (libraryLoaded) nativeCancel() }
-    @Synchronized fun unload() { if (libraryLoaded) nativeUnload(); ready = false }
+    @Synchronized fun unload() { if (libraryLoaded) nativeUnload(); ready = false; loadedContextTokens = 0 }
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?
