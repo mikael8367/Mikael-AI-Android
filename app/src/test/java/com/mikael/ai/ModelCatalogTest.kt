@@ -18,7 +18,7 @@ class ModelCatalogTest {
         assertEquals(ModelEngine.MKAI, model.engine)
         assertTrue(model.downloadUrl!!.startsWith("https://github.com/"))
         assertEquals("mikael-base.mkai", model.fileName)
-        assertTrue(model.description.contains("checkpoint autoral"))
+        assertTrue(model.description.contains("Checkpoint autoral"))
     }
 
     @Test
