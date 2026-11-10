@@ -1131,7 +1131,7 @@ private fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         Text("Configurações", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Histórico, memória e tarefas pendentes são criptografados localmente com AES-GCM e uma chave protegida pelo Android Keystore. Se os dados do app ou a chave forem apagados, o conteúdo criptografado poderá ficar inacessível.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+        Text("Configurações, histórico, memória, sessões online e tarefas pendentes são criptografados localmente com AES-GCM e uma chave protegida pelo Android Keystore. Se os dados do app ou a chave forem apagados, o conteúdo criptografado poderá ficar inacessível.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Orçamento de memória", fontWeight = FontWeight.SemiBold)
             Text("Memória disponível agora: ${MemoryBudget.mib(availableBytes)} MiB", color = Color(0xFF9EAAA2))
