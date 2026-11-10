@@ -21,7 +21,7 @@ object ModelCatalog {
             id = "mikael-base", name = "Mikael AI", family = "Modelo autoral • MKAI v1",
             engine = ModelEngine.MKAI, fileName = "mikael-base.mkai",
             downloadUrl = "https://github.com/mikael8367/Mikael-AI-Android/releases/download/mikael-ai-model-v1/mikael-base.mkai",
-            approximateBytes = 591_144L, license = "Modelo autoral experimental",
+            approximateBytes = 591_144L, license = "Licença não declarada",
             sourceUrl = "https://github.com/mikael8367/Mikael-AI-Android/actions/workflows/train-mikael-model.yml",
             description = "Checkpoint autoral MKAI v1 já publicado. Baixe e instale diretamente no aplicativo; versões futuras podem ser treinadas com corpus próprio."
         ),
