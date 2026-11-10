@@ -2,6 +2,9 @@ package com.mikael.ai
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
@@ -35,11 +38,14 @@ object ModelInstaller {
         val checksumBackup = File(directory, "$name.sha256.previous")
         val connection = (URL(address).openConnection() as HttpURLConnection).apply {
             connectTimeout = 20_000
-            readTimeout = 60_000
+            readTimeout = 15_000
             instanceFollowRedirects = true
             requestMethod = "GET"
             setRequestProperty("User-Agent", "MikaelAI-Android")
         }
+
+        val downloadJob = currentCoroutineContext()[Job]
+        downloadJob?.invokeOnCompletion { cause -> if (cause != null) connection.disconnect() }
 
         try {
             connection.connect()
@@ -66,6 +72,7 @@ object ModelInstaller {
                     val buffer = ByteArray(128 * 1024)
                     while (true) {
                         val count = input.read(buffer)
+                        currentCoroutineContext().ensureActive()
                         if (count < 0) break
                         received += count
                         check(received <= MAX_MODEL_BYTES) { "Download excedeu o limite permitido." }
