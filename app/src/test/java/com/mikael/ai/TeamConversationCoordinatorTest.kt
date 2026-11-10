@@ -168,4 +168,41 @@ class TeamConversationCoordinatorTest {
         assertTrue(prompt.contains("Sugestão de TinyLlama 1.1B"))
     }
 
+    @Test
+    fun mikaelOnlyFallbackDoesNotPretendItCanReviewLongSharedHistory() = runBlocking {
+        val result = TeamConversationCoordinator.run(
+            originalPrompt = "Pedido curto",
+            chatContext = "",
+            participants = team,
+            generate = { participant, _, _ ->
+                if (participant.id == "mikael-base") Result.success("Contribuição MKAI")
+                else Result.failure(IllegalStateException("Sem memória suficiente"))
+            }
+        )
+        assertEquals(1, result.participatedCount)
+        assertEquals(4, result.attemptCount)
+        assertTrue(result.finalizationFallback)
+        assertTrue(result.answer == "Contribuição MKAI")
+        assertTrue(result.finalizationError!!.contains("Nenhum modelo GGUF"))
+    }
+
+    @Test
+    fun whenQwenFailsAnotherGgufModelCanPerformFinalSynthesis() = runBlocking {
+        val prompts = mutableListOf<Pair<String, String>>()
+        val result = TeamConversationCoordinator.run(
+            originalPrompt = "Revise esta função",
+            chatContext = "",
+            participants = team,
+            generate = { participant, prompt, _ ->
+                prompts += participant.id to prompt
+                if (participant.id == "qwen-0.5b") Result.failure(IllegalStateException("Falha Qwen"))
+                else Result.success("Contribuição de ${participant.name}")
+            }
+        )
+        assertTrue(result.finalizer == "TinyLlama 1.1B")
+        assertTrue(prompts.last().second.contains("HISTÓRICO COMPARTILHADO"))
+        assertTrue(prompts.last().second.contains("Contribuição de SmolLM2 360M"))
+        assertTrue(!result.finalizationFallback)
+    }
+
 }
