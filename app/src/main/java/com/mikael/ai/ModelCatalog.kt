@@ -27,11 +27,11 @@ object ModelCatalog {
         ),
         CatalogModel(
             id = "qwen-0.5b", name = "Qwen 2.5 0.5B Instruct", family = "GGUF • Q4_K_M",
-            engine = ModelEngine.LLAMA_CPP, fileName = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
-            downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
-            approximateBytes = 400_000_000L, license = "Apache-2.0",
-            sourceUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
-            description = "Modelo multilíngue de 0,49B parâmetros. Opção inicial recomendada para português neste aparelho; Q4_K_M requer cerca de 400 MB de download. Desempenho ainda precisa ser medido no celular."
+            engine = ModelEngine.LLAMA_CPP, fileName = "qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+            downloadUrl = "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF/resolve/main/qwen2.5-coder-0.5b-instruct-q4_k_m.gguf",
+            approximateBytes = 491_000_000L, license = "Apache-2.0",
+            sourceUrl = "https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF",
+            description = "Modelo especializado em geração, raciocínio e correção de código; 0,49B parâmetros. Q4_K_M requer cerca de 491 MB. A documentação marca foco em inglês; qualidade de instruções em português e velocidade ainda precisam ser medidas no celular."
         ),
         CatalogModel(
             id = "smollm2-360m", name = "SmolLM2 360M Instruct", family = "GGUF • Q4_K_M",
