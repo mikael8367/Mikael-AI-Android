@@ -131,7 +131,7 @@ internal object TeamConversationCoordinator {
         val spoken = contributions.map { it.participant.id }.toSet()
         val remaining = participants.filterNot { it.id in spoken }
         val roleInstruction = if (finalSynthesis) {
-            "Etapa final: consolide tudo em uma resposta natural. Resolva divergências por evidências; não invente verificações nem revele raciocínio privado."
+            "Etapa final: revise criticamente as quatro contribuições, corrija erros e resolva divergências por evidências. Entregue uma resposta natural única; não invente verificações nem revele raciocínio privado."
         } else {
             "Contribua brevemente. Pode responder, contestar, pedir verificação ou corrigir outro modelo. Justifique discordâncias e proponha alternativa; sem raciocínio privado."
         }
@@ -139,11 +139,11 @@ internal object TeamConversationCoordinator {
             "Nenhum modelo contribuiu ainda."
         } else {
             contributions.joinToString("\n\n") {
-                "[${it.participant.name}]\n${safe(it.text, 150)}"
+                "[${it.participant.name}]\n${safe(it.text, 100)}"
             }
         }
         val failureText = if (failures.isEmpty()) "Nenhuma falha registrada."
-            else failures.entries.take(4).joinToString("\n") { "${it.key}: ${safe(it.value, 50)}" }
+            else failures.entries.take(4).joinToString("\n") { "${it.key}: ${safe(it.value, 40)}" }
         val participantText = participants.joinToString(", ") { it.name }
         val spokenText = contributions.joinToString(", ") { it.participant.name }.ifBlank { "ninguém ainda" }
         val remainingText = remaining.joinToString(", ") { it.name }.ifBlank { "nenhum" }
@@ -158,9 +158,9 @@ internal object TeamConversationCoordinator {
             append("\n<|im_end|>\n")
             append("<|im_start|>user\n")
             append("PEDIDO ORIGINAL DO USUÁRIO:\n")
-            append(safe(originalPrompt, MAX_ORIGINAL_PROMPT_BYTES))
+            append(safeOriginal(originalPrompt))
             append("\n\nCONTEXTO NECESSÁRIO DO CHAT:\n")
-            append(safe(chatContext, 180).ifBlank { "Sem contexto adicional." })
+            append(safe(chatContext, 120).ifBlank { "Sem contexto adicional." })
             append("\n\nMODELOS PARTICIPANTES:\n")
             append(participantText)
             append("\nJá contribuíram: ")
@@ -189,13 +189,18 @@ internal object TeamConversationCoordinator {
     ): String? {
         val prefix = "<|im_start|>system\nMikael AI: PT-BR; contribuição breve e objetiva; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
         val teamNames = participants.filterNot { it.id == "mikael-base" }.joinToString(", ") { it.name }
-        val teamLine = "Equipe: $teamNames.\nPedido original: "
+        val teamLine = "Equipe: $teamNames. Já contribuíram: ninguém; você fala primeiro.\nPedido original: "
         val contextLine = "\nContexto: "
         val closing = "\nContribua agora.\n<|im_end|>\n<|im_start|>assistant\n"
-        val compact = prefix + teamLine + safe(originalPrompt, Int.MAX_VALUE) +
+        val compact = prefix + teamLine + safeOriginal(originalPrompt) +
             (if (chatContext.isBlank()) "" else contextLine + safe(chatContext, 24)) + closing
         return compact.takeIf { it.toByteArray(Charsets.UTF_8).size <= maxPromptBytes }
     }
+
+    private fun safeOriginal(value: String): String = value
+        .replace("<|im_start|>", "‹|im_start|›")
+        .replace("<|im_end|>", "‹|im_end|›")
+        .replace(Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]"), " ")
 
     private fun safe(value: String, maxBytes: Int): String {
         val sanitized = value
