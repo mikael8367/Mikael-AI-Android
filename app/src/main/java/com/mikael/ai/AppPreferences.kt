@@ -12,7 +12,7 @@ class AppPreferences(context: Context) {
     var selectedCatalogModelId: String
         get() = prefs.getString("selected_catalog_model_id", "mikael-base") ?: "mikael-base"
         set(value) {
-            if (value in setOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")) {
+            if (value in setOf("mikael-base", "mikael-assistant", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")) {
                 prefs.edit().putString("selected_catalog_model_id", value).apply()
             }
         }
