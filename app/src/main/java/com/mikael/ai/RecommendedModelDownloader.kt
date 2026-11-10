@@ -108,6 +108,9 @@ object RecommendedModelDownloader {
                 return destination
             } catch (error: Exception) {
                 partial.delete()
+                // Also remove a just-renamed file if cancellation or a callback
+                // failure occurs immediately after the atomic rename.
+                destination.delete()
                 throw error
             } finally {
                 connection.disconnect()
