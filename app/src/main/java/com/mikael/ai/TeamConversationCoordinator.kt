@@ -92,8 +92,23 @@ internal object TeamConversationCoordinator {
         check(contributions.isNotEmpty()) { "Nenhum dos quatro modelos conseguiu gerar uma contribuição. ${failures.values.firstOrNull().orEmpty()}" }
 
         val finalizer = contributions.firstOrNull { it.participant.id == "qwen-0.5b" }?.participant
-            ?: contributions.last().participant
-        onStage("Consolidação final • ${finalizer.name}")
+            ?: contributions.lastOrNull { it.participant.id != "mikael-base" }?.participant
+
+        if (finalizer == null) {
+            val onlyContribution = contributions.last()
+            onStage("Síntese final indisponível • usando a contribuição de ${onlyContribution.participant.name}")
+            return TeamRunResult(
+                answer = onlyContribution.text,
+                contributions = contributions.toList(),
+                failedParticipants = failures.toMap(),
+                finalizer = onlyContribution.participant.name,
+                attemptCount = participants.size,
+                finalizationFallback = true,
+                finalizationError = "Nenhum modelo GGUF conseguiu executar a etapa de revisão e síntese."
+            )
+        }
+
+        onStage("Revisão e consolidação final • ${finalizer.name}")
         val finalPrompt = buildPrompt(
             originalPrompt = originalPrompt,
             chatContext = chatContext,
