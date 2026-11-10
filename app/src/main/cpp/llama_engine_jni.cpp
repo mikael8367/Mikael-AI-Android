@@ -15,6 +15,7 @@ llama_model * gModel = nullptr;
 llama_context * gContext = nullptr;
 llama_sampler * gSampler = nullptr;
 uint32_t gContextSize = 0;
+std::string gModelPath;
 bool gBackendReady = false;
 
 std::string fromJava(JNIEnv * env, jstring value) {
@@ -94,9 +95,47 @@ jstring throwError(JNIEnv * env, const std::string & message) {
     if (cls) { env->ThrowNew(cls, message.c_str()); env->DeleteLocalRef(cls); }
     return nullptr;
 }
+std::string applyTinyLlamaTemplate(
+    const std::vector<std::string> & roles,
+    const std::vector<std::string> & contents
+) {
+    std::string output;
+    std::string system;
+    for (size_t i = 0; i < roles.size(); ++i) {
+        if (roles[i] == "system") {
+            if (!system.empty()) system += "\n";
+            system += contents[i];
+        }
+    }
+    if (!system.empty()) output += "<|system|>\n" + system + "</s>\n";
+    for (size_t i = 0; i < roles.size(); ++i) {
+        const std::string & role = roles[i];
+        if (role == "system") continue;
+        if (role != "user" && role != "assistant") continue;
+        output += role == "user" ? "<|user|>\n" : "<|assistant|>\n";
+        output += contents[i];
+        output += "</s>\n";
+    }
+    output += "<|assistant|>\n";
+    return output;
+}
+
+std::string applyFallbackChatML(
+    const std::vector<std::string> & roles,
+    const std::vector<std::string> & contents
+) {
+    std::string output;
+    for (size_t i = 0; i < roles.size(); ++i) {
+        const std::string & role = roles[i];
+        if (role != "system" && role != "user" && role != "assistant") continue;
+        output += "<|im_start|>" + role + "\n" + contents[i] + "<|im_end|>\n";
+    }
+    output += "<|im_start|>assistant\n";
+    return output;
+}
+
 std::string applyModelChatTemplate(const llama_model * model, const std::string & prompt) {
     const char * templateText = llama_model_chat_template(model, nullptr);
-    if (!templateText) return prompt;
     const std::string start = "<|im_start|>";
     const std::string end = "<|im_end|>";
     std::vector<std::string> roles;
@@ -107,31 +146,52 @@ std::string applyModelChatTemplate(const llama_model * model, const std::string 
         const size_t roleEnd = prompt.find('\n', cursor);
         if (roleEnd == std::string::npos) break;
         const size_t contentEnd = prompt.find(end, roleEnd + 1);
-        if (contentEnd == std::string::npos) break; // Ignore the unfinished assistant prefix.
+        if (contentEnd == std::string::npos) break;
         roles.emplace_back(prompt.substr(cursor, roleEnd - cursor));
         contents.emplace_back(prompt.substr(roleEnd + 1, contentEnd - roleEnd - 1));
         cursor = contentEnd + end.size();
     }
-    if (roles.empty()) return prompt;
-    std::vector<llama_chat_message> messages;
-    messages.reserve(roles.size());
-    for (size_t i = 0; i < roles.size(); ++i) {
-        messages.push_back({roles[i].c_str(), contents[i].c_str()});
+
+    // Revisões internas também precisam receber o template do modelo: texto simples
+    // vira uma mensagem user, em vez de ser tokenizado sem estrutura de conversa.
+    if (roles.empty()) {
+        roles.emplace_back("user");
+        contents.emplace_back(prompt);
     }
-    std::vector<char> formatted(std::max<size_t>(4096, prompt.size() * 4 + 1024));
-    const int32_t needed = llama_chat_apply_template(
-        templateText, messages.data(), messages.size(), true, formatted.data(),
-        static_cast<int32_t>(formatted.size()));
-    if (needed <= 0) return prompt;
-    if (static_cast<size_t>(needed) > formatted.size()) {
-        formatted.resize(static_cast<size_t>(needed) + 1);
-        const int32_t retry = llama_chat_apply_template(
+
+    if (templateText) {
+        std::vector<llama_chat_message> messages;
+        messages.reserve(roles.size());
+        for (size_t i = 0; i < roles.size(); ++i) {
+            messages.push_back({roles[i].c_str(), contents[i].c_str()});
+        }
+        std::vector<char> formatted(std::max<size_t>(4096, prompt.size() * 4 + 1024));
+        const int32_t needed = llama_chat_apply_template(
             templateText, messages.data(), messages.size(), true, formatted.data(),
             static_cast<int32_t>(formatted.size()));
-        if (retry <= 0 || static_cast<size_t>(retry) > formatted.size()) return prompt;
-        return std::string(formatted.data(), static_cast<size_t>(retry));
+        if (needed > 0) {
+            if (static_cast<size_t>(needed) <= formatted.size()) {
+                return std::string(formatted.data(), static_cast<size_t>(needed));
+            }
+            formatted.resize(static_cast<size_t>(needed) + 1);
+            const int32_t retry = llama_chat_apply_template(
+                templateText, messages.data(), messages.size(), true, formatted.data(),
+                static_cast<int32_t>(formatted.size()));
+            if (retry > 0 && static_cast<size_t>(retry) <= formatted.size()) {
+                return std::string(formatted.data(), static_cast<size_t>(retry));
+            }
+        }
     }
-    return std::string(formatted.data(), static_cast<size_t>(needed));
+
+    // Alguns GGUF antigos não incluem tokenizer.chat_template. TinyLlama Chat
+    // exige os marcadores próprios; não deve receber ChatML cru.
+    std::string modelPath = gModelPath;
+    std::transform(modelPath.begin(), modelPath.end(), modelPath.begin(),
+        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    if (modelPath.find("tinyllama") != std::string::npos) {
+        return applyTinyLlamaTemplate(roles, contents);
+    }
+    return applyFallbackChatML(roles, contents);
 }
 
 void unloadLocked() {
@@ -139,6 +199,7 @@ void unloadLocked() {
     if (gContext) { llama_free(gContext); gContext = nullptr; }
     if (gModel) { llama_model_free(gModel); gModel = nullptr; }
     gContextSize = 0;
+    gModelPath.clear();
 }
 }
 
@@ -158,6 +219,7 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeLoad(JNIEnv * env, jobject, jstrin
         modelParams.n_gpu_layers = 0;
         modelParams.use_extra_bufts = false;
         modelParams.check_tensors = true;
+        gModelPath = file;
         gModel = llama_model_load_from_file(file.c_str(), modelParams);
         if (!gModel) return toJava(env, "Não foi possível carregar o GGUF. Verifique o arquivo e a memória disponível.");
 
@@ -216,7 +278,7 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeGenerate(JNIEnv * env, jobject, js
         llama_sampler_accept(gSampler, next);
         llama_token token = next;
         llama_batch nextBatch = llama_batch_get_one(&token, 1);
-        if (llama_decode(gContext, nextBatch) != 0) break;
+        if (llama_decode(gContext, nextBatch) != 0) return throwError(env, "Falha ao decodificar o próximo token no llama.cpp.");
     }
     if (gCancel.load()) return throwError(env, "Geração cancelada pelo usuário.");
     return toJava(env, output);
