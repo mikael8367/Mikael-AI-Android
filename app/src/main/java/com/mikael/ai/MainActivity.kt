@@ -318,6 +318,10 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             logEvent("WARN", "Toque: interromper geração")
                             generationJob?.cancel()
                             LocalInferenceEngine.cancel()
+                            if (generating) {
+                                messages.add(ChatMessage(nextMessageId(), "assistant", "Geração interrompida pelo usuário."))
+                                ConversationStore.save(context, messages)
+                            }
                         },
                         onOpenModels = { logEvent("INFO", "Toque: abrir modelos"); tab = AppTab.MODELS },
                         onReloadModel = { logEvent("INFO", "Toque: tentar carregar modelo novamente"); if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
