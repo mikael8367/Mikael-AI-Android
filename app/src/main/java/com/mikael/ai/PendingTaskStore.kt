@@ -41,7 +41,7 @@ object PendingTaskStore {
         val raw = decrypted ?: legacyRaw
         if (raw.isNullOrBlank()) return@runCatching null
         if (decrypted != null && legacyRaw != null) prefs.edit().remove(KEY_TASK).apply()
-        if (encrypted.isNullOrBlank() && legacyRaw != null) {
+        if (decrypted == null && legacyRaw != null) {
             runCatching {
                 val payload = SecureLocalStorage.encrypt(legacyRaw)
                 val stored = prefs.edit().putString(KEY_TASK_SECURE, payload).commit()
