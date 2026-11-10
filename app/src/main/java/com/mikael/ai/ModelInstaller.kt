@@ -65,8 +65,15 @@ object ModelInstaller {
                 input.read(bytes) == 4 && bytes.toString(Charsets.US_ASCII) == "GGUF"
             }
             check(magic) { "Arquivo inválido: cabeçalho GGUF não encontrado." }
-            if (destination.exists()) check(destination.delete()) { "Não foi possível substituir o modelo antigo." }
-            check(temporary.renameTo(destination)) { "Não foi possível finalizar a instalação." }
+            val backup = File(directory, "$name.previous")
+            if (backup.exists()) check(backup.delete()) { "Não foi possível limpar o backup antigo." }
+            val hadPrevious = destination.exists()
+            if (hadPrevious) check(destination.renameTo(backup)) { "Não foi possível preservar a instalação anterior." }
+            if (!temporary.renameTo(destination)) {
+                if (hadPrevious) backup.renameTo(destination)
+                error("Não foi possível finalizar a instalação.")
+            }
+            if (hadPrevious) backup.delete()
             onProgress(100)
             destination
         } catch (error: Exception) {
