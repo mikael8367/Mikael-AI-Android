@@ -51,13 +51,11 @@ jobs:
       - name: Run Android lint
         run: gradle :app:lintDebug
 
-      # Feature branches run tests and lint only; APKs are reserved for main.
+      # Build an installable debug APK on the development branch after tests and lint pass.
       - name: Build debug APK
-        if: github.ref == 'refs/heads/main'
         run: gradle :app:assembleDebug
 
       - name: Upload debug APK
-        if: github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: mikael-ai-android-debug
