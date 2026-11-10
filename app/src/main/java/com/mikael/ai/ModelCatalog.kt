@@ -13,7 +13,8 @@ data class CatalogModel(
     val license: String,
     val sourceUrl: String,
     val description: String,
-    val expectedSha256: String? = null
+    val expectedSha256: String? = null,
+    val minimumRuntimeMemoryBytes: Long = 0L
 )
 
 /** Catálogo local. Pesos são baixados somente após confirmação explícita do usuário. */
@@ -69,7 +70,8 @@ object ModelCatalog {
             approximateBytes = 622_000_000L,
             license = "Apache-2.0",
             sourceUrl = "https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF",
-            description = "Modelo conversacional de 1,1 bilhão de parâmetros. É o participante mais pesado; o app verifica a memória disponível antes de carregá-lo."
+            description = "Modelo conversacional de 1,1 bilhão de parâmetros. É o participante mais pesado; a referência Q4_K_M indica até ~3,17 GB de RAM em certas condições, então o app pode recusá-lo no Galaxy A12.",
+            minimumRuntimeMemoryBytes = 3_000_000_000L
         )
     )
 
