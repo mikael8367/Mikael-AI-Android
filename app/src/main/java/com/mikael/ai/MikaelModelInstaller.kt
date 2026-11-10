@@ -140,6 +140,20 @@ object MikaelModelInstaller {
         validateHeader(header, file.length())
     }.getOrDefault(false)
 
+    suspend fun verifyInstalledFile(file: File): Boolean = withContext(Dispatchers.IO) {
+        if (!isValidMkai(file)) return@withContext false
+        val checksum = File(file.parentFile, "${file.name}.sha256")
+        if (!checksum.exists()) {
+            // Migra modelos importados por versões antigas que ainda não guardavam checksum.
+            return@withContext runCatching {
+                checksum.writeText(ModelIntegrity.sha256(file))
+                true
+            }.getOrDefault(false)
+        }
+        val expected = runCatching { checksum.readText().trim() }.getOrNull() ?: return@withContext false
+        ModelIntegrity.matches(file, expected)
+    }
+
     internal fun validateHeader(header: ByteArray, fileSize: Long): Boolean {
         if (header.size != HEADER_BYTES.toInt() || fileSize !in HEADER_BYTES..MAX_MODEL_BYTES) return false
         val magic = "MKAI0001".toByteArray(Charsets.US_ASCII)
