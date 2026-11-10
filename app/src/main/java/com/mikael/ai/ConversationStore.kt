@@ -37,7 +37,7 @@ object ConversationStore {
             if (migrated.isNotEmpty()) saveAll(context, migrated)
             return@runCatching migrated
         }
-        if (encrypted.isNullOrBlank()) {
+        if (decrypted == null && !raw.isNullOrBlank()) {
             // Encrypt existing history before removing the previous plaintext copy.
             runCatching {
                 val payload = SecureLocalStorage.encrypt(raw)
