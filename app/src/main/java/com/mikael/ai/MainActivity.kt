@@ -198,7 +198,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
         engineStatus = "Carregando modelo..."
         val loadResult = withContext(Dispatchers.IO) {
-            LocalInferenceEngine.load(file.absolutePath, contextTokens)
+            LocalInferenceEngine.load(file.absolutePath, effectiveMkaiContext)
         }
         loadResult.fold(
             onSuccess = {
