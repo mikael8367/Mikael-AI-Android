@@ -82,6 +82,23 @@ class AssistantPromptBuilderTest {
     }
 
     @Test
+    fun oversizedPreviousTurnIsOmittedInsteadOfCuttingChatMlMarkers() {
+        val prompt = AssistantPromptBuilder.build(
+            AssistantMode.GENERAL,
+            listOf(
+                "user" to "pergunta antiga ".repeat(100),
+                "assistant" to "resposta antiga ".repeat(100),
+                "user" to "PERGUNTA ATUAL"
+            ),
+            contextTokens = 512
+        )
+
+        assertTrue(prompt.contains("PERGUNTA ATUAL"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\\n"))
+        assertTrue(!prompt.contains("resposta antiga"))
+    }
+
+    @Test
     fun latestUserMessageIsPreservedWhenHistoryIsTooLarge() {
         val prompt = AssistantPromptBuilder.build(
             AssistantMode.DEEP_AUDIT,
