@@ -259,7 +259,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         append("<|im_start|>assistant\n")
                                     }
                                     val result = withContext(Dispatchers.IO) {
-                                        LocalInferenceEngine.generate(conversationPrompt, 256)
+                                        AnswerRevision.generate(
+                                            originalRequest = prompt,
+                                            conversationPrompt = conversationPrompt,
+                                            contextCapacityBytes = LocalInferenceEngine.contextCapacityTokens(),
+                                            maxAnswerTokens = 256
+                                        ) { candidatePrompt, tokenLimit ->
+                                            LocalInferenceEngine.generate(candidatePrompt, tokenLimit)
+                                        }
                                     }
                                     result.fold(
                                         onSuccess = { answer ->
