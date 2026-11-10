@@ -55,7 +55,7 @@ bool loadModel(const std::string& path, uint32_t requestedContext, std::string& 
     if(!in) { error="Não foi possível abrir o arquivo MKAI."; return false; }
     char magic[8]{}; uint32_t h[8]{};
     in.read(magic,8); in.read(reinterpret_cast<char*>(h),sizeof(h));
-    if(!in || std::memcmp(magic,kMagic,8)!=0 || h[0]!=kVersion) {
+    if(!in || std::memcmp(magic,kMagic,8)!=0 || h[0]!=kVersion || h[7]!=0) {
         error="Formato inválido. O motor próprio aceita somente MKAI0001, não GGUF."; return false;
     }
     const uint32_t dim=h[1], layers=h[2], heads=h[3], ffn=h[4], vocab=h[5], maxSeq=h[6];
@@ -63,6 +63,16 @@ bool loadModel(const std::string& path, uint32_t requestedContext, std::string& 
        dim%heads!=0 || ffn<dim || ffn>4096 || vocab!=kVocab || maxSeq<16 || maxSeq>8192) {
         error="Configuração do modelo MKAI fora dos limites seguros."; return false;
     }
+    const uint64_t d=dim, f=ffn, s=maxSeq, l=layers, v=vocab;
+    const uint64_t totalFloats = v*d + s*d + l*(2*d + 4*d*d + 3*f*d) + d + v*d;
+    if(totalFloats>60000000ULL) { error="Este modelo excede o limite de memória seguro do motor Android."; return false; }
+    in.seekg(0,std::ios::end);
+    const auto fileSize=in.tellg();
+    const uint64_t expectedBytes=40ULL+totalFloats*sizeof(float);
+    if(fileSize<0 || static_cast<uint64_t>(fileSize)!=expectedBytes) {
+        error="O tamanho do arquivo não corresponde às dimensões declaradas no cabeçalho MKAI."; return false;
+    }
+    in.seekg(40,std::ios::beg);
     Model candidate; candidate.dim=dim; candidate.layers=layers; candidate.heads=heads;
     candidate.ffn=ffn; candidate.maxSeq=maxSeq;
     if(!readFloats(in,candidate.tokenEmb,static_cast<size_t>(vocab)*dim) ||
@@ -181,7 +191,7 @@ jstring utf8ToJava(JNIEnv* env,const std::string& value) {
         i+=count;
     }
     if(out.size()>static_cast<size_t>(std::numeric_limits<jsize>::max())) return nullptr;
-    return env->NewString(out.data(),static_cast<jsize>(out.size()));
+    static const jchar emptyText[] = {0};\n    return env->NewString(out.empty() ? emptyText : out.data(),static_cast<jsize>(out.size()));
 }
 jstring error(JNIEnv* env,const std::string& s){return env->NewStringUTF(s.c_str());}
 }
