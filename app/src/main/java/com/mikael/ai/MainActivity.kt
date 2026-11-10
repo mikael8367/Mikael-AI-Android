@@ -79,10 +79,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
 import java.io.File
 
 private val messageIds = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() * 1000L)
 private fun nextMessageId(): Long = messageIds.incrementAndGet()
+
+private suspend fun <T> withModelOperation(block: suspend () -> T): T {
+    ConversationSession.modelOperationMutex.lock()
+    try {
+        return block()
+    } finally {
+        ConversationSession.modelOperationMutex.unlock()
+    }
+}
 
 /**
  * Process-scoped chat state keeps an in-flight native generation alive when
@@ -92,6 +102,7 @@ private object ConversationSession {
     val messages = mutableStateListOf<ChatMessage>()
     val generating = mutableStateOf(false)
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    val modelOperationMutex = Mutex()
     var generationJob: Job? = null
     @Volatile var activeGenerationId: Long = 0L
     @Volatile var generationStreamingFinished: Boolean = true
@@ -231,56 +242,66 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         }
     }
 
+    var modelOperationId by remember { mutableStateOf(0L) }
     LaunchedEffect(modelPath, memoryLimit, contextTokens, reloadKey) {
         val path = modelPath
-        if (!path.isNullOrBlank() && LocalInferenceEngine.isReadyFor(path, contextTokens)) {
-            engineReady = true
-            engineStatus = "Modelo pronto • inferência 100% local"
-            return@LaunchedEffect
-        }
-        engineReady = false
-        LocalInferenceEngine.cancel()
-        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
-        if (path.isNullOrBlank()) {
-            engineStatus = "Nenhum modelo selecionado. Importe um GGUF ou baixe o modelo recomendado."
-            logEvent("WARN", "Motor local aguardando seleção de modelo")
-            return@LaunchedEffect
-        }
-        val file = File(path)
-        if (!file.isFile || file.length() <= 0L) {
-            engineStatus = "O arquivo selecionado não existe mais. Importe ou selecione outro modelo."
-            logEvent("ERROR", "Arquivo GGUF selecionado não foi encontrado")
-            return@LaunchedEffect
-        }
-        val check = MemoryBudget.check(
-            availableBytes = MemoryBudget.availableBytes(activityManager),
-            selectedLimitMiB = memoryLimit,
-            modelBytes = file.length(),
-            contextTokens = contextTokens
-        )
-        if (!check.allowed) {
-            engineStatus = check.reason ?: "Memória insuficiente para carregar o modelo."
-            logEvent("WARN", "Carregamento cancelado pelo orçamento de memória")
-            return@LaunchedEffect
-        }
-        engineStatus = "Carregando modelo GGUF no aparelho..."
-        logEvent("INFO", "Iniciando carregamento do modelo local")
-        val result = withContext(Dispatchers.IO) {
-            LocalInferenceEngine.load(file.absolutePath, contextTokens)
-        }
-        result.fold(
-            onSuccess = {
-                engineReady = true
-                engineStatus = "Modelo pronto • inferência 100% local"
-                logEvent("INFO", "Modelo carregado e pronto para uso")
-            },
-            onFailure = {
+        val operationId = modelOperationId + 1L
+        modelOperationId = operationId
+        busy = true
+        try {
+            withModelOperation {
+                if (!path.isNullOrBlank() && LocalInferenceEngine.isReadyFor(path, contextTokens)) {
+                    engineReady = true
+                    engineStatus = "Modelo pronto • inferência 100% local"
+                    return@withModelOperation
+                }
                 engineReady = false
-                engineStatus = it.message ?: "Falha ao carregar o modelo."
-                AppLogStore.addThrowable(context, "Falha ao carregar modelo", it)
-                logEvent("ERROR", "Falha ao carregar modelo: ${it.message ?: "erro desconhecido"}")
+                LocalInferenceEngine.cancel()
+                withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                if (path.isNullOrBlank()) {
+                    engineStatus = "Nenhum modelo selecionado. Importe um GGUF ou baixe o modelo recomendado."
+                    logEvent("WARN", "Motor local aguardando seleção de modelo")
+                    return@withModelOperation
+                }
+                val file = File(path)
+                if (!file.isFile || file.length() <= 0L) {
+                    engineStatus = "O arquivo selecionado não existe mais. Importe ou selecione outro modelo."
+                    logEvent("ERROR", "Arquivo GGUF selecionado não foi encontrado")
+                    return@withModelOperation
+                }
+                val check = MemoryBudget.check(
+                    availableBytes = MemoryBudget.availableBytes(activityManager),
+                    selectedLimitMiB = memoryLimit,
+                    modelBytes = file.length(),
+                    contextTokens = contextTokens
+                )
+                if (!check.allowed) {
+                    engineStatus = check.reason ?: "Memória insuficiente para carregar o modelo."
+                    logEvent("WARN", "Carregamento cancelado pelo orçamento de memória")
+                    return@withModelOperation
+                }
+                engineStatus = "Carregando modelo GGUF no aparelho..."
+                logEvent("INFO", "Iniciando carregamento do modelo local")
+                val result = withContext(Dispatchers.IO) {
+                    LocalInferenceEngine.load(file.absolutePath, contextTokens)
+                }
+                result.fold(
+                    onSuccess = {
+                        engineReady = true
+                        engineStatus = "Modelo pronto • inferência 100% local"
+                        logEvent("INFO", "Modelo carregado e pronto para uso")
+                    },
+                    onFailure = {
+                        engineReady = false
+                        engineStatus = it.message ?: "Falha ao carregar o modelo."
+                        AppLogStore.addThrowable(context, "Falha ao carregar modelo", it)
+                        logEvent("ERROR", "Falha ao carregar modelo: ${it.message ?: "erro desconhecido"}")
+                    }
+                )
             }
-        )
+        } finally {
+            if (modelOperationId == operationId) busy = false
+        }
     }
 
     Scaffold(
