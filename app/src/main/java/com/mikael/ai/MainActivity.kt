@@ -668,6 +668,65 @@ private fun ChatScreen(
 }
 
 @Composable
+private fun ConversationHistoryScreen(
+    conversations: List<ChatConversation>,
+    activeConversationId: String,
+    onNewConversation: () -> Unit,
+    onOpenConversation: (ChatConversation) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Conversas", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Seu histórico salvo neste aparelho", color = Color(0xFF9EAAA2))
+            }
+            Button(onClick = onNewConversation) { Text("+ Nova") }
+        }
+        if (conversations.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Text("Suas conversas aparecerão aqui depois da primeira mensagem.", color = Color(0xFF9EAAA2), textAlign = TextAlign.Center)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                items(conversations, key = { it.id }) { conversation ->
+                    Card(
+                        onClick = { onOpenConversation(conversation) },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (conversation.id == activeConversationId) Color(0xFF1B3829) else Color(0xFF151D19)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(conversation.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                            Text(
+                                conversation.messages.lastOrNull()?.text.orEmpty().take(100),
+                                color = Color(0xFF9EAAA2),
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 2
+                            )
+                            Text(
+                                "${conversation.messages.size} mensagens",
+                                color = Color(0xFF8BE7B7),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun MessageBubble(message: ChatMessage) {
     val fromUser = message.role == "user"
     Row(
