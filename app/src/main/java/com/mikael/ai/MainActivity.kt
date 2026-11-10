@@ -713,6 +713,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         onUserMemoryEnabledChange = { enabled ->
                             UserMemoryStore.setEnabled(context, enabled)
                             userMemoryEnabled = enabled
+                            if (!enabled) autoLearningEnabled = false
                         },
                         onAutoLearningEnabledChange = { enabled ->
                             UserMemoryStore.setAutoLearningEnabled(context, enabled)
