@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -1113,6 +1114,7 @@ private fun SettingsScreen(
     var storageRefresh by remember { mutableStateOf(0) }
     var showCacheConfirmation by remember { mutableStateOf(false) }
     var showHistoryConfirmation by remember { mutableStateOf(false) }
+    var showLicenseDialog by remember { mutableStateOf(false) }
     var storageMessage by remember { mutableStateOf("") }
     val modelStorageBytes = remember(storageRefresh) { StorageManager.installedModelBytes(context) }
     val cacheBytes = remember(storageRefresh) { StorageManager.cacheBytes(context) }
@@ -1223,6 +1225,9 @@ private fun SettingsScreen(
             }
         }
         HorizontalDivider(color = Color(0xFF26332B))
+        OutlinedButton(onClick = { showLicenseDialog = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("Ver licenças de terceiros")
+        }
         OutlinedButton(onClick = { showHistoryConfirmation = true }, enabled = !storageBusy, modifier = Modifier.fillMaxWidth()) {
             Text("Apagar histórico local")
         }
@@ -1259,6 +1264,23 @@ private fun SettingsScreen(
                 }) { Text("Apagar histórico") }
             },
             dismissButton = { TextButton(onClick = { showHistoryConfirmation = false }) { Text("Cancelar") } }
+        )
+    }
+    if (showLicenseDialog) {
+        val notices = remember {
+            runCatching {
+                context.assets.open("licenses/THIRD_PARTY_NOTICES.txt").bufferedReader().use { it.readText() }
+            }.getOrDefault("Avisos de licença não disponíveis neste pacote.")
+        }
+        AlertDialog(
+            onDismissRequest = { showLicenseDialog = false },
+            title = { Text("Licenças de terceiros") },
+            text = {
+                Column(Modifier.heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                    Text(notices, style = MaterialTheme.typography.bodySmall)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showLicenseDialog = false }) { Text("Fechar") } }
         )
     }
 }
