@@ -2,13 +2,13 @@ name: Testar pipeline de treinamento Mikael AI
 
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "fix/**"]
     paths:
       - "training/**"
       - ".github/workflows/train-mikael-model.yml"
       - ".github/workflows/test-training.yml"
   pull_request:
-    branches: [main]
+    branches: [main, "fix/**"]
     paths:
       - "training/**"
       - ".github/workflows/train-mikael-model.yml"
