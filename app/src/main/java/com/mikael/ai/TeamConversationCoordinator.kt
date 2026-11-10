@@ -55,7 +55,7 @@ internal object TeamConversationCoordinator {
         require(originalPrompt.toByteArray(Charsets.UTF_8).size <= MAX_ORIGINAL_PROMPT_BYTES) {
             "A mensagem excede 3.000 bytes. Divida o pedido em mensagens menores para usar a equipe local."
         }
-        require(participants.size == 4) { "A equipe precisa ter exatamente quatro participantes." }
+        require(participants.size in 2..4) { "A equipe precisa do Mikael AI e de pelo menos um modelo GGUF instalado." }
         require(participants.map { it.id }.distinct().size == participants.size) {
             "Há participantes duplicados na equipe."
         }
