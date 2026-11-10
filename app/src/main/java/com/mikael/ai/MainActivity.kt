@@ -318,10 +318,6 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             logEvent("WARN", "Toque: interromper geração")
                             generationJob?.cancel()
                             LocalInferenceEngine.cancel()
-                            if (generating) {
-                                messages.add(ChatMessage(nextMessageId(), "assistant", "Geração interrompida pelo usuário."))
-                                ConversationStore.save(context, messages)
-                            }
                         },
                         onOpenModels = { logEvent("INFO", "Toque: abrir modelos"); tab = AppTab.MODELS },
                         onReloadModel = { logEvent("INFO", "Toque: tentar carregar modelo novamente"); if (!generating && !busy && !downloading && modelPath != null) { engineReady = false; reloadKey++ } },
@@ -395,12 +391,24 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
                                         logEvent("INFO", "Geração local concluída em ${elapsedMs} ms (${response.length} caracteres)")
                                     } catch (cancelled: CancellationException) {
+                                        val assistantIndex = messages.indexOfFirst { it.id == assistantMessageId }
+                                        if (assistantIndex >= 0) {
+                                            val current = messages[assistantIndex]
+                                            val suffix = "Geração interrompida pelo usuário."
+                                            messages[assistantIndex] = current.copy(
+                                                text = if (current.text.isBlank()) suffix else current.text + "\n\n" + suffix
+                                            )
+                                            ConversationStore.save(context, messages)
+                                        }
                                         throw cancelled
                                     } catch (error: Exception) {
-                                        messages.add(ChatMessage(
-                                            nextMessageId(), "assistant",
-                                            "Erro no motor local: ${error.message ?: "não foi possível gerar a resposta."}"
-                                        ))
+                                        val assistantIndex = messages.indexOfFirst { it.id == assistantMessageId }
+                                        val errorText = "Erro no motor local: ${error.message ?: "não foi possível gerar a resposta."}"
+                                        if (assistantIndex >= 0) {
+                                            messages[assistantIndex] = messages[assistantIndex].copy(text = errorText)
+                                        } else {
+                                            messages.add(ChatMessage(assistantMessageId, "assistant", errorText))
+                                        }
                                         ConversationStore.save(context, messages)
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
                                         AppLogStore.addThrowable(context, "Falha na geração local após ${elapsedMs} ms", error)
