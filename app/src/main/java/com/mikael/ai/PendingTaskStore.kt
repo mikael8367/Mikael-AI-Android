@@ -8,7 +8,8 @@ data class PendingAiTask(
     val prompt: String,
     val modelId: String,
     val createdAt: Long,
-    val githubContext: String = ""
+    val githubContext: String = "",
+    val completedResponse: String? = null
 )
 
 /** Diário durável para oferecer retomada manual após encerramento inesperado do processo. */
@@ -20,6 +21,7 @@ object PendingTaskStore {
         val json = JSONObject().put("conversationId", task.conversationId)
             .put("prompt", task.prompt.take(24000)).put("modelId", task.modelId)
             .put("createdAt", task.createdAt).put("githubContext", task.githubContext.take(50000))
+            .put("completedResponse", task.completedResponse)
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY_TASK, json.toString()).commit()) { "Não foi possível salvar a tarefa para recuperação." }
     }
@@ -32,8 +34,14 @@ object PendingTaskStore {
         val prompt = json.optString("prompt")
         val model = json.optString("modelId")
         if (id.isBlank() || prompt.isBlank() || model.isBlank()) null
-        else PendingAiTask(id, prompt, model, json.optLong("createdAt"), json.optString("githubContext"))
+        else PendingAiTask(id, prompt, model, json.optLong("createdAt"), json.optString("githubContext"), json.optString("completedResponse").takeIf { it.isNotBlank() })
     }.getOrNull()
+
+    /** Grava a resposta antes de alterar o histórico para permitir recuperação idempotente. */
+    fun complete(context: Context, response: String) {
+        val task = load(context) ?: return
+        save(context, task.copy(completedResponse = response.take(24000)))
+    }
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_TASK).commit()
