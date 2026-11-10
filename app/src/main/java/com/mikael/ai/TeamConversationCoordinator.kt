@@ -26,7 +26,7 @@ data class TeamRunResult(
 /**
  * Executa uma rodada sequencial com transcript cumulativo e uma chamada final de síntese.
  * Cada chamada recebe a solicitação original, contexto do chat e todas as contribuições
- * que já foram produzidas. No máximo quatro contribuições + uma síntese (cinco chamadas).
+ * que já foram produzidas. No máximo quatro tentativas de contribuição + uma tentativa de síntese.
  */
 internal object TeamConversationCoordinator {
     const val CONTRIBUTION_TOKENS = 48
