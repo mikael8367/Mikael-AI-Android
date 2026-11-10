@@ -1,0 +1,60 @@
+name: Verify Mikael AI engine fixes
+
+on:
+  push:
+    branches: [fix/engine-stability-and-performance]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android NDK and CMake
+        run: |
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest
+
+      - name: Run Android lint
+        run: gradle :app:lintDebug
+
+      - name: Compile Kotlin
+        run: gradle :app:compileDebugKotlin
+
+      - name: Compile native ARM64 engine (no APK packaging)
+        run: gradle :app:externalNativeBuildDebug
+
+      - name: Verify debug native optimization flags
+        run: |
+          find app/.cxx -name compile_commands.json -print -exec grep -H -- '-O2' {} \; | tee native-flags.txt
+          grep -q -- '-O2' native-flags.txt
+          if grep -q -- '-O0' native-flags.txt; then
+            echo "Unexpected -O0 found in native compile commands"
+            exit 1
+          fi
