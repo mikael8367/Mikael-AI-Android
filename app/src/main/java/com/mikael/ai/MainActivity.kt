@@ -76,6 +76,7 @@ import java.io.File
 
 private enum class AppTab(val title: String, val symbol: String) {
     CHAT("Chat", "◉"),
+    SEARCH("Pesquisa", "⌕"),
     MODELS("Modelos", "▤"),
     GITHUB("GitHub", "◈"),
     SETTINGS("Configurações", "⚙")
@@ -552,6 +553,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 android.widget.Toast.makeText(context, activeEngineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
+                    )
+                    AppTab.SEARCH -> OnlineSearchScreen(
+                        enabled = allowOnlineFeatures,
+                        onOpenSettings = { tab = AppTab.SETTINGS }
                     )
                     AppTab.MODELS -> ModelCatalogScreen(
                         installed = catalogInstalled,
