@@ -247,12 +247,14 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeLoad(JNIEnv * env, jobject, jstrin
     std::lock_guard<std::mutex> lock(gMutex);
     gCancel.store(true);
     unloadLocked();
+    // A new load starts with a clean cancellation state. Any cancellation
+    // arriving after this point remains set and is observed by the progress callback.
+    gCancel.store(false);
     try {
         const std::string file = fromJava(env, path);
         if (file.empty() || file.size() > 4096) return toJava(env, "Caminho do GGUF inválido.");
         if (requestedContext < 128 || requestedContext > 2048) return toJava(env, "Contexto GGUF fora do limite seguro (128–2048).");
         if (!gBackendReady) { llama_backend_init(); gBackendReady = true; }
-        gCancel.store(false);
 
         llama_model_params modelParams = llama_model_default_params();
         modelParams.n_gpu_layers = 0;
