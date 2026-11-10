@@ -699,6 +699,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         memoryLimit = memoryLimit,
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
+                        storageBusy = isGenerating || catalogJobs.isNotEmpty(),
                         onMemoryChange = {
                             memoryLimit = it
                             preferences.memoryLimitMiB = it
