@@ -28,6 +28,12 @@ Treinar um modelo de linguagem próprio, especializado em programação e portug
 
 Esta é uma base experimental. Ainda faltam integrar MKTOK ao formato MKAI v2, treinar o vocabulário com um corpus licenciado e treinar os pesos com esse mesmo vocabulário, além de RoPE, cache KV, quantização, amostragem avançada e otimizações específicas para ARM64.
 
+## Revisão autônoma de respostas
+
+O app agora possui um controlador local de rascunho, autocrítica e correção condicional. O modelo pode manter o rascunho ou pedir uma única revisão quando identificar um problema concreto. Essa etapa é invisível na interface e usa o mesmo motor local. Consulte [ANSWER_REVISION.md](ANSWER_REVISION.md).
+
+A lógica e os testes estão implementados, mas a capacidade de identificar erros depende do treinamento dos pesos. Como ainda não há pesos próprios treinados, a revisão inteligente não pode ser considerada validada em uso real.
+
 ## Pipeline de treinamento que falta
 
 1. Definir configuração pequena compatível com memória real de Android.
