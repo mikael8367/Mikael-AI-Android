@@ -196,6 +196,11 @@ jstring utf8ToJava(JNIEnv* env,const std::string& value) {
     return env->NewString(out.empty() ? emptyText : out.data(),static_cast<jsize>(out.size()));
 }
 jstring error(JNIEnv* env,const std::string& s){return env->NewStringUTF(s.c_str());}
+jstring generationError(JNIEnv* env,const std::string& s){
+    jclass exceptionClass=env->FindClass("java/lang/IllegalStateException");
+    if(exceptionClass){ env->ThrowNew(exceptionClass,s.c_str()); env->DeleteLocalRef(exceptionClass); }
+    return nullptr;
+}
 }
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(JNIEnv* env,jobject,jstring path,jint context,jint) {
@@ -207,23 +212,23 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeLoad(JNIEnv* env,jobject,jstring p
 }
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstring prompt,jint maxTokens) {
-    if(!prompt) return error(env,"Digite uma mensagem.");
+    if(!prompt) return generationError(env,"Digite uma mensagem.");
     const std::string input=jstringToUtf8(env,prompt);
-    if(input.empty() || input.size()>24000) return error(env,"Texto vazio ou muito longo.");
+    if(input.empty() || input.size()>24000) return generationError(env,"Texto vazio ou muito longo.");
     std::lock_guard<std::mutex> lock(gMutex);
-    if(!gModel.loaded) return error(env,"Nenhum modelo MKAI próprio está carregado.");
+    if(!gModel.loaded) return generationError(env,"Nenhum modelo MKAI próprio está carregado.");
     std::vector<uint8_t> tokens(input.begin(),input.end());
-    if(tokens.size()>=gModel.activeContext) return error(env,"O prompt ultrapassa o contexto do modelo.");
+    if(tokens.size()>=gModel.activeContext) return generationError(env,"O prompt ultrapassa o contexto do modelo.");
     std::string output; std::vector<float> logits(kVocab);
     const int limit=std::clamp(maxTokens,1,512);
     gCancel.store(false);
     for(int i=0;i<limit && tokens.size()<gModel.activeContext && !gCancel.load();++i) {
         if(!forward(tokens,logits)) {
             if(gCancel.load()) break;
-            return error(env,"Falha numérica durante a inferência Transformer.");
+            return generationError(env,"Falha numérica durante a inferência Transformer.");
         }
         const auto it=std::max_element(logits.begin(),logits.end());
-        if(it==logits.end() || !std::isfinite(*it)) return error(env,"O modelo produziu logits inválidos.");
+        if(it==logits.end() || !std::isfinite(*it)) return generationError(env,"O modelo produziu logits inválidos.");
         const uint8_t next=static_cast<uint8_t>(std::distance(logits.begin(),it));
         tokens.push_back(next); output.push_back(static_cast<char>(next));
         constexpr size_t stopLength=sizeof(kStopSequence)-1;
@@ -233,7 +238,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
             break;
         }
     }
-    if(gCancel.load()) return error(env,"Geração cancelada pelo usuário.");
+    if(gCancel.load()) return generationError(env,"Geração cancelada pelo usuário.");
     return utf8ToJava(env,output);
 }
 extern "C" JNIEXPORT jint JNICALL
