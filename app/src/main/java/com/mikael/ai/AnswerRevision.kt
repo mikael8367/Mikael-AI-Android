@@ -51,7 +51,7 @@ internal object AnswerRevision {
 
     internal fun shouldRevise(review: String): Boolean {
         val firstLine = review.lineSequence().firstOrNull()?.trim().orEmpty()
-            .removePrefix("﻿")
+            .removePrefix("\uFEFF")
             .removePrefix("**")
             .trim()
         return Regex("^REVISAR(?:\\b|\\s*[:：-])", RegexOption.IGNORE_CASE)
