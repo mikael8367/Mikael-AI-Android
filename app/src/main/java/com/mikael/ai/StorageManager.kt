@@ -30,13 +30,14 @@ object StorageManager {
     fun cacheAndTemporaryBytes(context: Context): Long =
         cacheBytes(context) + temporaryBytes(context)
 
-    /** Removes only cache and interrupted installer artifacts; installed model files are preserved. */
+    /** Removes cache and orphaned .part downloads; installed models and .previous recovery backups are preserved. */
     fun clearCacheAndTemporaryFiles(context: Context): Boolean {
         val cacheCleared = context.cacheDir.deleteRecursively() || !context.cacheDir.exists()
         val codeCacheCleared = context.codeCacheDir.deleteRecursively() || !context.codeCacheDir.exists()
         val models = File(context.filesDir, "models")
+        // .previous files are recovery backups, not cache; never delete them here.
         val temporaryCleared = models.listFiles()?.filter {
-            it.isFile && (it.name.endsWith(".part", true) || it.name.endsWith(".previous", true))
+            it.isFile && it.name.endsWith(".part", true)
         }?.all { it.delete() || !it.exists() } ?: true
         return cacheCleared && codeCacheCleared && temporaryCleared
     }
