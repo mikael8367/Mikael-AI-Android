@@ -1516,7 +1516,7 @@ private fun SettingsScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(1536, 2048).forEach { value ->
+                listOf(1536, 2048, 3072).forEach { value ->
                     FilterChip(
                         selected = memoryLimit == value,
                         onClick = { onMemoryChange(value) },
