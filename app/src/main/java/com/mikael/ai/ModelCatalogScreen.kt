@@ -124,7 +124,7 @@ fun ModelCatalogScreen(
                             OutlinedButton(
                                 onClick = { onSelect(model) },
                                 modifier = Modifier.fillMaxWidth(),
-                                enabled = selectedModelId != model.id
+                                enabled = selectedModelId != model.id && !busy
                             ) {
                                 Text(if (selectedModelId == model.id) "Mikael AI selecionado" else "Usar Mikael AI")
                             }
@@ -138,6 +138,7 @@ fun ModelCatalogScreen(
                         if (percent != null) {
                             LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
                             Text("Baixando: $percent%", color = Color(0xFF8BE7B7))
+                            OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.fillMaxWidth()) { Text("Cancelar download") }
                         }
                         errors[model.id]?.let {
                             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
