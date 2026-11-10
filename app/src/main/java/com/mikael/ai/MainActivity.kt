@@ -132,6 +132,7 @@ class MainActivity : ComponentActivity() {
             // The OS reclaims native memory when it terminates the process; users
             // can explicitly unload the model from the Models tab.
             LocalInferenceEngine.cancel()
+            RecommendedModelDownloader.cancel()
         }
         super.onDestroy()
     }
