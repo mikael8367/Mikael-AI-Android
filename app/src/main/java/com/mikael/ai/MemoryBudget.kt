@@ -12,8 +12,13 @@ data class MemoryCheck(
 
 object MemoryBudget {
     private const val MIB = 1024L * 1024L
-    private const val SYSTEM_RESERVE_MIB = 640L
-    private const val ENGINE_OVERHEAD_MIB = 192L
+    // availMem já representa memória que o Android considera recuperável para apps.
+    // Uma reserva menor evita zerar o orçamento em aparelhos de 3–4 GiB.
+    private const val SYSTEM_RESERVE_MIB = 192L
+    private const val ENGINE_OVERHEAD_MIB = 64L
+    private const val MODEL_MARGIN_PERCENT = 12L
+    private const val CONTEXT_BYTES_PER_TOKEN = 16L * 1024L
+
     val allowedLimitsMiB = listOf(512, 768, 1024, 1536, 2048)
 
     fun availableBytes(manager: ActivityManager): Long {
@@ -31,9 +36,9 @@ object MemoryBudget {
     }
 
     fun estimateRequiredBytes(modelBytes: Long, contextTokens: Int): Long? {
-        if (modelBytes <= 0L || contextTokens !in 256..8192) return null
-        val modelMargin = modelBytes / 4L
-        val contextEstimate = contextTokens.toLong() * 64L * 1024L
+        if (modelBytes <= 0L || contextTokens !in 16..8192) return null
+        val modelMargin = (modelBytes / 100L) * MODEL_MARGIN_PERCENT
+        val contextEstimate = contextTokens.toLong() * CONTEXT_BYTES_PER_TOKEN
         val overhead = ENGINE_OVERHEAD_MIB * MIB
         if (modelBytes > Long.MAX_VALUE - modelMargin) return null
         val withMargin = modelBytes + modelMargin
@@ -43,18 +48,20 @@ object MemoryBudget {
         return withContext + overhead
     }
 
-    fun check(availableBytes: Long, selectedLimitMiB: Int, modelBytes: Long, contextTokens: Int): MemoryCheck {
+    fun check(
+        availableBytes: Long,
+        selectedLimitMiB: Int,
+        modelBytes: Long,
+        contextTokens: Int
+    ): MemoryCheck {
         val budget = safeBudgetBytes(availableBytes, selectedLimitMiB)
         val estimate = estimateRequiredBytes(modelBytes, contextTokens)
             ?: return MemoryCheck(false, availableBytes, budget, 0L, "Arquivo ou contexto inválido.")
         val allowed = budget > 0L && estimate <= budget
-        return MemoryCheck(
-            allowed = allowed,
-            availableBytes = availableBytes,
-            safeBudgetBytes = budget,
-            estimatedBytes = estimate,
-            reason = if (allowed) null else "A estimativa do modelo ultrapassa o orçamento seguro disponível. Tente um modelo MKAI menor ou reduza o contexto."
-        )
+        val reason = if (allowed) null else
+            "Memória estimada: ${mib(estimate)} MiB. Orçamento seguro: ${mib(budget)} MiB. " +
+                "Feche outros aplicativos ou escolha um modelo menor. A mensagem enviada não altera esta estimativa."
+        return MemoryCheck(allowed, availableBytes, budget, estimate, reason)
     }
 
     fun mib(bytes: Long): Long = bytes / MIB
