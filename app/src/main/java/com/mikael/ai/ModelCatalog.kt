@@ -1,6 +1,6 @@
 package com.mikael.ai
 
-enum class ModelEngine { LLAMA_CPP }
+enum class ModelEngine { MKAI, LLAMA_CPP }
 
 data class CatalogModel(
     val id: String,
