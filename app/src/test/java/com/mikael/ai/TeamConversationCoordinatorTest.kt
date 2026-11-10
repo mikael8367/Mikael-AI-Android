@@ -55,7 +55,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(result.failedParticipants.containsKey("SmolLM2 360M"))
         assertTrue(!result.allParticipated)
         assertTrue(result.answer.isNotBlank())
-        assertEquals(4, result.callCount)
+        assertEquals(5, result.callCount)
     }
 
     @Test
