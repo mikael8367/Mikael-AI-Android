@@ -70,6 +70,7 @@ object MikaelModelInstaller {
             }
 
             var received = 0L
+            var lastProgress = -1
             connection.inputStream.use { input ->
                 temporary.outputStream().buffered().use { output ->
                     val buffer = ByteArray(128 * 1024)
@@ -81,7 +82,11 @@ object MikaelModelInstaller {
                         check(received <= MAX_MODEL_BYTES) { "Download do MKAI excedeu o limite permitido." }
                         output.write(buffer, 0, count)
                         if (expectedLength > 0L) {
-                            onProgress(((received * 100L) / expectedLength).toInt().coerceIn(0, 99))
+                            val percent = ((received * 100L) / expectedLength).toInt().coerceIn(0, 99)
+                            if (percent != lastProgress) {
+                                lastProgress = percent
+                                withContext(Dispatchers.Main.immediate) { onProgress(percent) }
+                            }
                         }
                     }
                 }
@@ -122,7 +127,7 @@ object MikaelModelInstaller {
             }
             backup.delete()
             checksumBackup.delete()
-            onProgress(100)
+            withContext(Dispatchers.Main.immediate) { onProgress(100) }
             destination
         } catch (error: Exception) {
             temporary.delete()
