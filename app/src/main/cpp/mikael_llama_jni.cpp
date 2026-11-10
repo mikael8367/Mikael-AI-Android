@@ -300,9 +300,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(
             std::max(32, static_cast<int32_t>(g_context_size / 4)));
     const int32_t promptLimit = std::max(1, static_cast<int32_t>(g_context_size) - outputReserve);
     if (tokenCount > promptLimit) {
-        const int32_t removeCount = tokenCount - promptLimit;
-        tokens.erase(tokens.begin(), tokens.begin() + removeCount);
-        tokenCount = promptLimit;
+        return errorString(
+                env,
+                "E_CONTEXT_PROMPT_TOO_LONG",
+                "O histórico excede o contexto disponível. Reduza o histórico ou aumente o contexto nas Configurações."
+        );
     }
     if (tokenCount <= 0) {
         return errorString(env, "E_CONTEXT_TRUNCATED_EMPTY", "A mensagem ficou vazia após ajustar o contexto. Envie uma mensagem menor.");
