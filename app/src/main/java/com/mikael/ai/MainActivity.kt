@@ -354,6 +354,8 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                 }
                                 messages.add(ChatMessage(nextMessageId(), "user", completePrompt))
                                 attachments = emptyList()
+                                val assistantMessageId = nextMessageId()
+                                messages.add(ChatMessage(assistantMessageId, "assistant", ""))
                                 ConversationStore.save(context, messages)
                                 generating = true
                                 val selectedMode = mode
@@ -371,12 +373,23 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                                             "Inferência local iniciada (modo ${selectedMode.label}; limite $tokenLimit tokens; contexto $contextTokens)"
                                         )
                                         val response = withContext(Dispatchers.IO) {
-                                            LocalInferenceEngine.generate(conversationPrompt, tokenLimit).getOrThrow()
+                                            LocalInferenceEngine.generate(conversationPrompt, tokenLimit) { piece ->
+                                                scope.launch(Dispatchers.Main.immediate) {
+                                                    val index = messages.indexOfFirst { it.id == assistantMessageId }
+                                                    if (index >= 0) {
+                                                        val current = messages[index]
+                                                        messages[index] = current.copy(text = current.text + piece)
+                                                    }
+                                                }
+                                            }.getOrThrow()
                                         }
-                                        if (response.isNotBlank()) {
-                                            messages.add(ChatMessage(nextMessageId(), "assistant", response.trim()))
-                                        } else {
-                                            messages.add(ChatMessage(nextMessageId(), "assistant", "O modelo terminou a geração sem produzir texto. Tente novamente ou reduza o contexto nas Configurações."))
+                                        val assistantIndex = messages.indexOfFirst { it.id == assistantMessageId }
+                                        if (assistantIndex >= 0) {
+                                            messages[assistantIndex] = messages[assistantIndex].copy(
+                                                text = response.trim().ifBlank {
+                                                    "O modelo terminou a geração sem produzir texto. Tente novamente ou reduza o contexto nas Configurações."
+                                                }
+                                            )
                                         }
                                         ConversationStore.save(context, messages)
                                         val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
@@ -580,7 +593,7 @@ private fun OfflineChatScreen(
     onSend: () -> Unit
 ) {
     val listState = rememberLazyListState()
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.size, messages.lastOrNull()?.text?.length) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().imePadding()) {
