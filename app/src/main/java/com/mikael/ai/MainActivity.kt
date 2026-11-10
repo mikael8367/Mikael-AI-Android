@@ -114,6 +114,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
     var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var catalogErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var selectedCatalogModelId by remember { mutableStateOf(preferences.selectedCatalogModelId) }
+    var llamaReady by remember { mutableStateOf(false) }
+    var llamaStatus by remember { mutableStateOf("Selecione um modelo GGUF instalado.") }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
@@ -130,9 +133,15 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 try {
                     val copiedPath = withContext(Dispatchers.IO) { copyModelToPrivateStorage(context, uri) }
                     LocalInferenceEngine.cancel()
-                    withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+                    LlamaInferenceEngine.cancel()
+                    withContext(Dispatchers.IO) {
+                        LocalInferenceEngine.unload()
+                        LlamaInferenceEngine.unload()
+                    }
                     preferences.modelPath = copiedPath
                     modelPath = copiedPath
+                    selectedCatalogModelId = "mikael-base"
+                    preferences.selectedCatalogModelId = "mikael-base"
                     installedModels = listInstalledModels(context)
                     tab = AppTab.MODELS
                     engineStatus = "Modelo importado. Verificando memória..."
@@ -143,8 +152,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
     }
 
-    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter) {
+    LaunchedEffect(modelPath, memoryLimit, contextTokens, modelReloadCounter, selectedCatalogModelId) {
         engineReady = false
+        if (selectedCatalogModelId != "mikael-base") {
+            LocalInferenceEngine.cancel()
+            withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+            return@LaunchedEffect
+        }
         if (modelPath.isNullOrBlank()) {
             engineStatus = "Importe um modelo autoral .mkai para começar."
             return@LaunchedEffect
@@ -182,6 +196,41 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         )
     }
 
+    LaunchedEffect(selectedCatalogModelId, catalogInstalled[selectedCatalogModelId], contextTokens) {
+        llamaReady = false
+        if (selectedCatalogModelId == "mikael-base") {
+            LlamaInferenceEngine.cancel()
+            withContext(Dispatchers.IO) { LlamaInferenceEngine.unload() }
+            return@LaunchedEffect
+        }
+        val file = catalogInstalled[selectedCatalogModelId]
+        if (file == null || !file.isFile || file.length() < 1024L) {
+            llamaStatus = "Instale este modelo no catálogo antes de selecioná-lo."
+            return@LaunchedEffect
+        }
+        LlamaInferenceEngine.cancel()
+        withContext(Dispatchers.IO) { LlamaInferenceEngine.unload() }
+        LocalInferenceEngine.cancel()
+        withContext(Dispatchers.IO) { LocalInferenceEngine.unload() }
+        llamaStatus = "Carregando GGUF no llama.cpp..."
+        val result = withContext(Dispatchers.IO) {
+            LlamaInferenceEngine.load(file.absolutePath, contextTokens.coerceIn(128, 2048))
+        }
+        result.fold(
+            onSuccess = {
+                llamaReady = true
+                llamaStatus = "Modelo GGUF pronto • contexto ${LlamaInferenceEngine.contextCapacityTokens()}"
+            },
+            onFailure = {
+                llamaReady = false
+                llamaStatus = it.message ?: "Falha ao carregar o modelo GGUF."
+            }
+        )
+    }
+
+    val activeEngineReady = if (selectedCatalogModelId == "mikael-base") engineReady else llamaReady
+    val activeEngineStatus = if (selectedCatalogModelId == "mikael-base") engineStatus else llamaStatus
+
     Scaffold(
         bottomBar = {
             NavigationBar(containerColor = Color(0xFF101713)) {
@@ -218,8 +267,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
                 Spacer(Modifier.weight(1f))
                 Text(
-                    if (engineReady) "● LOCAL" else "○ OFFLINE",
-                    color = if (engineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
+                    if (activeEngineReady) "● LOCAL" else "○ OFFLINE",
+                    color = if (activeEngineReady) Color(0xFF54E69C) else Color(0xFFB8C6BD),
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -235,31 +284,43 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
-                        engineReady = engineReady,
-                        engineStatus = engineStatus,
+                        engineReady = activeEngineReady,
+                        engineStatus = activeEngineStatus,
                         isGenerating = isGenerating,
-                        onCancel = { LocalInferenceEngine.cancel() },
+                        onCancel = {
+                            if (selectedCatalogModelId == "mikael-base") LocalInferenceEngine.cancel()
+                            else LlamaInferenceEngine.cancel()
+                        },
                         onSend = {
                             val prompt = input.trim()
-                            if (prompt.isNotEmpty() && engineReady && !isGenerating) {
+                            if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
                                 input = ""
                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 ConversationStore.save(context, messages)
                                 isGenerating = true
                                 scope.launch {
+                                    val activeContext = if (selectedCatalogModelId == "mikael-base") {
+                                        LocalInferenceEngine.contextCapacityTokens()
+                                    } else {
+                                        LlamaInferenceEngine.contextCapacityTokens()
+                                    }
                                     val conversationPrompt = ConversationPrompt.build(
                                         messages = messages.toList(),
                                         githubContext = githubContext,
-                                        contextCapacityBytes = LocalInferenceEngine.contextCapacityTokens()
+                                        contextCapacityBytes = activeContext
                                     )
                                     val result = withContext(Dispatchers.IO) {
                                         AnswerRevision.generate(
                                             originalRequest = prompt,
                                             conversationPrompt = conversationPrompt,
-                                            contextCapacityBytes = LocalInferenceEngine.contextCapacityTokens(),
+                                            contextCapacityBytes = activeContext,
                                             maxAnswerTokens = 256
                                         ) { candidatePrompt, tokenLimit ->
-                                            LocalInferenceEngine.generate(candidatePrompt, tokenLimit)
+                                            if (selectedCatalogModelId == "mikael-base") {
+                                                LocalInferenceEngine.generate(candidatePrompt, tokenLimit)
+                                            } else {
+                                                LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
+                                            }
                                         }
                                     }
                                     result.fold(
@@ -278,8 +339,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     )
                                     isGenerating = false
                                 }
-                            } else if (!engineReady) {
-                                android.widget.Toast.makeText(context, engineStatus, android.widget.Toast.LENGTH_SHORT).show()
+                            } else if (!activeEngineReady) {
+                                android.widget.Toast.makeText(context, activeEngineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
                         }
                     )
@@ -287,6 +348,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         installed = catalogInstalled,
                         progress = catalogProgress,
                         errors = catalogErrors,
+                        selectedModelId = selectedCatalogModelId,
+                        mikaelAvailable = !modelPath.isNullOrBlank() && File(modelPath!!).isFile,
+                        onSelect = { model ->
+                            selectedCatalogModelId = model.id
+                            preferences.selectedCatalogModelId = model.id
+                            tab = AppTab.CHAT
+                        },
                         onImportMkai = { modelPicker.launch(arrayOf("application/octet-stream")) },
                         onInstall = { model ->
                             catalogErrors = catalogErrors - model.id
@@ -311,6 +379,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 if (file != null) file.delete()
                                 withContext(Dispatchers.Main) {
                                     catalogInstalled = catalogInstalled - model.id
+                                    if (selectedCatalogModelId == model.id) {
+                                        selectedCatalogModelId = "mikael-base"
+                                        preferences.selectedCatalogModelId = "mikael-base"
+                                    }
                                 }
                             }
                         }
