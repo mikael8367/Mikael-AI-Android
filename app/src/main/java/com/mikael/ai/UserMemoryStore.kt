@@ -149,7 +149,7 @@ object UserMemoryStore {
         }
         val raw = decrypted ?: legacyRaw
         if (decrypted != null && prefs.contains(KEY_ITEMS)) prefs.edit().remove(KEY_ITEMS).apply()
-        if (encrypted.isNullOrBlank() && prefs.contains(KEY_ITEMS)) {
+        if (decrypted == null && prefs.contains(KEY_ITEMS)) {
             runCatching {
                 val payload = SecureLocalStorage.encrypt(raw)
                 val stored = prefs.edit().putString(KEY_ITEMS_SECURE, payload).commit()
