@@ -30,6 +30,9 @@ fun ModelCatalogScreen(
     installed: Map<String, File>,
     progress: Map<String, Int>,
     errors: Map<String, String>,
+    selectedModelId: String,
+    mikaelAvailable: Boolean,
+    onSelect: (CatalogModel) -> Unit,
     onInstall: (CatalogModel) -> Unit,
     onImportMkai: () -> Unit,
     onDelete: (CatalogModel) -> Unit
@@ -42,7 +45,7 @@ fun ModelCatalogScreen(
             Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                 Text("Catálogo de modelos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text("Quatro modelos • downloads no armazenamento privado do app", color = Color(0xFF9EAAA2))
-                Text("Os modelos GGUF podem ser baixados e armazenados. Para conversar com eles, a integração do runtime llama.cpp ainda precisa ser concluída.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                Text("Mikael AI usa o motor autoral; os três modelos GGUF usam llama.cpp local.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
             }
         }
         items(ModelCatalog.models, key = { it.id }) { model ->
@@ -65,6 +68,13 @@ fun ModelCatalogScreen(
                     if (model.engine == ModelEngine.MKAI) {
                         Text("Estado: aguardando corpus e pesos próprios. Nenhum peso de terceiros será usado no Mikael AI.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                         Button(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) { Text("Importar modelo Mikael (.mkai)") }
+                        if (mikaelAvailable) {
+                            OutlinedButton(
+                                onClick = { onSelect(model) },
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = selectedModelId != model.id
+                            ) { Text(if (selectedModelId == model.id) "Selecionado" else "Usar Mikael AI") }
+                        }
                     } else {
                         Text("Tamanho aproximado: ${model.approximateBytes / 1_000_000} MB • Q4_K_M", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
                         if (percent != null) {
@@ -74,6 +84,11 @@ fun ModelCatalogScreen(
                         errors[model.id]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (file != null) {
+                                Button(
+                                    onClick = { onSelect(model) },
+                                    enabled = selectedModelId != model.id,
+                                    modifier = Modifier.weight(1f)
+                                ) { Text(if (selectedModelId == model.id) "Selecionado" else "Usar modelo") }
                                 OutlinedButton(onClick = { onDelete(model) }, modifier = Modifier.weight(1f)) { Text("Desinstalar") }
                             } else {
                                 Button(onClick = { onInstall(model) }, enabled = percent == null, modifier = Modifier.weight(1f)) {
@@ -88,7 +103,7 @@ fun ModelCatalogScreen(
         }
         item {
             Spacer(Modifier.size(8.dp))
-            Text("Os downloads exigem conexão e espaço livre. A instalação valida o cabeçalho GGUF e o tamanho recebido; ela não ativa o modelo no chat.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            Text("Os modelos selecionados são executados localmente. Contextos maiores aumentam o consumo de RAM; comece com 512 tokens em aparelhos com pouca memória.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         }
     }
 }
