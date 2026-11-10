@@ -62,7 +62,7 @@ fun ModelCatalogScreen(
                 modifier = Modifier.padding(vertical = 8.dp)
             ) {
                 Text("Modelos disponíveis", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Mikael AI autoral e três modelos GGUF opcionais.", color = Color(0xFF9EAAA2))
+                Text("Qwen2.5-Coder é o único modelo de conversa do Mikael AI.", color = Color(0xFF9EAAA2))
                 Text(
                     "Instale um modelo e toque em Usar modelo. O carregamento acontece automaticamente.",
                     color = Color(0xFF9EAAA2),
@@ -181,7 +181,7 @@ fun ModelCatalogScreen(
         item {
             Spacer(Modifier.size(8.dp))
             Text(
-                "Os modelos GGUF de terceiros são opcionais. O Mikael AI autoral usa o formato MKAI próprio.",
+                "O Mikael AI mantém seu nome e sua interface, mas utiliza Qwen2.5-Coder como motor de conversa. Os pesos do modelo são de terceiros e são baixados separadamente do APK.",
                 color = Color(0xFF9EAAA2),
                 style = MaterialTheme.typography.bodySmall
             )
