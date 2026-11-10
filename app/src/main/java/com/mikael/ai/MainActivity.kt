@@ -431,10 +431,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         if (!activeEngineReady) return
         githubContext = task.githubContext
         val conversation = conversations.firstOrNull { it.id == task.conversationId }
+        messages.clear()
         if (conversation != null) {
-            messages.clear()
             messages.addAll(conversation.messages)
             activeConversationId = conversation.id
+        } else {
+            activeConversationId = task.conversationId
         }
         if (messages.none { it.role == "user" && it.text == task.prompt }) {
             ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", task.prompt))
@@ -516,6 +518,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         isGenerating = isGenerating,
                         pendingTask = pendingTask,
                         onResumeTask = { resumePendingTask() },
+                        onDiscardTask = {
+                            PendingTaskStore.clear(context)
+                            pendingTask = null
+                        },
                         onCancel = {
                             if (selectedCatalogModelId == "mikael-base") LocalInferenceEngine.cancel()
                             else LlamaInferenceEngine.cancel()
@@ -525,7 +531,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         },
                         onSend = {
                             val prompt = input.trim()
-                            if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
+                            if (pendingTask != null) {
+                                android.widget.Toast.makeText(context, "Retome ou descarte a tarefa interrompida antes de enviar outra mensagem.", android.widget.Toast.LENGTH_SHORT).show()
+                            } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
                                 input = ""
                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
@@ -728,6 +736,7 @@ private fun ChatScreen(
     isGenerating: Boolean,
     pendingTask: PendingAiTask?,
     onResumeTask: () -> Unit,
+    onDiscardTask: () -> Unit,
     onCancel: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -742,7 +751,10 @@ private fun ChatScreen(
                 Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("Tarefa interrompida", fontWeight = FontWeight.SemiBold, color = Color(0xFFB8E8CA))
                     Text(pendingTask.prompt.take(120), color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
-                    Button(onClick = onResumeTask, enabled = engineReady) { Text(if (engineReady) "Retomar tarefa" else "Carregando modelo…") }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onResumeTask, enabled = engineReady) { Text(if (engineReady) "Retomar tarefa" else "Carregando modelo…") }
+                        OutlinedButton(onClick = onDiscardTask) { Text("Descartar") }
+                    }
                 }
             }
         }
@@ -801,13 +813,13 @@ private fun ChatScreen(
                 placeholder = { Text("Pergunte sobre programação...") },
                 maxLines = 5,
                 shape = RoundedCornerShape(22.dp),
-                enabled = !isGenerating
+                enabled = !isGenerating && pendingTask == null
             )
             Spacer(Modifier.size(8.dp))
             if (isGenerating) {
                 OutlinedButton(onClick = onCancel, modifier = Modifier.height(54.dp)) { Text("Parar") }
             } else {
-                Button(onClick = onSend, enabled = input.isNotBlank(), modifier = Modifier.height(54.dp)) { Text("Enviar") }
+                Button(onClick = onSend, enabled = input.isNotBlank() && pendingTask == null, modifier = Modifier.height(54.dp)) { Text("Enviar") }
             }
         }
     }
