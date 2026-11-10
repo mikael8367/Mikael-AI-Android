@@ -52,11 +52,13 @@ object MemoryBudget {
         availableBytes: Long,
         selectedLimitMiB: Int,
         modelBytes: Long,
-        contextTokens: Int
+        contextTokens: Int,
+        minimumEstimatedBytes: Long = 0L
     ): MemoryCheck {
         val budget = safeBudgetBytes(availableBytes, selectedLimitMiB)
-        val estimate = estimateRequiredBytes(modelBytes, contextTokens)
+        val calculated = estimateRequiredBytes(modelBytes, contextTokens)
             ?: return MemoryCheck(false, availableBytes, budget, 0L, "Arquivo ou contexto inválido.")
+        val estimate = maxOf(calculated, minimumEstimatedBytes.coerceAtLeast(0L))
         val allowed = budget > 0L && estimate <= budget
         val reason = if (allowed) null else
             "Memória estimada: ${mib(estimate)} MiB. Orçamento seguro: ${mib(budget)} MiB. " +
