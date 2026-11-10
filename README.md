@@ -6,6 +6,7 @@ Aplicativo Android nativo com motor experimental de inferência próprio e conec
 
 - Motor C++ próprio no dispositivo Android: atenção causal multi-head, RMSNorm, projeções lineares, conexões residuais e SwiGLU.
 - Formato binário autoral MKAI versão 1, documentado em [docs/MKAI_FORMAT_V1.md](docs/MKAI_FORMAT_V1.md).
+- Tokenizer BPE byte-level autoral MKTOK v1, com treinamento próprio, encode/decode, persistência SHA-256 e testes; veja [docs/MKTOK_FORMAT_V1.md](docs/MKTOK_FORMAT_V1.md).
 - ABI inicial ARM64, inferência em CPU e sem serviço externo de IA.
 - Importação local de arquivos .mkai com validação de cabeçalho.
 - Catálogo de modelos de terceiros desativado. O motor não aceita GGUF.
