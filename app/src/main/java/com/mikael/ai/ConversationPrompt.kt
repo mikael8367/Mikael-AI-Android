@@ -81,7 +81,8 @@ Se faltar dado essencial, pergunte em vez de adivinhar.
         return result
     }
 
-    fun build(\n        messages: List<ChatMessage>,
+    fun build(
+        messages: List<ChatMessage>,
         githubContext: String,
         contextCapacityTokens: Int,
         reserveOutputTokens: Int = 160,
