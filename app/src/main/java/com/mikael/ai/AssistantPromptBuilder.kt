@@ -50,14 +50,19 @@ object AssistantPromptBuilder {
         var historyBudget = minOf(240, maxBytes / 8)
 
         while (true) {
-            val previousPart = buildString {
+            val previousCandidate = buildString {
                 previous.forEach { (role, message) ->
                     val safeRole = if (role == "user") "user" else "assistant"
                     append("<|im_start|>$safeRole\n")
                     append(message.take(160))
                     append("\n<|im_end|>\n")
                 }
-            }.let { takeUtf8Prefix(it, historyBudget) }
+            }
+            // Never cut a ChatML turn in the middle: either keep the whole prior
+            // turn or omit it and preserve the current user message.
+            val previousPart = if (
+                previousCandidate.toByteArray(Charsets.UTF_8).size <= historyBudget
+            ) previousCandidate else ""
 
             val latestRole = if (latest?.first == "user") "user" else "assistant"
             val currentPrefix = if (latest == null) "" else "<|im_start|>$latestRole\n"
