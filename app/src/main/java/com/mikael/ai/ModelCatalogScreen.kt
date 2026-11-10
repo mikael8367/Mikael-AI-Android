@@ -100,7 +100,7 @@ fun ModelCatalogScreen(
                             Text(if (percent != null) "Baixando..." else "Baixar e instalar Mikael AI")
                         }
                         OutlinedButton(onClick = onTrainMkai, modifier = Modifier.fillMaxWidth()) {
-                            Text("Treinar primeiro checkpoint no GitHub")
+                            Text("Adicionar corpus e treinar no GitHub")
                         }
                         OutlinedButton(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) {
                             Text("Importar arquivo .mkai manualmente")
