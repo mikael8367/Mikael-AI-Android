@@ -31,7 +31,8 @@ object ModelCatalog {
             approximateBytes = 591_144L,
             license = "Licença não declarada",
             sourceUrl = "https://github.com/mikael8367/Mikael-AI-Android/releases/tag/mikael-ai-model-v1",
-            description = "Checkpoint autoral experimental, muito compacto (cerca de 0,6 MB). Não equivale em capacidade aos modelos Qwen, SmolLM2 ou TinyLlama; qualidade depende do treinamento."
+            description = "Checkpoint autoral experimental (~0,6 MB), contexto máximo de 512 bytes no runtime atual. Não equivale em capacidade aos modelos Qwen, SmolLM2 ou TinyLlama; mensagens longas podem exceder o contexto.",
+            expectedSha256 = "86e194c24832621af0786eb1e429772bdf29a8ccccdcb5446c84d771682ca0ee"
         ),
         CatalogModel(
             id = "qwen-0.5b",
