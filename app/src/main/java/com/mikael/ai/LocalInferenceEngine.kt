@@ -69,6 +69,7 @@ object LocalInferenceEngine {
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
         tokenSink = onToken
         try {
+            nativeBeginGeneration()
             val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
             if (result == null) error("E_NATIVE_NULL • O motor local não retornou uma resposta.")
             if (result.startsWith(NATIVE_CANCELLED_PREFIX)) throw CancellationException("Geração interrompida pelo usuário.")
@@ -98,6 +99,7 @@ object LocalInferenceEngine {
     private const val NATIVE_CANCELLED_PREFIX = "MIKAEL_NATIVE_CANCELLED:"
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
+    private external fun nativeBeginGeneration()
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?
     private external fun nativeCancel()
     private external fun nativeUnload()
