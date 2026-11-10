@@ -915,7 +915,7 @@ private fun ConversationHistoryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(
-                                modifier = Modifier.weight(1f).clickable { onOpenConversation(conversation) }.padding(2.dp),
+                                modifier = Modifier.weight(1f).clickable(enabled = canModifyHistory) { onOpenConversation(conversation) }.padding(2.dp),
                                 verticalArrangement = Arrangement.spacedBy(5.dp)
                             ) {
                                 Text(conversation.title, fontWeight = FontWeight.SemiBold, maxLines = 2)
