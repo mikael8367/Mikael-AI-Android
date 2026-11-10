@@ -36,6 +36,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -106,10 +107,49 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     }
     val scope = rememberCoroutineScope()
-    val messages = remember {
-        mutableStateListOf<ChatMessage>().apply { addAll(ConversationStore.load(context)) }
+    val conversations = remember {
+        mutableStateListOf<ChatConversation>().apply { addAll(ConversationStore.loadAll(context)) }
     }
+    var activeConversationId by remember { mutableStateOf(conversations.firstOrNull()?.id ?: java.util.UUID.randomUUID().toString()) }
+    val messages = remember {
+        mutableStateListOf<ChatMessage>().apply { addAll(conversations.firstOrNull()?.messages.orEmpty()) }
+    }
+    var showConversationList by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(AppTab.CHAT) }
+
+    fun persistActiveConversation() {
+        if (messages.isEmpty()) return
+        val firstPrompt = messages.firstOrNull { it.role == "user" }?.text.orEmpty()
+        val title = firstPrompt.replace(Regex("\\s+"), " ").trim().let {
+            if (it.length > 42) it.take(42).trimEnd() + "…" else it
+        }.ifBlank { "Nova conversa" }
+        val updated = ChatConversation(activeConversationId, title, System.currentTimeMillis(), messages.toList())
+        val index = conversations.indexOfFirst { it.id == activeConversationId }
+        if (index >= 0) conversations[index] = updated else conversations.add(updated)
+        val ordered = conversations.sortedByDescending { it.updatedAt }
+        conversations.clear()
+        conversations.addAll(ordered)
+        ConversationStore.saveAll(context, conversations)
+    }
+
+    fun startNewConversation() {
+        if (isGenerating) return
+        messages.clear()
+        activeConversationId = java.util.UUID.randomUUID().toString()
+        input = ""
+        showConversationList = false
+        tab = AppTab.CHAT
+    }
+
+    fun openConversation(conversation: ChatConversation) {
+        if (isGenerating) return
+        messages.clear()
+        messages.addAll(conversation.messages)
+        activeConversationId = conversation.id
+        showConversationList = false
+        input = ""
+        tab = AppTab.CHAT
+    }
     var modelPath by remember { mutableStateOf(preferences.modelPath) }
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
     var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
@@ -286,6 +326,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (tab == AppTab.CHAT) {
+                    OutlinedButton(
+                        onClick = { showConversationList = !showConversationList },
+                        enabled = !isGenerating,
+                        modifier = Modifier.height(40.dp)
+                    ) { Text(if (showConversationList) "← Chat" else "☰") }
+                    Spacer(Modifier.size(8.dp))
+                }
                 Box(
                     modifier = Modifier.size(38.dp).background(Color(0xFF173D2B), CircleShape),
                     contentAlignment = Alignment.Center
@@ -311,7 +359,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 label = "tab-transition"
             ) { selected ->
                 when (selected) {
-                    AppTab.CHAT -> ChatScreen(
+                    AppTab.CHAT -> if (showConversationList) {
+                        ConversationHistoryScreen(
+                            conversations = conversations,
+                            activeConversationId = activeConversationId,
+                            onNewConversation = { startNewConversation() },
+                            onOpenConversation = { openConversation(it) }
+                        )
+                    } else ChatScreen(
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
@@ -327,7 +382,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
                                 input = ""
                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
-                                ConversationStore.save(context, messages)
+                                persistActiveConversation()
                                 isGenerating = true
                                 scope.launch {
                                     val activeContext = if (selectedCatalogModelId == "mikael-base") {
@@ -358,13 +413,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                         onSuccess = { answer ->
                                             if (answer.isNotBlank()) {
                                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", answer))
-                                                ConversationStore.save(context, messages)
+                                                persistActiveConversation()
                                             }
                                         },
                                         onFailure = { error ->
                                             if (error.message != "Geração cancelada pelo usuário.") {
                                                 ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
-                                                ConversationStore.save(context, messages)
+                                                persistActiveConversation()
                                             }
                                         }
                                     )
@@ -474,6 +529,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         },
                         onClearHistory = {
                             messages.clear()
+                            conversations.clear()
+                            activeConversationId = java.util.UUID.randomUUID().toString()
                             ConversationStore.clear(context)
                         }
                     )
