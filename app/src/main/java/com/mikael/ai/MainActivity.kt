@@ -496,16 +496,20 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     }
                     val participation = "Equipe local: ${teamRun.participatedCount}/4 modelos participaram; ${teamRun.callCount} chamadas sequenciais."
                     val failures = teamRun.failedParticipants.entries.joinToString("; ") { "${it.key}: ${it.value}" }
-                    val note = if (teamRun.failedParticipants.isEmpty()) {
-                        ""
-                    } else {
+                    val participantNote = if (teamRun.failedParticipants.isEmpty()) "" else {
                         "\n\n[Participação parcial — ${teamRun.participatedCount}/4: ${failures}]"
                     }
+                    val synthesisNote = if (teamRun.finalizationFallback) {
+                        "\n\n[Consolidação automática indisponível; foi usada a melhor contribuição disponível. ${teamRun.finalizationError.orEmpty()}]"
+                    } else ""
                     withContext(Dispatchers.Main.immediate) {
-                        teamStatus = if (teamRun.failedParticipants.isEmpty()) participation
-                            else "$participation Falhas: $failures"
+                        teamStatus = buildString {
+                            append(participation)
+                            if (failures.isNotBlank()) append(" Falhas: $failures")
+                            if (teamRun.finalizationFallback) append(" Síntese final substituída por fallback.")
+                        }
                     }
-                    Result.success(teamRun.answer + note)
+                    Result.success(teamRun.answer + participantNote + synthesisNote)
                 } else {
                     val activeContext = if (modelId == "mikael-base") {
                         LocalInferenceEngine.contextCapacityTokens()
