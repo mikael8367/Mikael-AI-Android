@@ -111,6 +111,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var tab by remember { mutableStateOf(AppTab.CHAT) }
     var modelPath by remember { mutableStateOf(preferences.modelPath) }
     var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
+    var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
+    var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var catalogErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
@@ -280,36 +283,35 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         }
                     )
-                    AppTab.MODELS -> ModelsScreen(
-                        modelPath = modelPath,
-                        installedModels = installedModels,
-                        engineStatus = engineStatus,
-                        engineReady = engineReady,
-                        onImport = { modelPicker.launch(arrayOf("application/octet-stream")) },
-                        onSelect = { selectedPath ->
-                            preferences.modelPath = selectedPath
-                            if (selectedPath == modelPath) modelReloadCounter += 1
-                            else modelPath = selectedPath
-                        },
-                        onLoad = { modelReloadCounter += 1 },
-                        onUnload = {
-                            scope.launch(Dispatchers.IO) { LocalInferenceEngine.unload() }
-                            engineReady = false
-                            engineStatus = "Modelo descarregado."
-                        },
-                        onDelete = { filePath ->
+                    AppTab.MODELS -> ModelCatalogScreen(
+                        installed = catalogInstalled,
+                        progress = catalogProgress,
+                        errors = catalogErrors,
+                        onImportMkai = { modelPicker.launch(arrayOf("application/octet-stream")) },
+                        onInstall = { model ->
+                            catalogErrors = catalogErrors - model.id
+                            catalogProgress = catalogProgress + (model.id to 0)
                             scope.launch {
-                                withContext(Dispatchers.IO) {
-                                    if (modelPath == filePath) LocalInferenceEngine.unload()
-                                    File(filePath).delete()
+                                try {
+                                    val file = ModelInstaller.install(context, model) { percent ->
+                                        catalogProgress = catalogProgress + (model.id to percent)
+                                    }
+                                    catalogInstalled = catalogInstalled + (model.id to file)
+                                    catalogProgress = catalogProgress - model.id
+                                    catalogErrors = catalogErrors - model.id
+                                } catch (error: Exception) {
+                                    catalogProgress = catalogProgress - model.id
+                                    catalogErrors = catalogErrors + (model.id to (error.message ?: "Falha no download."))
                                 }
-                                if (modelPath == filePath) {
-                                    preferences.modelPath = null
-                                    modelPath = null
-                                    engineReady = false
-                                    engineStatus = "Nenhum modelo importado."
+                            }
+                        },
+                        onDelete = { model ->
+                            scope.launch(Dispatchers.IO) {
+                                val file = catalogInstalled[model.id]
+                                if (file != null) file.delete()
+                                withContext(Dispatchers.Main) {
+                                    catalogInstalled = catalogInstalled - model.id
                                 }
-                                installedModels = listInstalledModels(context)
                             }
                         }
                     )
@@ -670,3 +672,8 @@ private fun SettingsScreen(
         )
     }
 }
+
+private fun loadCatalogInstalled(context: Context): Map<String, File> =
+    ModelCatalog.models.mapNotNull { model ->
+        ModelInstaller.installedFile(context, model)?.let { model.id to it }
+    }.toMap()
