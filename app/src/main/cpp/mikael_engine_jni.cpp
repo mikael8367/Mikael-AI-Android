@@ -233,6 +233,7 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
             break;
         }
     }
+    if(gCancel.load()) return error(env,"Geração cancelada pelo usuário.");
     return utf8ToJava(env,output);
 }
 extern "C" JNIEXPORT jint JNICALL
