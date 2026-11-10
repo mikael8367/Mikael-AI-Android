@@ -129,8 +129,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var showConversationList by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(AppTab.CHAT) }
 
-    var modelPath by remember { mutableStateOf(preferences.modelPath) }
-    var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
+    val initialInstalledModels = remember { listInstalledModels(context) }
+    val savedMkaiPath = preferences.modelPath?.let(::File)?.takeIf { it.isFile }?.absolutePath
+    var modelPath by remember {
+        mutableStateOf(savedMkaiPath ?: initialInstalledModels.firstOrNull()?.absolutePath)
+    }
+    var installedModels by remember { mutableStateOf(initialInstalledModels) }
     var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
     var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var catalogJobs by remember { mutableStateOf<Map<String, Job>>(emptyMap()) }
