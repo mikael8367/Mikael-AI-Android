@@ -23,7 +23,7 @@ on:
           - "1024"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   train:
@@ -84,3 +84,18 @@ jobs:
           path: artifacts/mikael-base.mkai
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish checkpoint for in-app installation
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: mikael-ai-model-v1
+          name: Mikael AI — checkpoint autoral MKAI v1
+          body: |
+            Checkpoint gerado pelo pipeline de treinamento autoral Mikael AI.
+            Baixe e instale pelo catálogo do aplicativo Mikael AI Android.
+            Modelo experimental; qualidade depende do corpus de treinamento utilizado.
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          files: artifacts/mikael-base.mkai
