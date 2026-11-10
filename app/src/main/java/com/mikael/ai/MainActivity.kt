@@ -529,18 +529,25 @@ private fun ModelsScreen(
     installedModels: List<File>,
     engineStatus: String,
     engineReady: Boolean,
+    activeDownloadId: String?,
+    downloadProgress: Float,
+    downloadStatus: String,
     onImport: () -> Unit,
+    onDownload: (CatalogModel) -> Unit,
     onSelect: (String) -> Unit,
     onLoad: () -> Unit,
     onUnload: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Modelos locais", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        Text("Os arquivos GGUF importados ficam salvos no aparelho e podem ser reutilizados sem internet. Nesta versão, o prompt usa o formato ChatML; prefira modelos Instruct compatíveis com ChatML.", color = Color(0xFF9EAAA2))
+        Text("Modelos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(
+            "Baixe modelos GGUF diretamente no celular ou importe um arquivo. Os downloads são verificados por SHA-256 antes de serem instalados.",
+            color = Color(0xFF9EAAA2)
+        )
         Card(
             colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)),
             modifier = Modifier.fillMaxWidth()
@@ -551,25 +558,88 @@ private fun ModelsScreen(
                 Text(engineStatus, color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 if (modelPath != null) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (engineReady) {
-                            OutlinedButton(onClick = onUnload) { Text("Descarregar") }
-                        } else {
-                            OutlinedButton(onClick = onLoad) { Text("Carregar") }
-                        }
-                        OutlinedButton(onClick = onDelete) { Text("Excluir ativo") }
+                        if (engineReady) OutlinedButton(onClick = onUnload) { Text("Descarregar") }
+                        else OutlinedButton(onClick = onLoad) { Text("Carregar") }
+                        OutlinedButton(onClick = { onDelete(modelPath) }) { Text("Excluir ativo") }
                     }
                 }
             }
         }
-        Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("Importar arquivo GGUF") }
-        Text("Modelos neste aparelho", fontWeight = FontWeight.SemiBold)
-        if (installedModels.isEmpty()) {
-            Text("Nenhum modelo importado ainda.", color = Color(0xFF9EAAA2))
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
+        Button(onClick = onImport, modifier = Modifier.fillMaxWidth()) {
+            Text("Importar arquivo GGUF")
+        }
+        if (activeDownloadId != null) {
+            Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF202B25))) {
+                Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(downloadStatus, style = MaterialTheme.typography.bodySmall)
+                    Text("${(downloadProgress * 100).toInt()}% concluído", color = Color(0xFF8BE7B7))
+                    CircularProgressIndicator(
+                        progress = { downloadProgress },
+                        modifier = Modifier.size(22.dp),
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
+        } else if (downloadStatus.isNotBlank()) {
+            Text(downloadStatus, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
+        }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            item {
+                Text("Mikael AI — modelo próprio", fontWeight = FontWeight.Bold)
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF173024)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text("Mikael AI Base", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
+                        Text("Modelo autoral em desenvolvimento. A proposta é criar arquitetura, tokenizer, dados de treinamento e pesos próprios, sem reaproveitar os pesos do Qwen ou de outro modelo.")
+                        Text("Status: pesquisa e preparação do treinamento. Ainda não existe um arquivo de pesos pronto para instalar.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            item { Text("Catálogo para instalar", fontWeight = FontWeight.Bold) }
+            items(ModelCatalog.models, key = { it.id }) { model ->
+                val installed = installedModels.firstOrNull { it.name == model.fileName }
+                Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
+                    Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(model.name, fontWeight = FontWeight.SemiBold)
+                                Text(model.category + " • " + model.sizeLabel + " • " + model.license,
+                                    color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
+                            }
+                            if (installed != null) {
+                                Text("Instalado", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Text(model.description, color = Color(0xFFB6C2BA), style = MaterialTheme.typography.bodySmall)
+                        if (installed != null) {
+                            if (installed.absolutePath == modelPath) {
+                                Text("Este modelo está selecionado.", color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
+                            } else {
+                                OutlinedButton(onClick = { onSelect(installed.absolutePath) }) { Text("Usar modelo") }
+                            }
+                        } else {
+                            Button(
+                                onClick = { onDownload(model) },
+                                enabled = activeDownloadId == null,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (activeDownloadId == model.id) "Baixando..." else "Baixar e instalar")
+                            }
+                        }
+                    }
+                }
+            }
+            item {
+                Text("Modelos instalados neste aparelho", fontWeight = FontWeight.Bold)
+            }
+            if (installedModels.isEmpty()) {
+                item { Text("Nenhum modelo instalado ainda.", color = Color(0xFF9EAAA2)) }
+            } else {
                 items(installedModels, key = { it.absolutePath }) { file ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
                         Row(
@@ -593,12 +663,14 @@ private fun ModelsScreen(
                     }
                 }
             }
+            item {
+                Text(
+                    "O tamanho do arquivo não representa toda a RAM necessária. O contexto e os buffers também consomem memória. Modelos maiores podem não funcionar bem em celulares com pouca RAM.",
+                    color = Color(0xFF9EAAA2),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
-        Text(
-            "Prefira modelos pequenos e quantizados. A RAM necessária também depende do contexto e dos buffers.",
-            color = Color(0xFF9EAAA2),
-            style = MaterialTheme.typography.bodySmall
-        )
     }
 }
 
