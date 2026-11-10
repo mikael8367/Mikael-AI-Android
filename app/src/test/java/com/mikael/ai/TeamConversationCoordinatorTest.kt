@@ -68,9 +68,9 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = false
         )
-        assertTrue(prompt.contains("contestar uma proposta"))
-        assertTrue(prompt.contains("justifique objetivamente"))
-        assertTrue(prompt.contains("Não revele raciocínio privado passo a passo"))
+        assertTrue(prompt.contains("pode responder, contestar"))
+        assertTrue(prompt.contains("Justifique discordâncias"))
+        assertTrue(prompt.contains("sem raciocínio privado"))
         assertTrue(prompt.contains("Já contribuíram: Mikael AI"))
         assertTrue(prompt.contains("Ainda não contribuíram: Qwen 2.5 0.5B"))
     }
