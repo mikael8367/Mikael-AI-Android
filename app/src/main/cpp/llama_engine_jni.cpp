@@ -350,7 +350,7 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeGenerate(JNIEnv * env, jobject, js
     if (tokenCount != required) return throwError(env, "A contagem de tokens mudou durante a tokenização.");
 
     const int availableTokens = static_cast<int>(gContextSize - static_cast<uint32_t>(tokenCount));
-    const int requestedLimit = std::clamp(maxTokens, 1, 256);
+    const int requestedLimit = std::clamp(maxTokens, 1, 1024);
     const int limit = std::min(requestedLimit, availableTokens);
     if (limit <= 0 || static_cast<uint32_t>(tokenCount) + static_cast<uint32_t>(limit) > gContextSize) {
         return throwError(env, "Não há espaço suficiente no contexto para gerar uma resposta.");
