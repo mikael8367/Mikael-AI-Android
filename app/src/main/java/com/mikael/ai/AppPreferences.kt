@@ -16,7 +16,7 @@ class AppPreferences(context: Context) {
         }
 
     var contextTokens: Int
-        get() = prefs.getInt("context_tokens", 1024)
+        get() = prefs.getInt("context_tokens", 512)
         set(value) {
             if (value in listOf(512, 1024, 2048, 4096)) prefs.edit().putInt("context_tokens", value).apply()
         }
