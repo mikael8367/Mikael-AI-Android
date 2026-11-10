@@ -6,7 +6,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.Locale
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
@@ -17,19 +17,20 @@ object RecommendedModelDownloader {
     const val EXPECTED_SHA256 = "74a4da8c9fdbcd15bd1f6d01d621410d31c6fc00986f5eb687824e7b93d7a9db"
     const val MODEL_URL = "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/12145bd1d629190a4d44254073650877954d02c9/qwen2.5-0.5b-instruct-q4_k_m.gguf?download=true"
 
-    private val cancelled = AtomicBoolean(false)
+    private val cancellationGeneration = AtomicLong(0L)
     private val downloadMutex = Mutex()
 
     fun cancel() {
-        cancelled.set(true)
+        cancellationGeneration.incrementAndGet()
     }
 
     suspend fun download(directory: File, onProgress: (Long, Long) -> Unit = { _, _ -> }): File {
+        val requestGeneration = cancellationGeneration.get()
         downloadMutex.lock()
         try {
             val coroutineContext = currentCoroutineContext()
             coroutineContext.ensureActive()
-            cancelled.set(false)
+            check(cancellationGeneration.get() == requestGeneration) { "Download cancelado." }
 
             check(directory.exists() || directory.mkdirs()) {
                 "Não foi possível criar a pasta de modelos."
@@ -72,7 +73,7 @@ object RecommendedModelDownloader {
                         val buffer = ByteArray(128 * 1024)
                         while (true) {
                             coroutineContext.ensureActive()
-                            check(!cancelled.get()) { "Download cancelado." }
+                            check(cancellationGeneration.get() == requestGeneration) { "Download cancelado." }
                             val count = input.read(buffer)
                             if (count < 0) break
                             downloaded += count
@@ -89,6 +90,7 @@ object RecommendedModelDownloader {
                 }
 
                 coroutineContext.ensureActive()
+                check(cancellationGeneration.get() == requestGeneration) { "Download cancelado." }
                 check(downloaded == EXPECTED_BYTES) {
                     "Download incompleto: recebidos ${downloaded / (1024 * 1024)} MiB de ${EXPECTED_BYTES / (1024 * 1024)} MiB."
                 }
@@ -96,6 +98,7 @@ object RecommendedModelDownloader {
                     "A verificação de integridade SHA-256 falhou. O arquivo foi descartado."
                 }
                 coroutineContext.ensureActive()
+                check(cancellationGeneration.get() == requestGeneration) { "Download cancelado." }
                 if (destination.exists()) destination.delete()
                 check(partial.renameTo(destination)) {
                     "Não foi possível finalizar o arquivo do modelo."
