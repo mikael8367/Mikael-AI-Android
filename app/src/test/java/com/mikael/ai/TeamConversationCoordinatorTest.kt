@@ -309,4 +309,24 @@ class TeamConversationCoordinatorTest {
     }
 
 
+
+    @Test
+    fun partialTeamWithMikaelAndOneInstalledGgufCanRespond() = runBlocking {
+        val available = team.take(2)
+        val seen = mutableListOf<String>()
+        val result = TeamConversationCoordinator.run(
+            originalPrompt = "Oi",
+            chatContext = "",
+            participants = available,
+            generate = { participant, _, _ ->
+                seen += participant.id
+                Result.success("Resposta de ${participant.name}")
+            }
+        )
+        assertEquals(listOf("mikael-base", "qwen-0.5b"), seen)
+        assertTrue(result.answer.isNotBlank())
+        assertEquals(2, result.participatedCount)
+        assertEquals(3, result.attemptCount)
+    }
+
 }
