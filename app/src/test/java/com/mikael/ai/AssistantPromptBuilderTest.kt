@@ -113,6 +113,23 @@ class AssistantPromptBuilderTest {
     }
 
     @Test
+    fun currentRequestIsNotShortenedToKeepOptionalHistory() {
+        val currentRequest = "CURRENT_REQUEST:" + "x".repeat(500)
+        val prompt = AssistantPromptBuilder.build(
+            AssistantMode.DEEP_AUDIT,
+            listOf(
+                "user" to "pergunta anterior ".repeat(40),
+                "assistant" to "resposta anterior ".repeat(40),
+                "user" to currentRequest
+            ),
+            contextTokens = 512
+        )
+
+        assertTrue(prompt.contains(currentRequest))
+        assertTrue(!prompt.contains("resposta anterior"))
+    }
+
+    @Test
     fun latestUserMessageIsPreservedWhenHistoryIsTooLarge() {
         val prompt = AssistantPromptBuilder.build(
             AssistantMode.DEEP_AUDIT,
