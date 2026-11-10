@@ -1289,7 +1289,7 @@ private fun SettingsScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Aprender automaticamente")
-                    Text("Guarda apenas preferências e fatos técnicos explícitos e não sensíveis. Tudo fica local e criptografado.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                    Text("Aprende preferências e fatos técnicos explícitos e não sensíveis em memória local criptografada; não altera os pesos do modelo.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(
                     checked = autoLearningEnabled,
