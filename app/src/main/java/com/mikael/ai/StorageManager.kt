@@ -20,7 +20,14 @@ object StorageManager {
     fun temporaryBytes(context: Context): Long {
         val models = File(context.filesDir, "models")
         return models.listFiles()?.filter {
-            it.isFile && (it.name.endsWith(".part", true) || it.name.endsWith(".previous", true))
+            it.isFile && it.name.endsWith(".part", true)
+        }?.sumOf { it.length() } ?: 0L
+    }
+
+    fun recoveryBackupBytes(context: Context): Long {
+        val models = File(context.filesDir, "models")
+        return models.listFiles()?.filter {
+            it.isFile && it.name.endsWith(".previous", true)
         }?.sumOf { it.length() } ?: 0L
     }
 
