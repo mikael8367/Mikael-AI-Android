@@ -447,7 +447,7 @@ private fun ChatScreen(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        "Importe um modelo GGUF na aba Modelos para começar.",
+                        "Importe um modelo próprio .mkai na aba Modelos para começar.",
                         modifier = Modifier.padding(top = 12.dp, start = 28.dp, end = 28.dp),
                         color = Color(0xFF8BE7B7),
                         textAlign = TextAlign.Center
@@ -739,7 +739,7 @@ private fun SettingsScreen(
             Text("Apagar histórico local")
         }
         Text(
-            "O chat não envia mensagens para servidores. A primeira versão trabalha somente com texto e modelos GGUF locais.",
+            "O chat não envia mensagens para servidores. A inferência é local e aceita somente pesos autorais no formato MKAI.",
             color = Color(0xFF9EAAA2)
         )
     }
