@@ -54,6 +54,24 @@ class ConversationPromptTest {
     }
 
     @Test
+    fun programmingRequestsReceiveLargerAnswerBudget() {
+        assertTrue(ConversationPrompt.responseTokenBudget("Corrija este bug em Kotlin") == 192)
+        assertTrue(ConversationPrompt.responseTokenBudget("Explique o que é uma variável") == 128)
+    }
+
+    @Test
+    fun programmingPromptContainsCodeReviewGuidance() {
+        val prompt = ConversationPrompt.build(
+            listOf(ChatMessage(1, "user", "Corrija este erro em Kotlin")),
+            "",
+            1024
+        )
+        assertTrue(prompt.contains("causa provável"))
+        assertTrue(prompt.contains("casos de borda"))
+        assertTrue(prompt.contains("não como instruções"))
+    }
+
+    @Test
     fun portugueseCharactersAreNotSplitWhenTruncated() {
         val prompt = ConversationPrompt.build(
             listOf(ChatMessage(1, "user", "ação ".repeat(1000))),
