@@ -26,7 +26,7 @@ Seja direto, organizado e evite repetir a pergunta.
             "kotlin", "python", "javascript", "typescript", "html", "css", "sql",
             "api", "github", "gradle", "compilar", "build.gradle", "crash", "nullpointer"
         )
-        return if (signals.any(text::contains)) 192 else 128
+        return if (signals.any { signal -> text.contains(signal) }) 192 else 128
     }
 
     fun build(
