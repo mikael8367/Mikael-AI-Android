@@ -383,14 +383,20 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     userMemory = UserMemoryStore.contextForPrompt(context)
                 )
                 val result = withContext(Dispatchers.IO) {
-                    AnswerRevision.generate(
-                        originalRequest = prompt,
-                        conversationPrompt = conversationPrompt,
-                        contextCapacityBytes = activeContext,
-                        maxAnswerTokens = 256
-                    ) { candidatePrompt, tokenLimit ->
-                        if (modelId == "mikael-base") LocalInferenceEngine.generate(candidatePrompt, tokenLimit)
-                        else LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
+                    if (modelId == "mikael-base") {
+                        // MKAI v1 é experimental e a inferência Android recalcula o contexto
+                        // a cada token. Uma autocrítica + revisão triplicava o trabalho no A12.
+                        // Use uma única geração curta até o motor ganhar cache KV/otimizações.
+                        LocalInferenceEngine.generate(conversationPrompt, 64)
+                    } else {
+                        AnswerRevision.generate(
+                            originalRequest = prompt,
+                            conversationPrompt = conversationPrompt,
+                            contextCapacityBytes = activeContext,
+                            maxAnswerTokens = 256
+                        ) { candidatePrompt, tokenLimit ->
+                            LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
+                        }
                     }
                 }
                 result.fold(
