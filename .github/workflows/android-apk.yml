@@ -66,7 +66,7 @@ jobs:
         run: gradle :app:assembleDebug
 
       - name: Verify APK and ARM64 native libraries
-        if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && github.ref == 'refs/heads/feature/mkai-v2-5gb-foundation' && contains(github.event.head_commit.message, '[build-apk-once]'))
+        if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/') && contains(github.event.head_commit.message, '[build-apk-once]'))
         shell: bash
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
@@ -76,7 +76,7 @@ jobs:
           ls -lh "$APK"
 
       - name: Upload debug APK
-        if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && github.ref == 'refs/heads/feature/mkai-v2-5gb-foundation' && contains(github.event.head_commit.message, '[build-apk-once]'))
+        if: (github.event_name == 'workflow_dispatch' && inputs.build_apk == true) || (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/feature/') && contains(github.event.head_commit.message, '[build-apk-once]'))
         uses: actions/upload-artifact@v4
         with:
           name: Mikael-AI-Android-debug-arm64
