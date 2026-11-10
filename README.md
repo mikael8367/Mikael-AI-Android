@@ -5,20 +5,20 @@ Aplicativo Android nativo com motor experimental de inferência próprio e conec
 ## Estado real do projeto
 
 - Motor C++ próprio no dispositivo Android: atenção causal multi-head, RMSNorm, projeções lineares, conexões residuais e SwiGLU.
-- Formato binário autoral MKAI versão 1, documentado em [docs/MKAI_FORMAT_V1.md](docs/MKAI_FORMAT_V1.md).
+- Formato binário autoral MKAI versão 1, documentado em [docs/MKAI_FORMAT_V1.md](docs/MKAI_FORMAT_V1.md), com exportador de pesos treinados do zero.
 - Tokenizer BPE byte-level autoral MKTOK v1, com treinamento próprio, encode/decode, persistência SHA-256 e testes; veja [docs/MKTOK_FORMAT_V1.md](docs/MKTOK_FORMAT_V1.md).
-- ABI inicial ARM64, inferência em CPU e sem serviço externo de IA.
+- ABI inicial ARM64, inferência em CPU e sem serviço externo de IA.\n- Pipeline próprio de treinamento PyTorch em CPU, com inicialização aleatória, validação e exportação MKAI v1: [training/README.md](training/README.md).
 - Importação local de arquivos .mkai com validação de cabeçalho.
 - Catálogo de modelos de terceiros desativado. O motor não aceita GGUF.
 - Conector GitHub por Device Flow, para ler repositórios e importar README como contexto.
 
 ## Limitações importantes
 
-O motor é a primeira implementação técnica e ainda não existe um conjunto de pesos Mikael AI treinado. Portanto, o aplicativo ainda não consegue atuar como assistente inteligente até que o tokenizer e os pesos sejam treinados do zero e exportados para MKAI.
+O motor e o pipeline de treinamento estão implementados, mas ainda não existe um corpus de treinamento no repositório nem um arquivo de pesos Mikael AI treinado. Portanto, ainda não há um assistente inteligente pronto para uso. É necessário adicionar um corpus licenciado e executar o workflow manual de treinamento descrito em [training/README.md](training/README.md).
 
-A implementação atual usa tokenizer byte-level provisório, embeddings posicionais aprendidos, geração greedy e recalcula toda a sequência a cada token. Ainda faltam treinamento, cache KV, quantização, testes nativos automatizados e otimizações ARM64. Não confunda motor implementado com modelo treinado.
+A implementação atual usa bytes UTF-8 como IDs (256 valores), embeddings posicionais aprendidos e geração greedy; o BPE MKTOK ainda não está integrado porque requer MKAI v2. A inferência recalcula toda a sequência a cada token. Ainda faltam integrar o BPE, implementar cache KV, quantização, testes nativos automatizados e otimizações ARM64. O primeiro modelo treinado será experimental e não deve ser confundido com um assistente moderno.
 
-O Galaxy A12 pode ser usado para inferência de um modelo pequeno e quantizado no futuro; não é adequado para treinar do zero um modelo de linguagem desse porte. O treinamento exigirá infraestrutura computacional separada, mas o modelo final poderá funcionar integralmente no celular.
+O Galaxy A12 pode ser usado para inferência de um modelo pequeno e quantizado no futuro; não é adequado para treinar do zero um modelo de linguagem desse porte. O treinamento pode ser executado pelo workflow de CPU do GitHub Actions usando o navegador do celular; o aparelho não precisa treinar. A qualidade depende muito do volume, da qualidade e da licença do corpus. O modelo final poderá funcionar localmente, mas desempenho e qualidade precisam ser medidos no aparelho.
 
 ## Privacidade
 
