@@ -9,6 +9,14 @@ class AppPreferences(context: Context) {
         get() = prefs.getString("model_path", null)
         set(value) { prefs.edit().putString("model_path", value).apply() }
 
+    var selectedCatalogModelId: String
+        get() = prefs.getString("selected_catalog_model_id", "mikael-base") ?: "mikael-base"
+        set(value) {
+            if (value in setOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")) {
+                prefs.edit().putString("selected_catalog_model_id", value).apply()
+            }
+        }
+
     var memoryLimitMiB: Int
         get() = prefs.getInt("memory_limit_mib", 768)
         set(value) {
