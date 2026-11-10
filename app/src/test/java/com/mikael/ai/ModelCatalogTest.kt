@@ -22,6 +22,15 @@ class ModelCatalogTest {
     }
 
     @Test
+    fun atLeastOneRealModelDownloadExceedsTwoHundredMegabytes() {
+        val downloadable = ModelCatalog.models.filter { it.engine == ModelEngine.LLAMA_CPP }
+        assertTrue(downloadable.all { it.approximateBytes > 200_000_000L })
+        val qwen = downloadable.single { it.id == "qwen-0.5b" }
+        assertEquals("Apache-2.0", qwen.license)
+        assertTrue(qwen.approximateBytes in 350_000_000L..450_000_000L)
+    }
+
+    @Test
     fun externalModelsHaveHttpsGgufSourcesAndLlamaEngine() {
         val external = ModelCatalog.models.filter { it.id != "mikael-base" }
         assertEquals(3, external.size)
