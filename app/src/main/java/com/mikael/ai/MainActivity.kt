@@ -184,6 +184,30 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         }
     }
 
+    LaunchedEffect(pendingTask?.completedResponse) {
+        val task = pendingTask
+        val response = task?.completedResponse ?: return@LaunchedEffect
+        val existing = conversations.firstOrNull { it.id == task.conversationId }
+        val restoredMessages = existing?.messages?.toMutableList() ?: mutableListOf()
+        if (restoredMessages.none { it.role == "user" && it.text == task.prompt }) {
+            restoredMessages.add(ChatMessage(task.createdAt, "user", task.prompt))
+        }
+        if (restoredMessages.none { it.role == "assistant" && it.text == response }) {
+            restoredMessages.add(ChatMessage(System.currentTimeMillis(), "assistant", response))
+        }
+        val title = existing?.title ?: task.prompt.replace(Regex("\\s+"), " ").take(42)
+        val restored = ChatConversation(task.conversationId, title, System.currentTimeMillis(), restoredMessages)
+        val index = conversations.indexOfFirst { it.id == task.conversationId }
+        if (index >= 0) conversations[index] = restored else conversations.add(restored)
+        ConversationStore.saveAll(context, conversations)
+        if (activeConversationId == task.conversationId) {
+            messages.clear()
+            messages.addAll(restoredMessages)
+        }
+        PendingTaskStore.clear(context)
+        pendingTask = null
+    }
+
     val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             scope.launch {
@@ -346,6 +370,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 result.fold(
                     onSuccess = { answer ->
                         if (answer.isNotBlank()) {
+                            PendingTaskStore.complete(context, answer)
                             ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", answer))
                             persistActiveConversation()
                             PendingTaskStore.clear(context)
