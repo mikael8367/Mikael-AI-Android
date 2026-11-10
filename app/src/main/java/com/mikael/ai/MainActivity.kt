@@ -153,6 +153,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var pendingTask by remember { mutableStateOf(PendingTaskStore.load(context)) }
     var userMemoryCount by remember { mutableStateOf(userMemoryItems.size) }
     var githubContext by remember { mutableStateOf("") }
+    var connectorProposal by remember { mutableStateOf<ConnectorProposal?>(null) }
+    var connectorBusy by remember { mutableStateOf(false) }
+    var connectorError by remember { mutableStateOf("") }
 
     fun persistActiveConversation() {
         if (messages.isEmpty()) return
@@ -565,17 +568,22 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (pendingTask != null) {
                                 android.widget.Toast.makeText(context, "Retome ou descarte a tarefa interrompida antes de enviar outra mensagem.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
-                                input = ""
-                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                val proposal = ConnectorRouter.detect(prompt)
+                                if (proposal != null) {
+                                    connectorProposal = proposal
+                                    connectorError = ""
+                                } else {
+                                    input = ""
+                                    ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
                                     UserMemoryStore.forgetFromUserMessage(context, prompt)
                                 if (memoryChanged) {
                                     userMemoryItems = UserMemoryStore.load(context)
                                     userMemoryCount = userMemoryItems.size
                                 }
-                                persistActiveConversation()
-                                launchGeneration(prompt)
-
+                                    persistActiveConversation()
+                                    launchGeneration(prompt)
+                                }
                             } else if (!activeEngineReady) {
                                 android.widget.Toast.makeText(context, activeEngineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
@@ -727,6 +735,51 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
             }
         }
+    }
+
+    connectorProposal?.let { proposal ->
+        AlertDialog(
+            onDismissRequest = { if (!connectorBusy) connectorProposal = null },
+            title = { Text("Autorizar conector") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(proposal.explanation)
+                    Text(if (proposal.kind == ConnectorKind.WEB_SEARCH) "Consulta enviada ao serviço online: ${proposal.query}" else "README consultado no GitHub: ${proposal.query}")
+                    if (!allowOnlineFeatures) Text("Ative os recursos online em Configurações.")
+                    if (proposal.kind == ConnectorKind.WEB_SEARCH && !OnlineSearchClient.hasSession(context)) Text("Conecte o serviço Mikael AI na aba Pesquisa.")
+                    if (proposal.kind == ConnectorKind.GITHUB_README && !GithubTokenStore.hasToken(context)) Text("Conecte o GitHub na aba GitHub.")
+                    if (connectorError.isNotBlank()) Text(connectorError, color = MaterialTheme.colorScheme.error)
+                    if (connectorBusy) CircularProgressIndicator()
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !connectorBusy && allowOnlineFeatures &&
+                        (proposal.kind != ConnectorKind.WEB_SEARCH || OnlineSearchClient.hasSession(context)) &&
+                        (proposal.kind != ConnectorKind.GITHUB_README || GithubTokenStore.hasToken(context)),
+                    onClick = {
+                        connectorBusy = true
+                        connectorError = ""
+                        scope.launch {
+                            try {
+                                val externalContext = ConnectorRouter.execute(context, allowOnlineFeatures, proposal)
+                                val userRequest = messages.lastOrNull { it.role == "user" }?.text ?: proposal.query
+                                githubContext = (githubContext + "\n\n" + externalContext).takeLast(8_000)
+                                connectorProposal = null
+                                launchGeneration(userRequest)
+                            } catch (failure: Exception) {
+                                connectorError = failure.message ?: "Falha ao executar o conector."
+                            } finally {
+                                connectorBusy = false
+                            }
+                        }
+                    }
+                ) { Text(if (connectorBusy) "Consultando…" else "Autorizar") }
+            },
+            dismissButton = {
+                TextButton(enabled = !connectorBusy, onClick = { connectorProposal = null }) { Text("Cancelar") }
+            }
+        )
     }
 }
 
