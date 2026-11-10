@@ -80,6 +80,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import java.io.File
 
 private val messageIds = java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() * 1000L)
@@ -1053,7 +1055,8 @@ private fun installedModels(context: Context): List<File> =
         ?.sortedByDescending { it.lastModified() }
         ?: emptyList()
 
-private fun importModel(context: Context, uri: Uri): File {
+private suspend fun importModel(context: Context, uri: Uri): File {
+    val coroutineContext = currentCoroutineContext()
     val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         if (cursor.moveToFirst() && column >= 0) cursor.getString(column) else null
@@ -1064,24 +1067,39 @@ private fun importModel(context: Context, uri: Uri): File {
     val directory = File(context.filesDir, "models")
     check(directory.exists() || directory.mkdirs()) { "Não foi possível criar a pasta de modelos." }
     val safeName = displayName.replace(Regex("[^A-Za-z0-9._-]"), "_")
-    val uniqueName = "${System.currentTimeMillis()}_$safeName"
+    val uniqueName = "${System.currentTimeMillis()}_${System.nanoTime()}_$safeName"
     val destination = File(directory, uniqueName)
     val temporary = File(directory, "$uniqueName.importing")
     try {
         context.contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
-            temporary.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
+            temporary.outputStream().use { output ->
+                val buffer = ByteArray(128 * 1024)
+                while (true) {
+                    coroutineContext.ensureActive()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    output.write(buffer, 0, read)
+                }
+            }
         }
-        require(temporary.length() > 1024L * 1024L) { "O arquivo parece pequeno demais para um modelo GGUF válido." }
+        coroutineContext.ensureActive()
+        require(temporary.length() > 1024L * 1024L) {
+            "O arquivo parece pequeno demais para um modelo GGUF válido."
+        }
         val validHeader = temporary.inputStream().use { stream ->
             val header = ByteArray(4)
             stream.read(header) == 4 && header.decodeToString() == "GGUF"
         }
         require(validHeader) { "O arquivo selecionado não tem o cabeçalho GGUF esperado." }
-        check(temporary.renameTo(destination)) { "Não foi possível concluir a importação do modelo." }
+        check(temporary.renameTo(destination)) {
+            "Não foi possível concluir a importação do modelo."
+        }
+        coroutineContext.ensureActive()
         return destination
     } catch (error: Exception) {
         temporary.delete()
+        destination.delete()
         throw error
     }
 }
