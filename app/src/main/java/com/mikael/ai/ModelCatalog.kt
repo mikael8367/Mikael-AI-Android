@@ -25,6 +25,14 @@ object ModelCatalog {
             description = "Motor próprio MKAI. Aguardando corpus licenciado e pesos treinados; ainda não há um modelo pronto para instalar."
         ),
         CatalogModel(
+            id = "mikael-assistant", name = "Mikael AI Assistente", family = "Mikael AI • base Qwen 2.5 0.5B • Q4_K_M",
+            engine = ModelEngine.LLAMA_CPP, fileName = "Mikael-AI-Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+            downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+            approximateBytes = 430_000_000L, license = "Apache-2.0 (modelo-base)",
+            sourceUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF",
+            description = "Assistente Mikael AI com instruções de programação e execução local. Usa Qwen 2.5 0.5B como modelo-base; não é um checkpoint treinado do zero."
+        ),
+        CatalogModel(
             id = "qwen-0.5b", name = "Qwen 2.5 0.5B Instruct", family = "GGUF • Q4_K_M",
             engine = ModelEngine.LLAMA_CPP, fileName = "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
             downloadUrl = "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
