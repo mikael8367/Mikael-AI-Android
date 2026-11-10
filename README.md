@@ -18,18 +18,18 @@ Os pesos não são embutidos no APK. O app mostra tamanho, licença, espaço liv
 | Modelo | Formato | Download aproximado | Licença | Observação |
 |---|---|---:|---|---|
 | Mikael AI Base | MKAI v1 float32 | 591.144 bytes no release atual | Autoral experimental | Modelo pequeno treinado com corpus didático; não é um assistente avançado |
-| Qwen2.5-0.5B-Instruct | GGUF Q4_K_M | 0,40 GB | Apache-2.0 | Melhor ponto de partida do catálogo para português e uso multilíngue |
+| Qwen2.5-Coder-0.5B-Instruct | GGUF Q4_K_M | 0,491 GB | Apache-2.0 | Modelo especializado em geração, raciocínio e correção de código; o cartão oficial marca foco em inglês, então a qualidade em português ainda precisa ser testada |
 | SmolLM2-360M-Instruct | GGUF Q4_K_M | 0,27 GB | Apache-2.0 | Menor; o cartão oficial alerta que os modelos SmolLM2 entendem e geram principalmente inglês |
 | TinyLlama-1.1B-Chat-v1.0 | GGUF Q4_K_M | 0,622 GB | Apache-2.0 | Mais pesado; pode exceder o orçamento de RAM em aparelhos modestos |
 
-Os tamanhos dos GGUF são aproximados e podem mudar conforme a revisão publicada na origem. Fontes e licenças são mostradas no catálogo e nos cartões oficiais dos modelos. O download do Qwen Q4_K_M sozinho já ocupa mais de 200 MB; o APK permanece separado e muito menor. O tamanho real do APK e o espaço pós-instalação precisam ser medidos em cada build/dispositivo, não inferidos a partir do tamanho do modelo.
+Os tamanhos dos GGUF são aproximados e podem mudar conforme a revisão publicada na origem. Fontes e licenças são mostradas no catálogo e nos cartões oficiais dos modelos. O download do Qwen2.5-Coder Q4_K_M sozinho já ocupa mais de 200 MB; o APK permanece separado e muito menor. O tamanho real do APK e o espaço pós-instalação precisam ser medidos em cada build/dispositivo, não inferidos a partir do tamanho do modelo.
 
 ## Hardware e memória
 
 - O runtime GGUF usa llama.cpp em CPU ARM64.
 - Antes de carregar, o app consulta a memória disponível do Android e aplica um orçamento configurável.
 - A estimativa de RAM é uma proteção aproximada, não substitui medição de pico no aparelho.
-- O Galaxy A12 é um dispositivo de recursos limitados. Qwen2.5-0.5B Q4_K_M é a primeira opção a testar; velocidade, temperatura, estabilidade e consumo real ainda precisam ser medidos fisicamente.
+- O Galaxy A12 é um dispositivo de recursos limitados. Qwen2.5-Coder-0.5B Q4_K_M é a primeira opção a testar para programação; o arquivo tem cerca de 491 MB e o orçamento interno estima aproximadamente 596 MiB para o modelo com contexto de 512 tokens, antes de medição real. Velocidade, temperatura, estabilidade e consumo real ainda precisam ser medidos fisicamente.
 - Não declarar compatibilidade prática ou desempenho confirmado sem teste no aparelho.
 
 ## Offline e recursos online
