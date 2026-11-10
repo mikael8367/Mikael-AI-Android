@@ -3,11 +3,9 @@ package com.mikael.ai
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -100,6 +98,10 @@ fun ModelCatalogScreen(
                         Button(onClick = { confirmTeamInstall = true }, enabled = !busy && missingTeamModels.isNotEmpty(), modifier = Modifier.fillMaxWidth()) {
                             Text("Baixar modelos faltantes")
                         }
+                    } else {
+                        OutlinedButton(onClick = { confirmTeamInstall = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                            Text("Verificar integridade dos quatro modelos")
+                        }
                     }
                     Button(
                         onClick = onSelectTeam,
@@ -154,6 +156,9 @@ fun ModelCatalogScreen(
                             OutlinedButton(onClick = { onSelect(model) }, modifier = Modifier.fillMaxWidth(), enabled = selectedModelId != model.id && !busy) {
                                 Text(if (selectedModelId == model.id) "Mikael AI selecionado" else "Usar Mikael AI")
                             }
+                            OutlinedButton(onClick = { deleteModelConfirmation = model }, modifier = Modifier.fillMaxWidth(), enabled = !busy) {
+                                Text("Desinstalar checkpoint MKAI")
+                            }
                         }
                     } else {
                         Text("Tamanho aproximado: ${formatModelBytes(model.approximateBytes)} • Q4_K_M", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
@@ -189,9 +194,13 @@ fun ModelCatalogScreen(
             title = { Text("Instalar equipe de quatro modelos?") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text("Modelos que faltam:")
-                    missingTeamModels.forEach { model -> Text("• ${model.name}: ${formatModelBytes(model.approximateBytes)}") }
-                    Text("Download total aproximado: ${formatModelBytes(teamDownloadBytes)}")
+                    if (missingTeamModels.isEmpty()) {
+                        Text("Todos os modelos parecem instalados. O app verificará os checksums e reparará arquivos inválidos, se necessário.")
+                    } else {
+                        Text("Modelos que faltam:")
+                        missingTeamModels.forEach { model -> Text("• ${model.name}: ${formatModelBytes(model.approximateBytes)}") }
+                    }
+                    Text("Download estimado se os arquivos estiverem ausentes: ${formatModelBytes(teamDownloadBytes)}")
                     Text("Espaço livre: ${formatModelBytes(availableStorageBytes)}")
                     Text("Espaço necessário estimado: ${formatModelBytes(teamRequiredSpace)}")
                     Text("Os arquivos serão baixados um por vez. Nenhum peso será baixado antes da confirmação.")
@@ -204,7 +213,7 @@ fun ModelCatalogScreen(
             },
             confirmButton = {
                 TextButton(onClick = { confirmTeamInstall = false; onInstallTeam() }, enabled = availableStorageBytes > teamRequiredSpace && !busy) {
-                    Text("Confirmar downloads")
+                    Text("Verificar e instalar")
                 }
             },
             dismissButton = { TextButton(onClick = { confirmTeamInstall = false }) { Text("Cancelar") } }
