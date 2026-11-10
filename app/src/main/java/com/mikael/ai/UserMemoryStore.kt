@@ -90,7 +90,7 @@ object UserMemoryStore {
         val normalized = normalize(clean)
         if (Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}").containsMatchIn(clean)) return null
         if (Regex("\\b[0-9]{8,}\\b").containsMatchIn(clean)) return null
-        val sensitive = listOf("saude", "doenca", "medicamento", "remedio", "diagnostico", "depressao", "ansiedade", "religiao", "igreja", "politica", "partido", "sexualidade", "orientacao sexual", "senha", "password", "token", "cpf", "cartao", "endereco", "telefone", "documento", "raca", "etnia")
+        val sensitive = listOf("saude", "doenca", "medicamento", "remedio", "diagnostico", "depressao", "ansiedade", "religiao", "igreja", "politica", "partido", "sexualidade", "orientacao sexual", "senha", "password", "token", "secret", "chave", "api key", "client id", "cpf", "cartao", "endereco", "telefone", "documento", "raca", "etnia")
         if (sensitive.any { normalized.contains(it) }) return null
         val stableSignals = listOf("prefiro ", "gosto de ", "nao gosto de ", "uso ", "estou desenvolvendo ", "estou criando ", "meu projeto ", "meu aparelho ", "meu celular ", "trabalho com ", "sempre quero ", "nao quero ")
         return clean.take(MAX_ITEM_CHARS).takeIf { stableSignals.any { signal -> normalized.contains(signal) } }
