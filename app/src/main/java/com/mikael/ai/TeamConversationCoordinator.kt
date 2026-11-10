@@ -154,7 +154,7 @@ internal object TeamConversationCoordinator {
 
     internal fun isProgrammingTask(prompt: String): Boolean {
         val pattern = Regex(
-            "(?i)\\b(c[oó]digo|programa(r|ção|cao)?|implementar|implementa|desenvolver|desenvolva|bug|depura(r|ção|cao)?|compilar|kotlin|java|android|gradle|github|api|função|classe|m[eé]todo|arquivo|script|html|css|javascript|typescript|python|sql|mod|minecraft)\\b"
+            "(?i)\\b(c[oó]digo|programa(r|ção|cao)?|programação|implementar|implemente|implementa|desenvolver|desenvolva|criar|crie|cria|bug|corrigir|corrija|depura(r|ção|cao)?|depure|refatorar|refatore|compilar|kotlin|java|android|gradle|github|api|função|funções|classe|m[eé]todo|arquivo|script|html|css|javascript|typescript|python|sql|mod|minecraft|aplicativo|app|site|projeto)\\b"
         )
         return pattern.containsMatchIn(prompt)
     }
