@@ -346,6 +346,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     }
 }
 
+private const val MAX_MODEL_FILE_BYTES = 240_000_040L
+
 private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
     val displayName = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val column = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -362,7 +364,19 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
     try {
         context.contentResolver.openInputStream(uri).use { input ->
             requireNotNull(input) { "O Android não conseguiu abrir o arquivo selecionado." }
-            temporary.outputStream().use { output -> input.copyTo(output, 128 * 1024) }
+            temporary.outputStream().use { output ->
+                val buffer = ByteArray(128 * 1024)
+                var totalBytes = 0L
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    totalBytes += read
+                    require(totalBytes <= MAX_MODEL_FILE_BYTES) {
+                        "O modelo excede o limite de tamanho permitido para importação."
+                    }
+                    output.write(buffer, 0, read)
+                }
+            }
         }
         require(temporary.length() >= 1024L) { "O arquivo MKAI está vazio ou incompleto." }
         val headerOk = temporary.inputStream().use { stream ->
