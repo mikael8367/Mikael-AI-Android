@@ -134,22 +134,26 @@ object UserMemoryStore {
         }
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encrypted = SecureLocalStorage.encrypt(json.toString())
-        check(prefs.edit().putString(KEY_ITEMS_SECURE, encrypted).remove(KEY_ITEMS).commit()) {
+        check(prefs.edit().putString(KEY_ITEMS_SECURE, encrypted).commit()) {
             "Não foi possível salvar a memória criptografada."
         }
+        prefs.edit().remove(KEY_ITEMS).commit()
     }
 
     private fun read(context: Context): List<UserMemoryItem> = runCatching {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val encrypted = prefs.getString(KEY_ITEMS_SECURE, null)
         val legacyRaw = prefs.getString(KEY_ITEMS, "[]") ?: "[]"
-        val raw = if (!encrypted.isNullOrBlank()) {
-            runCatching { SecureLocalStorage.decrypt(encrypted) }.getOrNull() ?: legacyRaw
-        } else legacyRaw
+        val decrypted = encrypted?.takeIf { it.isNotBlank() }?.let {
+            runCatching { SecureLocalStorage.decrypt(it) }.getOrNull()
+        }
+        val raw = decrypted ?: legacyRaw
+        if (decrypted != null && prefs.contains(KEY_ITEMS)) prefs.edit().remove(KEY_ITEMS).apply()
         if (encrypted.isNullOrBlank() && prefs.contains(KEY_ITEMS)) {
             runCatching {
                 val payload = SecureLocalStorage.encrypt(raw)
-                prefs.edit().putString(KEY_ITEMS_SECURE, payload).remove(KEY_ITEMS).commit()
+                val stored = prefs.edit().putString(KEY_ITEMS_SECURE, payload).commit()
+                if (stored) prefs.edit().remove(KEY_ITEMS).commit()
             }
         }
         val json = JSONArray(raw)
