@@ -10,7 +10,7 @@ class AppPreferences(context: Context) {
         set(value) { prefs.edit().putString("model_path", value).apply() }
 
     var selectedCatalogModelId: String
-        get() = prefs.getString("selected_catalog_model_id", "mikael-base") ?: "mikael-base"
+        get() = prefs.getString("selected_catalog_model_id", "mikael-assistant") ?: "mikael-assistant"
         set(value) {
             if (value in setOf("mikael-base", "mikael-assistant", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")) {
                 prefs.edit().putString("selected_catalog_model_id", value).apply()
