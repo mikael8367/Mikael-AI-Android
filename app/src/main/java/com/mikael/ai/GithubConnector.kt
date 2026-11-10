@@ -291,7 +291,7 @@ private object GithubApi {
         }.take(6_000)
     }
 
-    suspend fun listRepositories(token: String): String = withContext(Dispatchers.IO) {
+    suspend fun formatRepositories(token: String): String = withContext(Dispatchers.IO) {
         val repos = listRepositories(token).take(30)
         repos.joinToString("\\n") { repo ->
             "- ${repo.fullName}: ${repo.description.take(180)}"
@@ -539,7 +539,7 @@ internal suspend fun searchGithubIssues(context: Context, repository: String, qu
 
 internal suspend fun listGithubRepositories(context: Context): String {
     val token = GithubTokenStore.read(context) ?: throw IllegalStateException("Conecte o GitHub antes de listar repositórios.")
-    return GithubApi.listRepositories(token)
+    return GithubApi.formatRepositories(token)
 }
 
 internal suspend fun readGithubReadme(context: Context, repository: String): String {
