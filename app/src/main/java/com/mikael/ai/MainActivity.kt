@@ -583,6 +583,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         errors = catalogErrors,
                         selectedModelId = selectedCatalogModelId,
                         mikaelAvailable = !modelPath.isNullOrBlank() && File(modelPath!!).isFile,
+                        busy = isGenerating || catalogJobs.isNotEmpty(),
                         onSelect = { model ->
                             selectedCatalogModelId = model.id
                             preferences.selectedCatalogModelId = model.id
@@ -699,7 +700,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         memoryLimit = memoryLimit,
                         contextTokens = contextTokens,
                         availableBytes = MemoryBudget.availableBytes(activityManager),
-                        storageBusy = isGenerating || catalogJobs.isNotEmpty(),
+                        storageBusy = isGenerating || catalogJobs.isNotEmpty() || pendingTask != null,
                         onMemoryChange = {
                             memoryLimit = it
                             preferences.memoryLimitMiB = it
