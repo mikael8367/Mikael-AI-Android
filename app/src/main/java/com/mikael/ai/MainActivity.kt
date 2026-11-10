@@ -189,6 +189,15 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     LaunchedEffect(serviceIsRunning) {
         isGenerating = serviceIsRunning
         pendingTask = PendingTaskStore.load(context)
+        if (!serviceIsRunning) {
+            val latest = ConversationStore.loadAll(context)
+            conversations.clear()
+            conversations.addAll(latest)
+            latest.firstOrNull { it.id == activeConversationId }?.let { saved ->
+                messages.clear()
+                messages.addAll(saved.messages)
+            }
+        }
     }
 
     LaunchedEffect(pendingTask?.completedResponse) {
