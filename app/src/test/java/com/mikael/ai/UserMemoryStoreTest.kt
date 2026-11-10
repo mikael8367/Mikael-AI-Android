@@ -34,6 +34,18 @@ class UserMemoryStoreTest {
     }
 
     @Test
+    fun genericModelWordIsNotMisclassifiedAsMinecraftMod() {
+        assertEquals("Outros", UserMemoryStore.classifyTopic("Quero testar um modelo local"))
+    }
+
+    @Test
+    fun differentShortTechnicalFactsAreNotNearDuplicates() {
+        val first = UserMemoryStore.normalize("Tenho PC")
+        val second = UserMemoryStore.normalize("Tenho celular")
+        assertTrue(UserMemoryStore.tokenSimilarity(first, second) < 0.75)
+    }
+
+    @Test
     fun similarFactsAreDetectedAsDuplicates() {
         val first = UserMemoryStore.normalize("Prefiro respostas em português")
         val second = UserMemoryStore.normalize("Prefiro respostas em português Brasil")
