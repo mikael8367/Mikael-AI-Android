@@ -15,6 +15,7 @@ namespace {
 constexpr char kMagic[8] = {'M','K','A','I','0','0','0','1'};
 constexpr uint32_t kVersion = 1;
 constexpr uint32_t kVocab = 256;
+constexpr char kStopSequence[] = "<|im_end|>";
 std::mutex gMutex;
 std::atomic<bool> gCancel{false};
 
@@ -225,6 +226,12 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
         if(it==logits.end() || !std::isfinite(*it)) return error(env,"O modelo produziu logits inválidos.");
         const uint8_t next=static_cast<uint8_t>(std::distance(logits.begin(),it));
         tokens.push_back(next); output.push_back(static_cast<char>(next));
+        constexpr size_t stopLength=sizeof(kStopSequence)-1;
+        if(output.size()>=stopLength &&
+           output.compare(output.size()-stopLength,stopLength,kStopSequence,stopLength)==0) {
+            output.resize(output.size()-stopLength);
+            break;
+        }
     }
     return utf8ToJava(env,output);
 }
