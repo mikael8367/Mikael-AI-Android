@@ -40,6 +40,7 @@ fun ModelCatalogScreen(
     mikaelAvailable: Boolean,
     onSelect: (CatalogModel) -> Unit,
     onInstall: (CatalogModel) -> Unit,
+    onCancelInstall: (CatalogModel) -> Unit,
     onImportMkai: () -> Unit,
     onTrainMkai: () -> Unit,
     onDelete: (CatalogModel) -> Unit,
@@ -99,6 +100,7 @@ fun ModelCatalogScreen(
                         if (percent != null) {
                             LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
                             Text("Baixando Mikael AI: $percent%", color = Color(0xFF8BE7B7))
+                            OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.fillMaxWidth()) { Text("Cancelar download") }
                         }
                         errors[model.id]?.let {
                             Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
@@ -156,11 +158,14 @@ fun ModelCatalogScreen(
                                 ) { Text("Desinstalar") }
                             } else {
                                 Button(
-                                    onClick = { onInstall(model) },
+                                    onClick = { confirmationModel = model },
                                     enabled = percent == null,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.weight(1f)
                                 ) {
                                     Text(if (percent != null) "Baixando..." else "Instalar modelo")
+                                }
+                                if (percent != null) {
+                                    OutlinedButton(onClick = { onCancelInstall(model) }, modifier = Modifier.weight(1f)) { Text("Cancelar") }
                                 }
                             }
                         }
