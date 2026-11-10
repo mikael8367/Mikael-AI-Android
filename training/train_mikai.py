@@ -206,6 +206,7 @@ def main() -> None:
     val_x = torch.stack([val_data[int(i):int(i) + args.seq_len] for i in val_starts])
     val_y = torch.stack([val_data[int(i) + 1:int(i) + args.seq_len + 1] for i in val_starts])
 
+    # Exporta sempre o menor val_loss observado, nunca o último passo se houver overfitting.
     best_val_loss = float("inf")
     best_state = None
     best_step = 0
