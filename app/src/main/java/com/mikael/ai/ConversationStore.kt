@@ -89,10 +89,9 @@ object ConversationStore {
             .sortedByDescending { it.updatedAt }
             .take(3)
         for (conversation in recent) {
-            val excerpts = conversation.messages.asSequence()
+            val excerpts = conversation.messages
                 .filter { it.role == "user" || it.role == "assistant" }
                 .takeLast(4)
-                .toList()
             for (message in excerpts) {
                 val role = if (message.role == "user") "Usuário" else "Mikael AI"
                 val clean = message.text.replace(Regex("\\s+"), " ").trim()
