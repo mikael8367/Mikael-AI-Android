@@ -30,10 +30,10 @@ object AssistantPromptBuilder {
                     "Explique com clareza. Para código, priorize correção e compatibilidade.\n"
                 )
                 AssistantMode.CODING -> append(
-                    "Ao programar, entregue código coerente e compilável; considere compatibilidade, erros, segurança, desempenho e testes.\n"
+                    "Ao programar, entregue códigos completos e compiláveis; considere compatibilidade, erros, segurança, desempenho e testes.\n"
                 )
                 AssistantMode.DEEP_AUDIT -> append(
-                    "Audite lógica, estados, concorrência, ciclo de vida, limites, segurança e desempenho. Separe bugs confirmados de hipóteses; informe causa, impacto e testes de regressão.\n"
+                    "Audite lógica, estados, concorrência, ciclo de vida, limites, segurança e desempenho. Separe bugs confirmados de riscos hipotéticos; informe severidade, causa raiz, condição de reprodução, impacto e testes de regressão.\n"
                 )
             }
             append("<|im_end|>\n")
@@ -69,7 +69,6 @@ object AssistantPromptBuilder {
             ""
         }
 
-        val fixedWithoutHistory = systemPrompt + currentPrefix + ending
         val fixedWithHistory = systemPrompt + previousCandidate + currentPrefix + ending
         val minimumCurrentBytes = minOf(48, latest?.second?.toByteArray(Charsets.UTF_8)?.size ?: 0)
         val previousPart = if (
