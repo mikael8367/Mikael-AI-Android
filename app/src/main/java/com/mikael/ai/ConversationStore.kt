@@ -76,6 +76,36 @@ object ConversationStore {
         }
     }.takeLast(MAX_MESSAGES_PER_CONVERSATION)
 
+    /** Recupera trechos recentes de outras conversas locais, compartilhados por todos os modelos. */
+    fun contextFromOtherConversations(
+        conversations: List<ChatConversation>,
+        activeConversationId: String,
+        maxChars: Int = 1200
+    ): String {
+        if (maxChars <= 0) return ""
+        val output = StringBuilder()
+        val recent = conversations.asSequence()
+            .filter { it.id != activeConversationId }
+            .sortedByDescending { it.updatedAt }
+            .take(3)
+        for (conversation in recent) {
+            val excerpts = conversation.messages.asSequence()
+                .filter { it.role == "user" || it.role == "assistant" }
+                .takeLast(4)
+                .toList()
+            for (message in excerpts) {
+                val role = if (message.role == "user") "Usuário" else "Mikael AI"
+                val clean = message.text.replace(Regex("\\s+"), " ").trim()
+                    .replace(Regex("<\\|im_(?:start|end)\\|>"), "")
+                if (clean.isBlank()) continue
+                val line = "$role: ${clean.take(240)}\\n"
+                if (output.length + line.length > maxChars) return output.toString()
+                output.append(line)
+            }
+        }
+        return output.toString()
+    }
+
     fun append(messages: MutableList<ChatMessage>, message: ChatMessage) {
         messages.add(message)
         while (messages.size > MAX_MESSAGES_PER_CONVERSATION) messages.removeAt(0)
