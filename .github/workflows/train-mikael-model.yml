@@ -48,17 +48,29 @@ jobs:
         run: python -m unittest discover -s training/tests -v
 
       - name: Validate training corpus
+        env:
+          CORPUS_PATH: ${{ inputs.corpus_path }}
         run: |
-          test -f "${{ inputs.corpus_path }}" || { echo "Corpus não encontrado: ${{ inputs.corpus_path }}"; exit 1; }
-          python -c "from pathlib import Path; p=Path('${{ inputs.corpus_path }}'); b=p.read_bytes(); b.decode('utf-8'); print(f'Corpus UTF-8 válido: {len(b)} bytes')"
+          test -f -- "$CORPUS_PATH" || { echo "Corpus não encontrado."; exit 1; }
+          CORPUS_REAL="$(realpath "$CORPUS_PATH")"
+          case "$CORPUS_REAL" in
+            "$GITHUB_WORKSPACE"/*) ;;
+            *) echo "O corpus precisa estar dentro do repositório."; exit 1 ;;
+          esac
+          export CORPUS_REAL
+          python -c 'import os; from pathlib import Path; p=Path(os.environ["CORPUS_REAL"]); b=p.read_bytes(); b.decode("utf-8", errors="strict"); print(f"Corpus UTF-8 válido: {len(b)} bytes")'
 
       - name: Run trainer and export original MKAI weights
+        env:
+          CORPUS_PATH: ${{ inputs.corpus_path }}
+          TRAIN_STEPS: ${{ inputs.steps }}
+          SEQUENCE_LENGTH: ${{ inputs.sequence_length }}
         run: |
           python training/train_mikai.py \
-            --corpus "${{ inputs.corpus_path }}" \
+            --corpus "$CORPUS_PATH" \
             --output artifacts/mikael-base.mkai \
-            --steps "${{ inputs.steps }}" \
-            --seq-len "${{ inputs.sequence_length }}" \
+            --steps "$TRAIN_STEPS" \
+            --seq-len "$SEQUENCE_LENGTH" \
             --batch-size 4 \
             --dim 64 \
             --layers 2 \
