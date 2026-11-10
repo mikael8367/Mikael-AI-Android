@@ -4,11 +4,13 @@ project(mikael_llama LANGUAGES C CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON CACHE BOOL "Export native compile commands for CI verification" FORCE)
 
 # The CI's installable debug variant is also used for on-device performance
-# diagnosis. Keep debug symbols, but avoid compiling llama.cpp/ggml kernels at
-# -O0 on low-power ARM devices. Release builds retain their normal toolchain flags.
+# diagnosis. Keep debug symbols, but ensure every native target (including
+# llama.cpp/ggml FetchContent subdirectories) receives the optimization flag.
+# Directory compile options are applied after the configuration defaults.
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS_DEBUG "-O2 -g" CACHE STRING "Optimized debug C flags" FORCE)
     set(CMAKE_CXX_FLAGS_DEBUG "-O2 -g" CACHE STRING "Optimized debug C++ flags" FORCE)
+    add_compile_options(-O2 -g)
 endif()
 
 include(FetchContent)
