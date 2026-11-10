@@ -217,8 +217,80 @@ class TeamConversationCoordinatorTest {
             failures = emptyMap(),
             finalSynthesis = true
         )
-        assertTrue(prompt.contains("A".repeat(160)))
-        assertTrue(!prompt.contains("A".repeat(161)))
+        assertTrue(prompt.contains("A".repeat(400)))
+        assertTrue(!prompt.contains("A".repeat(401)))
+    }
+
+
+    @Test
+    fun programmingPromptsAssignDistinctRolesAndAskForConcreteCodeReview() {
+        val prompts = team.map { participant ->
+            TeamConversationCoordinator.buildPrompt(
+                originalPrompt = "Implemente uma função Kotlin e corrija o bug",
+                chatContext = "Projeto Android",
+                participants = team,
+                contributions = emptyList(),
+                failures = emptyMap(),
+                finalSynthesis = false,
+                currentParticipant = participant
+            )
+        }
+        assertTrue(prompts[0].contains("PAPEL: analista de requisitos"))
+        assertTrue(prompts[1].contains("PAPEL: implementador principal"))
+        assertTrue(prompts[2].contains("PAPEL: revisor de código"))
+        assertTrue(prompts[3].contains("PAPEL: integrador"))
+        assertTrue(prompts.all { it.contains("proponha um teste reproduzível") })
+    }
+
+    @Test
+    fun programmingFinalPromptRequestsIntegratedFilesCodeAndTests() {
+        val prompt = TeamConversationCoordinator.buildPrompt(
+            originalPrompt = "Crie um programa Kotlin",
+            chatContext = "",
+            participants = team,
+            contributions = team.map { TeamContribution(it, "Proposta de ${it.name}") },
+            failures = emptyMap(),
+            finalSynthesis = true,
+            currentParticipant = team[1]
+        )
+        assertTrue(prompt.contains("ETAPA FINAL DE PROGRAMAÇÃO"))
+        assertTrue(prompt.contains("código completo ou patch aplicável"))
+        assertTrue(prompt.contains("testes necessários"))
+        assertTrue(prompt.contains("não invente verificações"))
+    }
+
+    @Test
+    fun programmingTasksReceiveLargerButBoundedGenerationBudgets() = runBlocking {
+        val limits = mutableListOf<Int>()
+        TeamConversationCoordinator.run(
+            originalPrompt = "Implemente uma função Kotlin para corrigir este bug",
+            chatContext = "",
+            participants = team,
+            generate = { _, _, limit ->
+                limits += limit
+                Result.success("Contribuição curta")
+            }
+        )
+        assertEquals(
+            listOf(192, 192, 192, 192, 512),
+            limits
+        )
+        assertTrue(limits.sum() <= 1_280)
+    }
+
+    @Test
+    fun normalConversationKeepsSmallerGenerationBudget() = runBlocking {
+        val limits = mutableListOf<Int>()
+        TeamConversationCoordinator.run(
+            originalPrompt = "Explique o que é uma árvore",
+            chatContext = "",
+            participants = team,
+            generate = { _, _, limit ->
+                limits += limit
+                Result.success("Resposta curta")
+            }
+        )
+        assertEquals(listOf(96, 96, 96, 96, 192), limits)
     }
 
 }
