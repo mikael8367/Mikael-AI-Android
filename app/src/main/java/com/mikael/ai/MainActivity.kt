@@ -347,7 +347,12 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
                             if (!importingAttachments && attachments.size < 5) {
                                 importingAttachments = true
                                 logEvent("INFO", "Toque: anexar arquivos")
-                                attachmentPicker.launch(arrayOf("*/*"))
+                                runCatching { attachmentPicker.launch(arrayOf("*/*")) }
+                                    .onFailure { error ->
+                                        importingAttachments = false
+                                        engineStatus = error.message ?: "Não foi possível abrir o seletor de arquivos."
+                                        logEvent("ERROR", "Falha ao abrir seletor de anexos: ${error.javaClass.simpleName}")
+                                    }
                             }
                         },
                         onLog = { level, message -> logEvent(level, message) },
@@ -941,7 +946,11 @@ private fun OfflineSettingsScreen(
             style = MaterialTheme.typography.bodySmall
         )
         OutlinedButton(onClick = { onLog("INFO", "Toque: recarregar modelo"); onReload() }, enabled = reloadEnabled, modifier = Modifier.fillMaxWidth()) { Text("Recarregar modelo") }
-        OutlinedButton(onClick = { onLog("WARN", "Toque: apagar histórico"); onClearHistory() }, modifier = Modifier.fillMaxWidth()) { Text("Apagar histórico local") }
+        OutlinedButton(
+            onClick = { onLog("WARN", "Toque: apagar histórico"); onClearHistory() },
+            enabled = controlsEnabled,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Apagar histórico local") }
         Text("Os conectores ficam na aba Conectores. Eles só acessam a internet quando você aciona uma função.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
         Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
             Column(Modifier.padding(14.dp)) {
