@@ -11,6 +11,12 @@ object LocalInferenceEngine {
     private var ready = false
 
     @Volatile
+    private var loadedModelPath: String? = null
+
+    @Volatile
+    private var loadedContextTokens: Int = 0
+
+    @Volatile
     private var diagnosticSink: ((String, String) -> Unit)? = null
 
     @Volatile
@@ -28,6 +34,9 @@ object LocalInferenceEngine {
 
     fun isAvailable(): Boolean = libraryLoaded
 
+    fun isReadyFor(modelPath: String, contextTokens: Int): Boolean =
+        ready && loadedModelPath == modelPath && loadedContextTokens == contextTokens
+
     /** Receives complete UTF-8 fragments emitted by the native decoder. */
     @JvmStatic
     fun onNativeToken(piece: String) {
@@ -40,12 +49,16 @@ object LocalInferenceEngine {
         check(modelPath.isNotBlank()) { "Selecione um modelo GGUF." }
         check(contextTokens in 256..8192) { "O contexto precisa ficar entre 256 e 8192 tokens." }
         ready = false
+        loadedModelPath = null
+        loadedContextTokens = 0
         val nativeError = nativeLoad(
             modelPath,
             contextTokens,
             Runtime.getRuntime().availableProcessors().coerceIn(1, 2)
         )
         if (nativeError != null) error(unwrapNativeError(nativeError))
+        loadedModelPath = modelPath
+        loadedContextTokens = contextTokens
         ready = true
     }
 
@@ -72,8 +85,10 @@ object LocalInferenceEngine {
 
     @Synchronized
     fun unload() {
-        if (libraryLoaded) nativeUnload()
         ready = false
+        loadedModelPath = null
+        loadedContextTokens = 0
+        if (libraryLoaded) nativeUnload()
     }
 
     private fun unwrapNativeError(value: String): String =
