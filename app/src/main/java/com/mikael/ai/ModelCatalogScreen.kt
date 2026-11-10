@@ -42,15 +42,24 @@ fun ModelCatalogScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                Text("Catálogo de modelos", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                Text("Quatro modelos • downloads no armazenamento privado do app", color = Color(0xFF9EAAA2))
-                Text("Mikael AI usa o motor autoral; os três modelos GGUF usam llama.cpp local.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(5.dp),
+                modifier = Modifier.padding(vertical = 8.dp)
+            ) {
+                Text("Modelos disponíveis", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text("Mikael AI autoral + três modelos GGUF para instalar.", color = Color(0xFF9EAAA2))
+                Text(
+                    "Escolha um modelo, instale-o e toque em Usar modelo. O carregamento acontece automaticamente.",
+                    color = Color(0xFF9EAAA2),
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
         items(ModelCatalog.models, key = { it.id }) { model ->
             val file = installed[model.id]
             val percent = progress[model.id]
+            val isMikael = model.engine == ModelEngine.MKAI
+            val isInstalled = if (isMikael) mikaelAvailable else file != null
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19)),
                 modifier = Modifier.fillMaxWidth()
@@ -61,38 +70,71 @@ fun ModelCatalogScreen(
                             Text(model.name, fontWeight = FontWeight.Bold)
                             Text(model.family, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.labelSmall)
                         }
-                        if (file != null) Text("INSTALADO", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        if (isInstalled) {
+                            Text("INSTALADO", color = Color(0xFF54E69C), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+                        }
                     }
                     Text(model.description, color = Color(0xFFB8C6BD), style = MaterialTheme.typography.bodySmall)
                     Text("Licença: ${model.license}", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
-                    if (model.engine == ModelEngine.MKAI) {
-                        Text("Estado: aguardando corpus e pesos próprios. Nenhum peso de terceiros será usado no Mikael AI.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) { Text("Importar modelo Mikael (.mkai)") }
+
+                    if (isMikael) {
+                        Text(
+                            if (mikaelAvailable) "Modelo MKAI instalado neste aparelho."
+                            else "Ainda não existe um arquivo MKAI treinado publicado para download. Instale selecionando um arquivo .mkai treinado.",
+                            color = if (mikaelAvailable) Color(0xFF54E69C) else Color(0xFFFFD28A),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        errors[model.id]?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Button(onClick = onImportMkai, modifier = Modifier.fillMaxWidth()) {
+                            Text(if (mikaelAvailable) "Trocar / instalar arquivo Mikael AI (.mkai)" else "Instalar arquivo Mikael AI (.mkai)")
+                        }
                         if (mikaelAvailable) {
                             OutlinedButton(
                                 onClick = { onSelect(model) },
                                 modifier = Modifier.fillMaxWidth(),
                                 enabled = selectedModelId != model.id
-                            ) { Text(if (selectedModelId == model.id) "Selecionado" else "Usar Mikael AI") }
+                            ) {
+                                Text(if (selectedModelId == model.id) "Mikael AI selecionado" else "Usar Mikael AI")
+                            }
                         }
                     } else {
-                        Text("Tamanho aproximado: ${model.approximateBytes / 1_000_000} MB • Q4_K_M", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            "Tamanho aproximado: ${model.approximateBytes / 1_000_000} MB • Q4_K_M",
+                            color = Color(0xFF9EAAA2),
+                            style = MaterialTheme.typography.labelSmall
+                        )
                         if (percent != null) {
                             LinearProgressIndicator(progress = { percent / 100f }, modifier = Modifier.fillMaxWidth())
                             Text("Baixando: $percent%", color = Color(0xFF8BE7B7))
                         }
-                        errors[model.id]?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        errors[model.id]?.let {
+                            Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             if (file != null) {
                                 Button(
                                     onClick = { onSelect(model) },
                                     enabled = selectedModelId != model.id,
                                     modifier = Modifier.weight(1f)
-                                ) { Text(if (selectedModelId == model.id) "Selecionado" else "Usar modelo") }
-                                OutlinedButton(onClick = { onDelete(model) }, modifier = Modifier.weight(1f)) { Text("Desinstalar") }
+                                ) {
+                                    Text(if (selectedModelId == model.id) "Selecionado" else "Usar modelo")
+                                }
+                                OutlinedButton(
+                                    onClick = { onDelete(model) },
+                                    modifier = Modifier.weight(1f)
+                                ) { Text("Desinstalar") }
                             } else {
-                                Button(onClick = { onInstall(model) }, enabled = percent == null, modifier = Modifier.weight(1f)) {
-                                    Text(if (percent != null) "Baixando..." else "Instalar")
+                                Button(
+                                    onClick = { onInstall(model) },
+                                    enabled = percent == null,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(if (percent != null) "Baixando..." else "Instalar modelo")
                                 }
                             }
                         }
@@ -103,7 +145,11 @@ fun ModelCatalogScreen(
         }
         item {
             Spacer(Modifier.size(8.dp))
-            Text("Os modelos selecionados são executados localmente. Contextos maiores aumentam o consumo de RAM; comece com 512 tokens em aparelhos com pouca memória.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            Text(
+                "Os modelos são executados localmente. Em aparelhos com pouca RAM, comece pelo SmolLM2 360M ou por um MKAI pequeno.",
+                color = Color(0xFF9EAAA2),
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }
