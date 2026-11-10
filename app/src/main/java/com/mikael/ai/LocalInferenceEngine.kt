@@ -1,5 +1,7 @@
 package com.mikael.ai
 
+import kotlinx.coroutines.CancellationException
+
 object LocalInferenceEngine {
     private val libraryLoaded: Boolean = runCatching {
         System.loadLibrary("mikael_llama")
@@ -38,12 +40,14 @@ object LocalInferenceEngine {
         ready = true
     }
 
+    @Synchronized
     fun generate(prompt: String, maxTokens: Int = 256): Result<String> = runCatching {
         check(ready) { "Carregue um modelo antes de conversar." }
         require(prompt.isNotBlank()) { "Digite uma mensagem." }
         require(prompt.toByteArray(Charsets.UTF_8).size <= 24000) { "A mensagem está muito longa para o motor local." }
         val result = nativeGenerate(prompt, maxTokens.coerceIn(16, 256))
         if (result == null) error("E_NATIVE_NULL • O motor local não retornou uma resposta.")
+        if (result.startsWith(NATIVE_CANCELLED_PREFIX)) throw CancellationException("Geração interrompida pelo usuário.")
         if (result.startsWith(NATIVE_ERROR_PREFIX)) error(result.removePrefix(NATIVE_ERROR_PREFIX))
         result
     }
@@ -62,6 +66,7 @@ object LocalInferenceEngine {
         if (value.startsWith(NATIVE_ERROR_PREFIX)) value.removePrefix(NATIVE_ERROR_PREFIX) else value
 
     private const val NATIVE_ERROR_PREFIX = "MIKAEL_NATIVE_ERROR:"
+    private const val NATIVE_CANCELLED_PREFIX = "MIKAEL_NATIVE_CANCELLED:"
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?
