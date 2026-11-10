@@ -24,7 +24,9 @@ Seja direto, organizado e evite repetir a pergunta.
             "```", "erro", "exception", "stacktrace", "bug", "corrija", "corrigir",
             "código", "codigo", "programa", "função", "funcao", "classe", "java",
             "kotlin", "python", "javascript", "typescript", "html", "css", "sql",
-            "api", "github", "gradle", "compilar", "build.gradle", "crash", "nullpointer"
+            "api", "github", "gradle", "compilar", "build.gradle", "crash", "nullpointer",
+            "programação", "programacao", "desenvolva", "implemente", "modifique", "adicione",
+            "script", "c++", "c#", "json", "xml", "bash", "node", "react"
         )
         return if (signals.any { signal -> text.contains(signal) }) 192 else 128
     }
