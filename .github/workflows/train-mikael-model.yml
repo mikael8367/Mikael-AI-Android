@@ -1,6 +1,12 @@
 name: Treinar modelo próprio Mikael AI
 
 on:
+  push:
+    branches: ["fix/**"]
+    paths:
+      - "training/corpus.txt"
+      - "training/train_mikai.py"
+      - ".github/workflows/train-mikael-model.yml"
   workflow_dispatch:
     inputs:
       corpus_path:
@@ -49,7 +55,7 @@ jobs:
 
       - name: Validate training corpus
         env:
-          CORPUS_PATH: ${{ inputs.corpus_path }}
+          CORPUS_PATH: ${{ inputs.corpus_path || 'training/corpus.txt' }}
         run: |
           test -f "$CORPUS_PATH" || { echo "Corpus não encontrado."; exit 1; }
           CORPUS_REAL="$(realpath "$CORPUS_PATH")"
@@ -63,8 +69,8 @@ jobs:
       - name: Run trainer and export original MKAI weights
         env:
           CORPUS_PATH: ${{ inputs.corpus_path }}
-          TRAIN_STEPS: ${{ inputs.steps }}
-          SEQUENCE_LENGTH: ${{ inputs.sequence_length }}
+          TRAIN_STEPS: ${{ inputs.steps || '2500' }}
+          SEQUENCE_LENGTH: ${{ inputs.sequence_length || '512' }}
         run: |
           python training/train_mikai.py \
             --corpus "$CORPUS_PATH" \
