@@ -132,7 +132,7 @@ internal object GithubTokenStore {
     }
 }
 
-internal object GithubApi {
+private object GithubApi {
     private const val API = "https://api.github.com"
 
     private fun request(
@@ -472,4 +472,11 @@ internal fun GithubConnectorScreen(
         }
         Text(status, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
     }
+}
+
+
+internal suspend fun readGithubReadme(context: Context, repository: String): String {
+    val token = GithubTokenStore.read(context)
+        ?: throw IllegalStateException("Conecte o GitHub na aba GitHub antes de consultar repositórios.")
+    return GithubApi.readReadme(token, repository)
 }
