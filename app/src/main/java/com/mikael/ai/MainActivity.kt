@@ -570,6 +570,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
                                 val proposal = ConnectorRouter.detect(prompt)
                                 if (proposal != null) {
+                                    input = ""
+                                    ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                    persistActiveConversation()
                                     connectorProposal = proposal
                                     connectorError = ""
                                 } else {
