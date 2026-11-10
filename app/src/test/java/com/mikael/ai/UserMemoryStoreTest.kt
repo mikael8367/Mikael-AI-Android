@@ -51,4 +51,15 @@ class UserMemoryStoreTest {
         val second = UserMemoryStore.normalize("Prefiro respostas em português Brasil")
         assertTrue(UserMemoryStore.tokenSimilarity(first, second) >= 0.75)
     }
+    @Test
+    fun automaticLearningOnlyKeepsExplicitStableNonSensitiveFacts() {
+        assertEquals(
+            "Prefiro respostas em português do Brasil",
+            UserMemoryStore.autoLearningCandidate("Prefiro respostas em português do Brasil")
+        )
+        assertNull(UserMemoryStore.autoLearningCandidate("Minha senha é exemplo-seguro"))
+        assertNull(UserMemoryStore.autoLearningCandidate("Hoje está fazendo calor"))
+        assertNull(UserMemoryStore.autoLearningCandidate("Meu diagnóstico é ansiedade"))
+    }
+
 }
