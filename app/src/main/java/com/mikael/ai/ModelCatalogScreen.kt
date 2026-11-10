@@ -78,7 +78,7 @@ fun ModelCatalogScreen(
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Mikael AI — 4 modelos", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
                     Text(
-                        "Uma conversa única. Mikael AI, Qwen 2.5, SmolLM2 e TinyLlama contribuem em sequência, recebendo o histórico compartilhado das falas anteriores. A consolidação é uma resposta só.",
+                        "Uma conversa única. Mikael AI, Qwen 2.5, SmolLM2 e TinyLlama contribuem em sequência, recebendo o histórico compartilhado das falas anteriores. Na última etapa, um modelo revisa as contribuições e consolida uma resposta só.",
                         color = Color(0xFFE1EAE4), style = MaterialTheme.typography.bodySmall
                     )
                     Text(
