@@ -8,6 +8,7 @@
 #include <limits>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -67,7 +68,7 @@ bool loadModel(const std::string& path, uint32_t requestedContext, std::string& 
     const uint64_t totalFloats = v*d + s*d + l*(2*d + 4*d*d + 3*f*d) + d + v*d;
     if(totalFloats>60000000ULL) { error="Este modelo excede o limite de memória seguro do motor Android."; return false; }
     in.seekg(0,std::ios::end);
-    const auto fileSize=in.tellg();
+    const std::streamoff fileSize=static_cast<std::streamoff>(in.tellg());
     const uint64_t expectedBytes=40ULL+totalFloats*sizeof(float);
     if(fileSize<0 || static_cast<uint64_t>(fileSize)!=expectedBytes) {
         error="O tamanho do arquivo não corresponde às dimensões declaradas no cabeçalho MKAI."; return false;
