@@ -11,8 +11,8 @@ package com.mikael.ai
  */
 internal object AnswerRevision {
     private const val MIN_REVIEW_CONTEXT_BYTES = 512
-    private const val REVIEW_MAX_TOKENS = 64
-    private const val REVISION_MAX_TOKENS = 256
+    private const val REVIEW_MAX_TOKENS = 32
+    private const val REVISION_MAX_TOKENS = 128
 
     fun generate(
         originalRequest: String,
@@ -58,24 +58,19 @@ internal object AnswerRevision {
             .containsMatchIn(firstLine)
     }
 
-    private fun buildReviewPrompt(
+    internal fun buildReviewPrompt(
         originalRequest: String,
         draft: String,
         contextCapacityBytes: Int
     ): String? {
         val header = """
-            Você está fazendo uma verificação interna antes de entregar uma resposta.
-            Compare o pedido com o rascunho. Procure apenas erros concretos: fatos incorretos,
-            código inconsistente, requisitos ignorados, contradições ou passos impossíveis.
-            Se não encontrar um problema importante, responda começando exatamente com MANTER.
-            Se encontrar, responda começando exatamente com REVISAR e explique brevemente o motivo.
-            Na dúvida, escolha MANTER. Não converse com o usuário nesta etapa.
-            
+            Verifique o pedido e o rascunho. Só escolha REVISAR se encontrar erro concreto,
+            código incorreto, contradição ou requisito ignorado. Na dúvida, escolha MANTER.
+            Comece a resposta com MANTER ou REVISAR. Não fale com o usuário nesta etapa.
             PEDIDO:
-            
         """.trimIndent()
         val tail = "\n\nRASCUNHO A VERIFICAR:\n\n"
-        val budget = contextCapacityBytes - 1
+        val budget = contextCapacityBytes - REVIEW_MAX_TOKENS - 1
         val available = budget - header.toByteArray(Charsets.UTF_8).size -
             tail.toByteArray(Charsets.UTF_8).size
         if (available < 128) return null
@@ -84,26 +79,23 @@ internal object AnswerRevision {
         return header + fitUtf8(originalRequest, requestBudget) + tail + fitUtf8(draft, draftBudget)
     }
 
-    private fun buildRevisionPrompt(
+    internal fun buildRevisionPrompt(
         originalRequest: String,
         draft: String,
         review: String,
         contextCapacityBytes: Int
     ): String? {
         val header = """
-            Corrija o rascunho abaixo somente nos pontos identificados pela revisão.
-            Preserve o que já estiver correto, cumpra o pedido original e confira a consistência
-            do resultado. Entregue apenas a resposta final ao usuário, sem mencionar esta revisão.
-            
-            PEDIDO ORIGINAL:
-            
+            Corrija os problemas indicados, preserve o que estiver correto e cumpra o pedido.
+            Entregue somente a resposta final, sem mencionar esta revisão.
+            PEDIDO:
         """.trimIndent()
         val draftLabel = "\n\nRASCUNHO:\n\n"
         val reviewLabel = "\n\nPROBLEMAS IDENTIFICADOS:\n\n"
         val fixedBytes = header.toByteArray(Charsets.UTF_8).size +
             draftLabel.toByteArray(Charsets.UTF_8).size +
             reviewLabel.toByteArray(Charsets.UTF_8).size
-        val available = contextCapacityBytes - 1 - fixedBytes
+        val available = contextCapacityBytes - REVISION_MAX_TOKENS - 1 - fixedBytes
         if (available < 128) return null
         val requestBudget = (available / 4).coerceAtLeast(48)
         val reviewBudget = (available / 4).coerceAtLeast(48)
