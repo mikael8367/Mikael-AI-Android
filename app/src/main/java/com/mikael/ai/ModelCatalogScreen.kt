@@ -81,7 +81,7 @@ fun ModelCatalogScreen(
                     if (isMikael) {
                         Text(
                             if (mikaelAvailable) "Checkpoint MKAI instalado neste aparelho."
-                            else "O primeiro checkpoint precisa ser treinado e publicado uma vez. Depois, você poderá baixá-lo diretamente por este botão.",
+                            else "Primeiro, adicione training/corpus.txt com pelo menos 4 KiB de exemplos originais/licenciados. Ao salvar na branch de correções, o GitHub treina e publica o checkpoint; depois baixe por este botão.",
                             color = if (mikaelAvailable) Color(0xFF54E69C) else Color(0xFFFFD28A),
                             style = MaterialTheme.typography.bodySmall
                         )
