@@ -35,7 +35,7 @@ Os tamanhos dos GGUF são aproximados e podem mudar conforme a revisão publicad
 ## Offline e recursos online
 
 - Chat local: funciona offline quando um modelo compatível está instalado e carregado.
-- Histórico, memória e tarefas interrompidas: armazenados localmente e criptografados com AES-GCM usando uma chave não exportável do Android Keystore.
+- Configurações, histórico, memória, sessões online e tarefas interrompidas: armazenados localmente e criptografados com AES-GCM usando uma chave não exportável do Android Keystore.
 - Downloads de modelos: exigem internet e confirmação explícita.
 - Conector GitHub: exige conexão e autorização do usuário; o token é protegido com Android Keystore.
 - Pesquisa na web pela aba Pesquisa, usando o backend Mikael AI no Render com OpenRouter + Exa. A cada busca, o usuário confirma o envio; somente o texto digitado no campo é transmitido, sem histórico, memória, arquivos ou código privado. O uso pode consumir créditos/limites do provedor.
