@@ -16,10 +16,11 @@ data class TeamRunResult(
     val failedParticipants: Map<String, String>,
     val finalizer: String,
     val callCount: Int,
-    val finalizationFallback: Boolean
+    val finalizationFallback: Boolean,
+    val finalizationError: String?
 ) {
     val participatedCount: Int get() = contributions.size
-    val allParticipated: Boolean get() = contributions.size == 4
+    val allParticipated: Boolean get() = contributions.size == 4 && failedParticipants.isEmpty()
 }
 
 /**
@@ -96,10 +97,12 @@ internal object TeamConversationCoordinator {
             ?: contributions.firstOrNull { it.participant.id == "qwen-0.5b" }?.text
             ?: contributions.last().text
 
-        if (finalizationFallback) {
-            failures["Consolidação final"] = finalResponse.exceptionOrNull()?.message
-                ?.take(180) ?: "A síntese final ficou vazia; foi usada a melhor contribuição disponível."
-        }
+        val finalizationError = if (finalizationFallback) {
+            finalResponse.exceptionOrNull()?.let { error ->
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                error.message?.take(180)
+            } ?: "A síntese final ficou vazia; foi usada a melhor contribuição disponível."
+        } else null
         val calls = participants.size + 1
         check(calls <= MAX_CALLS)
         return TeamRunResult(
@@ -108,7 +111,8 @@ internal object TeamConversationCoordinator {
             failedParticipants = failures.toMap(),
             finalizer = finalizer.name,
             callCount = calls,
-            finalizationFallback = finalizationFallback
+            finalizationFallback = finalizationFallback,
+            finalizationError = finalizationError
         )
     }
 
