@@ -238,10 +238,10 @@ class TeamConversationCoordinatorTest {
             )
         }
         assertTrue(prompts[0].contains("PAPEL: analista de requisitos"))
-        assertTrue(prompts[1].contains("PAPEL: implementador principal"))
-        assertTrue(prompts[2].contains("PAPEL: revisor de código"))
+        assertTrue(prompts[1].contains("PAPEL: engenheiro implementador principal"))
+        assertTrue(prompts[2].contains("PAPEL: revisor adversarial de código"))
         assertTrue(prompts[3].contains("PAPEL: integrador"))
-        assertTrue(prompts.all { it.contains("proponha um teste reproduzível") })
+        assertTrue(prompts.all { it.contains("proponha teste reproduzível") })
     }
 
     @Test
@@ -257,7 +257,7 @@ class TeamConversationCoordinatorTest {
         )
         assertTrue(prompt.contains("ETAPA FINAL DE PROGRAMAÇÃO"))
         assertTrue(prompt.contains("código completo ou patch aplicável"))
-        assertTrue(prompt.contains("testes necessários"))
+        assertTrue(prompt.contains("testes unitários/integrados e comandos"))
         assertTrue(prompt.contains("Não diga que editou arquivos"))
         assertTrue(prompt.contains("limitações"))
     }
