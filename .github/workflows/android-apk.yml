@@ -1,4 +1,4 @@
-name: Mikael AI Android build, tests e APK
+name: Mikael AI Android build, tests e APK # [build-apk-once]
 
 on:
   push:
