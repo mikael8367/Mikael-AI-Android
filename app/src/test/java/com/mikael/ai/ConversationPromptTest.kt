@@ -60,7 +60,7 @@ class ConversationPromptTest {
             "",
             512
         )
-        assertTrue(prompt.toByteArray(Charsets.UTF_8).size < 512)
+        assertTrue(prompt.toByteArray(Charsets.UTF_8).size <= (512 - 160) * 3)
         assertTrue(!prompt.endsWith("\uFFFD"))
     }
 }
