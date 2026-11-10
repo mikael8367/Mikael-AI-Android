@@ -240,7 +240,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             val prompt = input.trim()
                             if (prompt.isNotEmpty() && engineReady && !isGenerating) {
                                 input = ""
-                                messages.add(ChatMessage(System.currentTimeMillis(), "user", prompt))
+                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 ConversationStore.save(context, messages)
                                 isGenerating = true
                                 scope.launch {
@@ -262,12 +262,12 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                     result.fold(
                                         onSuccess = { answer ->
                                             if (answer.isNotBlank()) {
-                                                messages.add(ChatMessage(System.currentTimeMillis(), "assistant", answer))
+                                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", answer))
                                                 ConversationStore.save(context, messages)
                                             }
                                         },
                                         onFailure = { error ->
-                                            messages.add(ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
+                                            ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
                                             ConversationStore.save(context, messages)
                                         }
                                     )
