@@ -1,6 +1,7 @@
 package com.mikael.ai
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.app.ActivityManager
@@ -377,19 +378,37 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             tab = AppTab.CHAT
                         },
                         onImportMkai = { modelPicker.launch(arrayOf("application/octet-stream")) },
+                        onTrainMkai = {
+                            val trainingUrl = Uri.parse(
+                                "https://github.com/mikael8367/Mikael-AI-Android/actions/workflows/train-mikael-model.yml"
+                            )
+                            context.startActivity(Intent(Intent.ACTION_VIEW, trainingUrl))
+                        },
                         onInstall = { model ->
                             catalogErrors = catalogErrors - model.id
                             catalogProgress = catalogProgress + (model.id to 0)
                             scope.launch {
                                 try {
-                                    val file = ModelInstaller.install(context, model) { percent ->
-                                        catalogProgress = catalogProgress + (model.id to percent)
+                                    if (model.engine == ModelEngine.MKAI) {
+                                        val file = MikaelModelInstaller.install(context, model) { percent ->
+                                            catalogProgress = catalogProgress + (model.id to percent)
+                                        }
+                                        preferences.modelPath = file.absolutePath
+                                        modelPath = file.absolutePath
+                                        selectedCatalogModelId = model.id
+                                        preferences.selectedCatalogModelId = model.id
+                                        installedModels = listInstalledModels(context)
+                                        tab = AppTab.CHAT
+                                    } else {
+                                        val file = ModelInstaller.install(context, model) { percent ->
+                                            catalogProgress = catalogProgress + (model.id to percent)
+                                        }
+                                        val sharedModels = ModelCatalog.models
+                                            .filter { model.fileName != null && it.fileName == model.fileName }
+                                            .associate { it.id to file }
+                                            .ifEmpty { mapOf(model.id to file) }
+                                        catalogInstalled = catalogInstalled + sharedModels
                                     }
-                                    val sharedModels = ModelCatalog.models
-                                        .filter { model.fileName != null && it.fileName == model.fileName }
-                                        .associate { it.id to file }
-                                        .ifEmpty { mapOf(model.id to file) }
-                                    catalogInstalled = catalogInstalled + sharedModels
                                     catalogProgress = catalogProgress - model.id
                                     catalogErrors = catalogErrors - model.id
                                 } catch (error: Exception) {
@@ -488,11 +507,9 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
             }
         }
         require(temporary.length() >= 1024L) { "O arquivo MKAI está vazio ou incompleto." }
-        val headerOk = temporary.inputStream().use { stream ->
-            val bytes = ByteArray(8)
-            stream.read(bytes) == 8 && bytes.decodeToString() == "MKAI0001"
+        require(MikaelModelInstaller.isValidMkai(temporary)) {
+            "Arquivo MKAI inválido, incompleto ou incompatível com o motor do aplicativo."
         }
-        require(headerOk) { "Cabeçalho inválido. Este arquivo não é um modelo Mikael AI (.mkai)." }
         check(temporary.renameTo(destination)) { "Não foi possível concluir a cópia do modelo." }
         return destination.absolutePath
     } catch (error: Exception) {
