@@ -117,6 +117,24 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var showConversationList by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(AppTab.CHAT) }
 
+    var modelPath by remember { mutableStateOf(preferences.modelPath) }
+    var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
+    var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
+    var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    var catalogErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var selectedCatalogModelId by remember { mutableStateOf(preferences.selectedCatalogModelId) }
+    var llamaReady by remember { mutableStateOf(false) }
+    var llamaStatus by remember { mutableStateOf("Instale um modelo na aba Modelos para começar.") }
+    var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
+    var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
+    var modelReloadCounter by remember { mutableStateOf(0) }
+    var engineReady by remember { mutableStateOf(false) }
+    var engineStatus by remember { mutableStateOf("Importe um modelo autoral .mkai para começar.") }
+    var isGenerating by remember { mutableStateOf(false) }
+    var input by remember { mutableStateOf("") }
+    var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
+    var githubContext by remember { mutableStateOf("") }
+
     fun persistActiveConversation() {
         if (messages.isEmpty()) return
         val firstPrompt = messages.firstOrNull { it.role == "user" }?.text.orEmpty()
@@ -150,23 +168,6 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         input = ""
         tab = AppTab.CHAT
     }
-    var modelPath by remember { mutableStateOf(preferences.modelPath) }
-    var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
-    var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
-    var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
-    var catalogErrors by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    var selectedCatalogModelId by remember { mutableStateOf(preferences.selectedCatalogModelId) }
-    var llamaReady by remember { mutableStateOf(false) }
-    var llamaStatus by remember { mutableStateOf("Instale um modelo na aba Modelos para começar.") }
-    var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
-    var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
-    var modelReloadCounter by remember { mutableStateOf(0) }
-    var engineReady by remember { mutableStateOf(false) }
-    var engineStatus by remember { mutableStateOf("Importe um modelo autoral .mkai para começar.") }
-    var isGenerating by remember { mutableStateOf(false) }
-    var input by remember { mutableStateOf("") }
-    var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
-    var githubContext by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
         if (modelPath.isNullOrBlank() && catalogInstalled.isEmpty()) {
