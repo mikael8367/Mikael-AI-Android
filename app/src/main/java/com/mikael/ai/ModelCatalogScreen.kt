@@ -38,6 +38,7 @@ fun ModelCatalogScreen(
     errors: Map<String, String>,
     selectedModelId: String,
     mikaelAvailable: Boolean,
+    busy: Boolean,
     onSelect: (CatalogModel) -> Unit,
     onInstall: (CatalogModel) -> Unit,
     onCancelInstall: (CatalogModel) -> Unit,
@@ -148,19 +149,20 @@ fun ModelCatalogScreen(
                             if (file != null) {
                                 Button(
                                     onClick = { onSelect(model) },
-                                    enabled = selectedModelId != model.id,
+                                    enabled = selectedModelId != model.id && !busy,
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text(if (selectedModelId == model.id) "Selecionado" else "Usar modelo")
                                 }
                                 OutlinedButton(
                                     onClick = { deleteModelConfirmation = model },
-                                    modifier = Modifier.weight(1f)
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !busy
                                 ) { Text("Desinstalar") }
                             } else {
                                 Button(
                                     onClick = { confirmationModel = model },
-                                    enabled = percent == null,
+                                    enabled = percent == null && !busy,
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text(if (percent != null) "Baixando..." else "Instalar modelo")
@@ -194,7 +196,7 @@ fun ModelCatalogScreen(
                 TextButton(onClick = {
                     onDelete(model)
                     deleteModelConfirmation = null
-                }) { Text("Desinstalar") }
+                }, enabled = !busy) { Text("Desinstalar") }
             },
             dismissButton = {
                 TextButton(onClick = { deleteModelConfirmation = null }) { Text("Cancelar") }
@@ -242,7 +244,7 @@ fun ModelCatalogScreen(
                         confirmationModel = null
                         onInstall(selected)
                     },
-                    enabled = hasSpace
+                    enabled = hasSpace && !busy
                 ) { Text("Baixar e instalar") }
             },
             dismissButton = {
