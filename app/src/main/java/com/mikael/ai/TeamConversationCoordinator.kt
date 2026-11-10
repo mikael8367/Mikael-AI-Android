@@ -210,9 +210,9 @@ internal object TeamConversationCoordinator {
         participants: List<TeamParticipant>,
         maxPromptBytes: Int
     ): String? {
-        val prefix = "<|im_start|>system\nMikael AI: PT-BR; contribuição breve e objetiva; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
+        val prefix = "<|im_start|>system\nMikael AI: PT-BR; contribuição breve e objetiva; pode propor verificação/correção; sem raciocínio privado.\n<|im_end|>\n<|im_start|>user\n"
         val teamNames = participants.filterNot { it.id == "mikael-base" }.joinToString(", ") { it.name }
-        val teamLine = "Equipe: $teamNames. Já contribuíram: ninguém; você fala primeiro.\nPedido original: "
+        val teamLine = "Equipe: $teamNames. Já contribuíram: ninguém; você fala primeiro. Ainda não contribuíram: $teamNames.\nPedido original: "
         val contextLine = "\nContexto: "
         val closing = "\nContribua agora.\n<|im_end|>\n<|im_start|>assistant\n"
         val compact = prefix + teamLine + safeOriginal(originalPrompt) +
