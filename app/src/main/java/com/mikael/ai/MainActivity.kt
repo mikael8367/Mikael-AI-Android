@@ -314,7 +314,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     fun launchGeneration(prompt: String) {
         val modelId = selectedCatalogModelId
-        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis())
+        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), githubContext)
         PendingTaskStore.save(context, task)
         pendingTask = task
         isGenerating = true
@@ -385,6 +385,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             return
         }
         if (!activeEngineReady) return
+        githubContext = task.githubContext
         val conversation = conversations.firstOrNull { it.id == task.conversationId }
         if (conversation != null) {
             messages.clear()
