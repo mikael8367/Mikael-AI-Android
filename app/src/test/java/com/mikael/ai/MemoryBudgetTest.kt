@@ -44,7 +44,32 @@ class MemoryBudgetTest {
 
     @Test
     fun rejectsInvalidContext() {
-        assertNull(MemoryBudget.estimateRequiredBytes(1000L, 99))
+        assertNull(MemoryBudget.estimateRequiredBytes(1000L, 9000))
+    }
+
+    @Test
+    fun acceptsSmallMikaelModelOnMidRangeAndroidWithShortGreeting() {
+        val result = MemoryBudget.check(
+            availableBytes = 1_500L * 1024 * 1024,
+            selectedLimitMiB = 768,
+            modelBytes = 20L * 1024 * 1024,
+            contextTokens = 512
+        )
+        assertTrue(result.allowed)
+        assertTrue(result.estimatedBytes < result.safeBudgetBytes)
+    }
+
+    @Test
+    fun reportsMemoryEstimateInsteadOfBlamingMessageLength() {
+        val result = MemoryBudget.check(
+            availableBytes = 500L * 1024 * 1024,
+            selectedLimitMiB = 768,
+            modelBytes = 300L * 1024 * 1024,
+            contextTokens = 512
+        )
+        assertFalse(result.allowed)
+        assertTrue(result.reason!!.contains("Memória estimada"))
+        assertTrue(result.reason!!.contains("Orçamento seguro"))
     }
 
     @Test
