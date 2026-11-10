@@ -52,7 +52,7 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Compile native ARM64 inference engines
+      - name: Compile Qwen GGUF native inference runtime
         run: gradle :app:externalNativeBuildDebug
 
       - name: Run unit tests
@@ -71,7 +71,6 @@ jobs:
         run: |
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          unzip -l "$APK" | grep -q "lib/arm64-v8a/libmikael_engine.so"
           unzip -l "$APK" | grep -q "lib/arm64-v8a/libmikael_llama.so"
           sha256sum "$APK"
           ls -lh "$APK"
