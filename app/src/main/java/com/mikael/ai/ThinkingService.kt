@@ -10,6 +10,12 @@ import android.graphics.drawable.Icon
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /** Mantém prioridade de processo e notificação visível durante inferência local iniciada pelo usuário. */
 class ThinkingService : Service() {
@@ -17,6 +23,7 @@ class ThinkingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            cancelTask()
             LocalInferenceEngine.cancel()
             LlamaInferenceEngine.cancel()
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -62,5 +69,13 @@ class ThinkingService : Service() {
         const val ACTION_STOP = "com.mikael.ai.action.STOP_THINKING"
         private const val CHANNEL_ID = "mikael_ai_thinking"
         private const val NOTIFICATION_ID = 7301
+        private val taskScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+        /** Escopo do processo, não vinculado à composição da tela do chat. */
+        fun launchTask(block: suspend CoroutineScope.() -> Unit): Job = taskScope.launch(block = block)
+
+        private fun cancelTask() {
+            taskScope.coroutineContext.cancel()
+        }
     }
 }
