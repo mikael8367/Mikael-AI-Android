@@ -136,6 +136,20 @@ std::string applyFallbackChatML(
     return output;
 }
 
+bool modelMetadataContains(const llama_model * model, const char * key, const std::string & needle) {
+    char value[512] = {};
+    const int32_t length = llama_model_meta_val_str(model, key, value, sizeof(value));
+    if (length <= 0) return false;
+    std::string normalized(value);
+    std::transform(normalized.begin(), normalized.end(), normalized.begin(),
+        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+    return normalized.find(needle) != std::string::npos;
+}
+
+bool continueModelLoad(float, void *) {
+    return !gCancel.load();
+}
+
 std::string applyModelChatTemplate(const llama_model * model, const std::string & prompt) {
     const char * templateText = llama_model_chat_template(model, nullptr);
     const std::string start = "<|im_start|>";
@@ -209,7 +223,11 @@ std::string applyModelChatTemplate(const llama_model * model, const std::string 
     std::string modelPath = gModelPath;
     std::transform(modelPath.begin(), modelPath.end(), modelPath.begin(),
         [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
-    if (modelPath.find("tinyllama") != std::string::npos) {
+    const bool isTinyLlama =
+        modelMetadataContains(model, "general.name", "tinyllama") ||
+        modelMetadataContains(model, "general.basename", "tinyllama") ||
+        modelPath.find("tinyllama") != std::string::npos;
+    if (isTinyLlama) {
         return applyTinyLlamaTemplate(roles, contents);
     }
     return applyFallbackChatML(roles, contents);
@@ -240,9 +258,20 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeLoad(JNIEnv * env, jobject, jstrin
         modelParams.n_gpu_layers = 0;
         modelParams.use_extra_bufts = false;
         modelParams.check_tensors = true;
+        // llama.cpp permite abortar o carregamento pelo callback de progresso.
+        // O callback só consulta o atomic: não acessa o mutex mantido nesta função.
+        modelParams.progress_callback = continueModelLoad;
+        modelParams.progress_callback_user_data = nullptr;
         gModelPath = file;
         gModel = llama_model_load_from_file(file.c_str(), modelParams);
-        if (!gModel) return toJava(env, "Não foi possível carregar o GGUF. Verifique o arquivo e a memória disponível.");
+        if (!gModel) {
+            if (gCancel.load()) return toJava(env, "Carregamento cancelado pelo usuário.");
+            return toJava(env, "Não foi possível carregar o GGUF. Verifique o arquivo e a memória disponível.");
+        }
+        if (gCancel.load()) {
+            unloadLocked();
+            return toJava(env, "Carregamento cancelado pelo usuário.");
+        }
 
         llama_context_params contextParams = llama_context_default_params();
         contextParams.n_ctx = static_cast<uint32_t>(requestedContext);
@@ -255,7 +284,16 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeLoad(JNIEnv * env, jobject, jstrin
         contextParams.offload_kqv = false;
         contextParams.op_offload = false;
         gContext = llama_init_from_model(gModel, contextParams);
-        if (!gContext) { unloadLocked(); return toJava(env, "Não foi possível criar o contexto GGUF. Reduza o contexto ou escolha um modelo menor."); }
+        if (!gContext) {
+            unloadLocked();
+            return toJava(env, gCancel.load()
+                ? "Carregamento cancelado pelo usuário."
+                : "Não foi possível criar o contexto GGUF. Reduza o contexto ou escolha um modelo menor.");
+        }
+        if (gCancel.load()) {
+            unloadLocked();
+            return toJava(env, "Carregamento cancelado pelo usuário.");
+        }
         gContextSize = llama_n_ctx(gContext);
         if (gContextSize < 128) { unloadLocked(); return toJava(env, "O runtime retornou um contexto inválido."); }
         gSampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
@@ -287,18 +325,41 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeGenerate(JNIEnv * env, jobject, js
     if (!gModel || !gContext || !gSampler) return throwError(env, "Nenhum modelo GGUF carregado.");
     const llama_vocab * vocab = llama_model_get_vocab(gModel);
     const std::string modelPrompt = applyModelChatTemplate(gModel, input);
-    const int32_t required = -llama_tokenize(vocab, modelPrompt.c_str(), static_cast<int32_t>(modelPrompt.size()), nullptr, 0, true, false);
-    if (required <= 0 || required > static_cast<int32_t>(gContextSize) - 2) return throwError(env, "O prompt excede o contexto disponível.");
+    const int32_t probe = llama_tokenize(
+        vocab, modelPrompt.c_str(), static_cast<int32_t>(modelPrompt.size()),
+        nullptr, 0, true, false);
+    if (probe == std::numeric_limits<int32_t>::min()) {
+        return throwError(env, "O resultado da tokenização excede o limite suportado.");
+    }
+    if (probe == 0) return throwError(env, "O prompt não produziu tokens.");
+    // Com buffer de tamanho zero, llama.cpp retorna -N quando são necessários N tokens.
+    const int32_t required = probe < 0 ? -probe : probe;
+    if (required <= 0) return throwError(env, "Falha ao calcular os tokens do prompt.");
+    if (static_cast<uint32_t>(required) >= gContextSize) {
+        return throwError(env, "O prompt ocupa todo o contexto; não há espaço para gerar uma resposta.");
+    }
+
     std::vector<llama_token> tokens(static_cast<size_t>(required));
-    const int32_t tokenCount = llama_tokenize(vocab, modelPrompt.c_str(), static_cast<int32_t>(modelPrompt.size()), tokens.data(), required, true, false);
-    if (tokenCount <= 0 || tokenCount > required) return throwError(env, "Falha ao tokenizar o prompt.");
+    const int32_t tokenCount = llama_tokenize(
+        vocab, modelPrompt.c_str(), static_cast<int32_t>(modelPrompt.size()),
+        tokens.data(), required, true, false);
+    if (tokenCount < 0) return throwError(env, "O buffer de tokens ficou pequeno durante a tokenização.");
+    if (tokenCount == 0) return throwError(env, "O prompt não produziu tokens.");
+    if (tokenCount != required) return throwError(env, "A contagem de tokens mudou durante a tokenização.");
+
+    const int availableTokens = static_cast<int>(gContextSize - static_cast<uint32_t>(tokenCount));
+    const int requestedLimit = std::clamp(maxTokens, 1, 256);
+    const int limit = std::min(requestedLimit, availableTokens);
+    if (limit <= 0 || static_cast<uint32_t>(tokenCount) + static_cast<uint32_t>(limit) > gContextSize) {
+        return throwError(env, "Não há espaço suficiente no contexto para gerar uma resposta.");
+    }
+
     llama_memory_clear(llama_get_memory(gContext), true);
     llama_sampler_reset(gSampler);
     llama_batch batch = llama_batch_get_one(tokens.data(), tokenCount);
     if (llama_decode(gContext, batch) != 0) return throwError(env, "Falha ao processar o prompt no llama.cpp.");
 
     std::string output;
-    const int limit = std::clamp(maxTokens, 1, 256);
     for (int i = 0; i < limit && !gCancel.load(); ++i) {
         const llama_token next = llama_sampler_sample(gSampler, gContext, -1);
         if (llama_vocab_is_eog(vocab, next)) break;
