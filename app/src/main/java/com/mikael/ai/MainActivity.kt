@@ -536,7 +536,7 @@ private fun ChatScreen(
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        "Instale o Mikael AI Assistente ou outro modelo na aba Modelos para começar.",
+                        "Instale um modelo na aba Modelos para começar.",
                         modifier = Modifier.padding(top = 12.dp, start = 28.dp, end = 28.dp),
                         color = Color(0xFF8BE7B7),
                         textAlign = TextAlign.Center
