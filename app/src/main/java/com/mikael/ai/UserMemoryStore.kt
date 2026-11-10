@@ -84,7 +84,7 @@ object UserMemoryStore {
 
 
     internal fun autoLearningCandidate(message: String): String? {
-        val clean = message.trim().replace(Regex("\\\\s+"), " ")
+        val clean = message.trim().replace(Regex("\\s+"), " ")
         if (clean.length !in 12..MAX_ITEM_CHARS || "```" in clean) return null
         val normalized = normalize(clean)
         val sensitive = listOf("saude", "doenca", "medicamento", "remedio", "diagnostico", "depressao", "ansiedade", "religiao", "igreja", "politica", "partido", "sexualidade", "orientacao sexual", "senha", "password", "token", "cpf", "cartao", "endereco", "telefone", "documento", "raca", "etnia")
