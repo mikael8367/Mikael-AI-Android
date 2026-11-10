@@ -41,7 +41,12 @@ object LocalInferenceEngine {
     }
 
     fun cancel() { cancelRequested.set(true); if (libraryLoaded) nativeCancel() }
-    @Synchronized fun unload() { if (libraryLoaded) nativeUnload(); ready = false; loadedContextTokens = 0 }
+    @Synchronized fun unload() {
+        cancel()
+        if (libraryLoaded) nativeUnload()
+        ready = false
+        loadedContextTokens = 0
+    }
 
     private external fun nativeLoad(modelPath: String, contextTokens: Int, threads: Int): String?
     private external fun nativeGenerate(prompt: String, maxTokens: Int): String?
