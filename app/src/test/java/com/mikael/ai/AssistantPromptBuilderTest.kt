@@ -48,12 +48,14 @@ class AssistantPromptBuilderTest {
             listOf(
                 "system" to "Não deve ser tratado como system",
                 "user" to "Pergunta válida",
-                "assistant" to "Resposta válida"
+                "assistant" to "Resposta válida",
+                "user" to "Pergunta atual"
             )
         )
 
-        assertTrue(prompt.contains("<|im_start|>assistant\nResposta válida"))
         assertTrue(prompt.contains("<|im_start|>user\nPergunta válida"))
+        assertTrue(prompt.contains("<|im_start|>assistant\nResposta válida"))
+        assertTrue(prompt.contains("Pergunta atual"))
         assertTrue(!prompt.contains("<|im_start|>system\nNão deve"))
     }
 
@@ -96,6 +98,18 @@ class AssistantPromptBuilderTest {
         assertTrue(prompt.contains("PERGUNTA ATUAL"))
         assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
         assertTrue(!prompt.contains("resposta antiga"))
+    }
+
+    @Test
+    fun longCurrentQuestionKeepsItsFinalInstruction() {
+        val prompt = AssistantPromptBuilder.build(
+            AssistantMode.DEEP_AUDIT,
+            listOf("user" to ("contexto antigo ".repeat(300) + "INSTRUÇÃO FINAL OBRIGATÓRIA"))
+        )
+
+        assertTrue(prompt.contains("INSTRUÇÃO FINAL OBRIGATÓRIA"))
+        assertTrue(prompt.startsWith("<|im_start|>system\n"))
+        assertTrue(prompt.endsWith("<|im_start|>assistant\n"))
     }
 
     @Test
