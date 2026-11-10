@@ -19,7 +19,7 @@ object MemoryBudget {
     private const val MODEL_MARGIN_PERCENT = 20L
     private const val CONTEXT_BYTES_PER_TOKEN = 16L * 1024L
 
-    val allowedLimitsMiB = listOf(512, 768, 1024, 1536, 2048)
+    val allowedLimitsMiB = listOf(512, 768, 1024, 1536, 2048, 3072)
 
     fun availableBytes(manager: ActivityManager): Long {
         val info = ActivityManager.MemoryInfo()
