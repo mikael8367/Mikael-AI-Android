@@ -190,7 +190,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     }
 
     LaunchedEffect(Unit) {
-        if (modelPath.isNullOrBlank() && catalogInstalled.isEmpty()) {
+        // Migra instalações antigas: o MKAI experimental não é mais um modelo selecionável.
+        // O arquivo antigo não é apagado automaticamente; apenas deixa de ser usado.
+        preferences.modelPath = null
+        modelPath = null
+        preferences.selectedCatalogModelId = "qwen-0.5b"
+        selectedCatalogModelId = "qwen-0.5b"
+        if (catalogInstalled["qwen-0.5b"] == null) {
             tab = AppTab.MODELS
         }
     }
@@ -658,8 +664,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                                 withContext(Dispatchers.Main) {
                                     catalogInstalled = catalogInstalled.filterKeys { it !in sharedIds }
                                     if (selectedCatalogModelId in sharedIds) {
-                                        selectedCatalogModelId = "mikael-base"
-                                        preferences.selectedCatalogModelId = "mikael-base"
+                                        selectedCatalogModelId = "qwen-0.5b"
+                                        preferences.selectedCatalogModelId = "qwen-0.5b"
                                     }
                                 }
                             }
