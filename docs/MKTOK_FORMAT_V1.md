@@ -30,9 +30,9 @@ O ID de cada merge é 256 + índice. Cada merge só pode referenciar IDs anterio
 
 ## Limites de segurança
 
-- Corpus de treinamento limitado a 16 MiB por execução.
+- Corpus de treinamento limitado a 256 KiB por execução, para controlar o uso de RAM no Android.
 - Vocabulário limitado a 4.352 IDs (256 bytes-base + 4.096 merges).
-- Armazenamento expandido dos tokens limitado a 16 MiB.
+- Armazenamento expandido do vocabulário limitado a 1 MiB; entradas e saídas também são limitadas.
 - Arquivo limitado ao tamanho máximo definido pelo número de merges.
 - SHA-256 obrigatório na leitura.
 - Validação de magic, versão, dimensões, referências, tamanho e IDs na decodificação.
