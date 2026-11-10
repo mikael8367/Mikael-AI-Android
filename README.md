@@ -17,7 +17,7 @@ Os pesos não são embutidos no APK. O app mostra tamanho, licença, espaço liv
 
 | Modelo | Formato | Download aproximado | Licença | Observação |
 |---|---|---:|---|---|
-| Mikael AI Base | MKAI v1 float32 | 591.144 bytes no release atual | Autoral experimental | Modelo pequeno treinado com corpus didático; não é um assistente avançado |
+| Mikael AI Base | MKAI v1 float32 | 591.144 bytes no release atual | Não declarada | Modelo autoral experimental; não redistribuir publicamente até o autor definir uma licença |
 | Qwen2.5-Coder-0.5B-Instruct | GGUF Q4_K_M | 0,491 GB | Apache-2.0 | Modelo especializado em geração, raciocínio e correção de código; o cartão oficial marca foco em inglês, então a qualidade em português ainda precisa ser testada |
 | SmolLM2-360M-Instruct | GGUF Q4_K_M | 0,27 GB | Apache-2.0 | Menor; o cartão oficial alerta que os modelos SmolLM2 entendem e geram principalmente inglês |
 | TinyLlama-1.1B-Chat-v1.0 | GGUF Q4_K_M | 0,622 GB | Apache-2.0 | Mais pesado; pode exceder o orçamento de RAM em aparelhos modestos |
