@@ -7,69 +7,24 @@ plugins {
 android {
     namespace = "com.mikael.ai"
     compileSdk = 35
-
     defaultConfig {
         applicationId = "com.mikael.ai.android"
         minSdk = 28
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
-        externalNativeBuild {
-            cmake {
-                cppFlags += listOf("-std=c++17")
-                arguments += listOf(
-                    "-DANDROID_STL=c++_shared",
-                    "-DGGML_NATIVE=OFF",
-                    "-DGGML_OPENMP=OFF",
-                    "-DGGML_LLAMAFILE=OFF",
-                    "-DLLAMA_OPENSSL=OFF",
-                    "-DGGML_CPU_KLEIDIAI=ON",
-                    "-DLLAMA_BUILD_TESTS=OFF",
-                    "-DLLAMA_BUILD_EXAMPLES=OFF",
-                    "-DLLAMA_BUILD_SERVER=OFF"
-                )
-            }
-        }
+        ndk { abiFilters += listOf("arm64-v8a") }
+        externalNativeBuild { cmake { cppFlags += listOf("-std=c++17") } }
     }
-
     buildTypes {
-        debug {
-            isMinifyEnabled = false
-        }
-        release {
-            isMinifyEnabled = false
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
-        }
+        debug { isMinifyEnabled = false }
+        release { isMinifyEnabled = false; proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro") }
     }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-    buildFeatures {
-        compose = true
-    }
-    packaging {
-        jniLibs {
-            useLegacyPackaging = false
-        }
-    }
+    externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
+    compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
+    kotlinOptions { jvmTarget = "17" }
+    buildFeatures { compose = true }
+    packaging { jniLibs { useLegacyPackaging = false } }
 }
 
 dependencies {
