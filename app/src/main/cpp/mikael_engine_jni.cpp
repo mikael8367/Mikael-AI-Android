@@ -23,7 +23,7 @@ struct LayerWeights {
     std::vector<float> normFfn, gate, up, down;
 };
 struct Model {
-    uint32_t dim=0, layers=0, heads=0, ffn=0, maxSeq=0;
+    uint32_t dim=0, layers=0, heads=0, ffn=0, maxSeq=0, activeContext=0;
     std::vector<float> tokenEmb, positionEmb, finalNorm, lmHead;
     std::vector<LayerWeights> layer;
     bool loaded=false;
@@ -76,7 +76,7 @@ bool loadModel(const std::string& path, uint32_t requestedContext, std::string& 
     }
     in.seekg(40,std::ios::beg);
     Model candidate; candidate.dim=dim; candidate.layers=layers; candidate.heads=heads;
-    candidate.ffn=ffn; candidate.maxSeq=maxSeq;
+    candidate.ffn=ffn; candidate.maxSeq=maxSeq; candidate.activeContext=std::min(requestedContext,maxSeq);
     if(!readFloats(in,candidate.tokenEmb,static_cast<size_t>(vocab)*dim) ||
        !readFloats(in,candidate.positionEmb,static_cast<size_t>(maxSeq)*dim)) {
         error="Pesos de embedding ausentes ou corrompidos."; return false;
@@ -213,11 +213,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
     std::lock_guard<std::mutex> lock(gMutex);
     if(!gModel.loaded) return error(env,"Nenhum modelo MKAI próprio está carregado.");
     std::vector<uint8_t> tokens(input.begin(),input.end());
-    if(tokens.size()>=gModel.maxSeq) return error(env,"O prompt ultrapassa o contexto do modelo.");
+    if(tokens.size()>=gModel.activeContext) return error(env,"O prompt ultrapassa o contexto do modelo.");
     std::string output; std::vector<float> logits(kVocab);
     const int limit=std::clamp(maxTokens,1,512);
     gCancel.store(false);
-    for(int i=0;i<limit && tokens.size()<gModel.maxSeq && !gCancel.load();++i) {
+    for(int i=0;i<limit && tokens.size()<gModel.activeContext && !gCancel.load();++i) {
         if(!forward(tokens,logits)) {
             if(gCancel.load()) break;
             return error(env,"Falha numérica durante a inferência Transformer.");
@@ -228,6 +228,11 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
         tokens.push_back(next); output.push_back(static_cast<char>(next));
     }
     return utf8ToJava(env,output);
+}
+extern "C" JNIEXPORT jint JNICALL
+Java_com_mikael_ai_LocalInferenceEngine_nativeContextCapacity(JNIEnv*,jobject){
+    std::lock_guard<std::mutex> lock(gMutex);
+    return gModel.loaded ? static_cast<jint>(gModel.activeContext) : 0;
 }
 extern "C" JNIEXPORT void JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeCancel(JNIEnv*,jobject){gCancel.store(true);}
