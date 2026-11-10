@@ -2,6 +2,7 @@ import struct
 import tempfile
 import unittest
 import sys
+import subprocess
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -49,6 +50,28 @@ class TrainerTests(unittest.TestCase):
             with path.open("rb") as stream:
                 fields = HEADER.unpack(stream.read(HEADER.size))
             self.assertEqual(fields, (MAGIC, 1, 32, 1, 4, 64, 256, 32, 0))
+
+    def test_one_step_training_produces_loadable_mkai_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            corpus = root / "corpus.txt"
+            output = root / "trained.mkai"
+            corpus.write_text(("programação em português\nfunção kotlin\n" * 200), encoding="utf-8")
+            script = Path(__file__).resolve().parents[1] / "train_mikai.py"
+            subprocess.run([
+                sys.executable, str(script),
+                "--corpus", str(corpus),
+                "--output", str(output),
+                "--steps", "1",
+                "--batch-size", "1",
+                "--seq-len", "16",
+                "--dim", "16",
+                "--layers", "1",
+                "--heads", "1",
+                "--ffn", "16",
+            ], check=True, capture_output=True, text=True, timeout=120)
+            self.assertTrue(output.is_file())
+            validate_export(output, 16, 1, 1, 16, 16)
 
     def test_export_rejects_non_finite_weights(self):
         model = MikaelTransformer(dim=16, layers=1, heads=1, ffn=16, max_seq=16)
