@@ -76,6 +76,45 @@ object ConversationStore {
         }
     }.takeLast(MAX_MESSAGES_PER_CONVERSATION)
 
+    /** Recupera trechos recentes de outras conversas locais, compartilhados por todos os modelos. */
+    fun contextFromOtherConversations(
+        conversations: List<ChatConversation>,
+        activeConversationId: String,
+        maxChars: Int = 1200
+    ): String {
+        if (maxChars <= 0) return ""
+        val output = StringBuilder()
+        val recent = conversations.asSequence()
+            .filter { it.id != activeConversationId }
+            .sortedByDescending { it.updatedAt }
+            .take(3)
+        for (conversation in recent) {
+            val excerpts = conversation.messages
+                .filter { it.role == "user" && isSafeCrossChatMessage(it.text) }
+                .takeLast(4)
+            for (message in excerpts) {
+                val role = if (message.role == "user") "Usuário" else "Mikael AI"
+                val clean = message.text.replace(Regex("\\s+"), " ").trim()
+                    .replace(Regex("<\\|im_(?:start|end)\\|>"), "")
+                if (clean.isBlank()) continue
+                val line = "$role: ${clean.take(240)}\n"
+                if (output.length + line.length > maxChars) return output.toString()
+                output.append(line)
+            }
+        }
+        return output.toString()
+    }
+
+    private fun isSafeCrossChatMessage(text: String): Boolean {
+        if (text.length > 500 || "```" in text) return false
+        val normalized = text.lowercase()
+        val sensitive = listOf("senha", "password", "token", "secret", "chave", "api key", "client id", "cpf", "cartão", "cartao", "endereço", "endereco", "telefone", "saúde", "saude", "doença", "doenca", "remédio", "remedio", "medicamento", "diagnóstico", "diagnostico", "depressão", "depressao", "ansiedade", "religião", "religiao", "igreja", "política", "politica", "partido", "raça", "raca", "etnia", "sexualidade", "orientação sexual", "orientacao sexual")
+        if (sensitive.any { normalized.contains(it) }) return false
+        if (Regex("\\b[0-9]{8,}\\b").containsMatchIn(text)) return false
+        if (Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}").containsMatchIn(text)) return false
+        return true
+    }
+
     fun append(messages: MutableList<ChatMessage>, message: ChatMessage) {
         messages.add(message)
         while (messages.size > MAX_MESSAGES_PER_CONVERSATION) messages.removeAt(0)

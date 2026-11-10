@@ -60,6 +60,16 @@ class ThinkingService : Service() {
         return START_NOT_STICKY
     }
 
+    override fun onDestroy() {
+        // Se o serviço for encerrado (pelo usuário ou pelo sistema) com uma tarefa em
+        // andamento, cancele a tarefa e os motores; caso contrário, a inferência nativa
+        // continuaria em segundo plano sem notificação e sem controle do usuário.
+        cancelTask()
+        LocalInferenceEngine.cancel()
+        LlamaInferenceEngine.cancel()
+        super.onDestroy()
+    }
+
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val manager = getSystemService(NotificationManager::class.java)

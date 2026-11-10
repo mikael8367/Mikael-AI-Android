@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.atomic.AtomicReference
 
 object ModelInstaller {
     suspend fun install(
@@ -36,30 +37,56 @@ object ModelInstaller {
         val checksumTemporary = File(directory, "$name.sha256.part")
         val backup = File(directory, "$name.previous")
         val checksumBackup = File(directory, "$name.sha256.previous")
-        val connection = (URL(address).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 15_000
-            instanceFollowRedirects = true
-            requestMethod = "GET"
-            setRequestProperty("User-Agent", "MikaelAI-Android")
-        }
-
+        val activeConnection = AtomicReference<HttpURLConnection?>(null)
         val downloadJob = currentCoroutineContext()[Job]
-        downloadJob?.invokeOnCompletion { cause -> if (cause != null) connection.disconnect() }
+        downloadJob?.invokeOnCompletion { cause -> if (cause != null) activeConnection.get()?.disconnect() }
 
         try {
-            connection.connect()
-            check(connection.responseCode in 200..299) {
-                "Servidor recusou o download (HTTP ${connection.responseCode})."
+            var currentUrl = URL(address)
+            var redirects = 0
+            var remoteSha256: String? = null
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val next = (currentUrl.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 20_000
+                    readTimeout = 15_000
+                    instanceFollowRedirects = false
+                    requestMethod = "GET"
+                    setRequestProperty("User-Agent", "MikaelAI-Android")
+                }
+                activeConnection.set(next)
+                currentCoroutineContext().ensureActive()
+                next.connect()
+                val status = next.responseCode
+                if (status in 300..399) {
+                    remoteSha256 = remoteSha256 ?: ModelIntegrity.normalizeExpectedSha256(
+                        next.getHeaderField("X-Linked-Etag")
+                    )
+                    val location = next.getHeaderField("Location")
+                        ?: error("Redirecionamento Hugging Face sem destino.")
+                    val target = URL(currentUrl, location)
+                    check(target.protocol.equals("https", ignoreCase = true) &&
+                        target.userInfo == null && (target.port == -1 || target.port == 443) &&
+                        isAllowedRedirectHost(target.host)) {
+                        "O servidor tentou redirecionar o download para uma origem não permitida."
+                    }
+                    redirects++
+                    check(redirects <= 5) { "O download excedeu o limite de redirecionamentos." }
+                    next.disconnect()
+                    currentUrl = target
+                    continue
+                }
+                check(status in 200..299) {
+                    "Servidor recusou o download (HTTP $status)."
+                }
+                remoteSha256 = remoteSha256 ?: ModelIntegrity.normalizeExpectedSha256(
+                    next.getHeaderField("X-Linked-Etag")
+                )
+                break
             }
+            val connection = requireNotNull(activeConnection.get())
             val expected = connection.contentLengthLong
             check(expected <= MAX_MODEL_BYTES) { "O arquivo excede o limite de 1 GB." }
-            // Hugging Face's ordinary ETag is an opaque cache validator and may not
-            // represent the downloaded file's SHA-256. Only X-Linked-Etag is
-            // documented as the linked file's content hash for LFS/Xet assets.
-            val remoteSha256 = ModelIntegrity.normalizeExpectedSha256(
-                connection.getHeaderField("X-Linked-Etag")
-            )
             val pinnedSha256 = model.expectedSha256?.lowercase()
             check(pinnedSha256 == null || ModelIntegrity.isSha256(pinnedSha256)) {
                 "O SHA-256 fixado no catálogo é inválido."
@@ -154,8 +181,16 @@ object ModelInstaller {
             checksumTemporary.delete()
             throw error
         } finally {
-            connection.disconnect()
+            activeConnection.get()?.disconnect()
         }
+    }
+
+    internal fun isAllowedRedirectHost(host: String): Boolean {
+        val normalized = host.lowercase(java.util.Locale.ROOT)
+        return normalized == "huggingface.co" ||
+            normalized.endsWith(".huggingface.co") ||
+            normalized == "hf.co" ||
+            normalized.endsWith(".hf.co")
     }
 
     fun installedFile(context: Context, model: CatalogModel): File? {

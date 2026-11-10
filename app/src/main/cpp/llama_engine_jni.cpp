@@ -4,6 +4,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cctype>
+#include <chrono>
 #include <mutex>
 #include <limits>
 #include <string>
@@ -259,7 +260,17 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeLoad(JNIEnv * env, jobject, jstrin
         if (gContextSize < 128) { unloadLocked(); return toJava(env, "O runtime retornou um contexto inválido."); }
         gSampler = llama_sampler_chain_init(llama_sampler_chain_default_params());
         if (!gSampler) { unloadLocked(); return toJava(env, "Não foi possível inicializar o amostrador."); }
-        llama_sampler_chain_add(gSampler, llama_sampler_init_greedy());
+        // Greedy sampling favorece respostas repetitivas (ex.: palavras duplicadas).
+        // Amostragem moderada + penalidade leve melhora fluidez sem exagerar a criatividade.
+        const llama_vocab * samplerVocab = llama_model_get_vocab(gModel);
+        llama_sampler_chain_add(gSampler, llama_sampler_init_penalties(
+            llama_vocab_n_tokens(samplerVocab), 64, 1.08f, 0.0f, 0.0f));
+        llama_sampler_chain_add(gSampler, llama_sampler_init_top_k(40));
+        llama_sampler_chain_add(gSampler, llama_sampler_init_top_p(0.90f, 1));
+        llama_sampler_chain_add(gSampler, llama_sampler_init_temp(0.70f));
+        const auto seed = static_cast<uint32_t>(
+            std::chrono::steady_clock::now().time_since_epoch().count());
+        llama_sampler_chain_add(gSampler, llama_sampler_init_dist(seed));
         return nullptr;
     } catch (...) {
         unloadLocked();

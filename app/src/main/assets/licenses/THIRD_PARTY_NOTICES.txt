@@ -9,20 +9,22 @@ llama.cpp
 Qwen2.5-Coder-0.5B-Instruct-GGUF
 - Licença: Apache-2.0
 - Origem: https://huggingface.co/Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF
-- Pesos são baixados separadamente após confirmação do usuário.
+- Pesos Q4_K_M (~491 MB), baixados após confirmação; não incluídos no APK.
 
 SmolLM2-360M-Instruct-GGUF
 - Licença: Apache-2.0
-- Origem: https://huggingface.co/bartowski/SmolLM2-360M-Instruct-GGUF
-- Pesos são baixados separadamente após confirmação do usuário.
+- Modelo original: https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct
+- GGUF Q4_K_M (~271 MB): https://huggingface.co/tensorblock/SmolLM2-360M-Instruct-GGUF
+- Pesos baixados após confirmação; não incluídos no APK.
 
 TinyLlama-1.1B-Chat-v1.0-GGUF
 - Licença: Apache-2.0
-- Origem: https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF
-- Pesos são baixados separadamente após confirmação do usuário.
+- Modelo original: https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+- GGUF Q4_K_M (~622 MB): https://huggingface.co/tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF
+- Pesos baixados após confirmação; não incluídos no APK.
 
-Mikael AI Base (MKAI v1)
-- Licença do peso: não declarada.
-- Não redistribua este checkpoint a terceiros até que o autor publique uma licença.
+Mikael AI MKAI v1
+- Checkpoint experimental (~591 KB): https://github.com/mikael8367/Mikael-AI-Android/releases/tag/mikael-ai-model-v1
+- Licença de distribuição não declarada. Consulte o autor antes de redistribuir.
 
-Consulte sempre o cartão e o arquivo de licença da origem antes de redistribuir pesos baixados.
+Os pesos externos não são modelos autorais Mikael AI. Consulte os termos upstream antes de redistribuir qualquer arquivo.

@@ -79,7 +79,7 @@ private sealed interface GithubPollResult {
     data class Failed(val message: String) : GithubPollResult
 }
 
-private object GithubTokenStore {
+internal object GithubTokenStore {
     private const val PREFS = "github_secure_session"
     private const val TOKEN_KEY = "encrypted_access_token"
     private const val KEY_ALIAS = "mikael_ai_github_token_key"
@@ -106,6 +106,8 @@ private object GithubTokenStore {
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(128, iv))
         cipher.doFinal(encrypted).toString(Charsets.UTF_8)
     }.getOrNull()
+
+    fun hasToken(context: Context): Boolean = !read(context).isNullOrBlank()
 
     fun clear(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -247,6 +249,53 @@ private object GithubApi {
             accept = "application/vnd.github.raw+json"
         )
         content.take(24_000)
+    }
+
+    suspend fun readFile(token: String, fullName: String, path: String): String = withContext(Dispatchers.IO) {
+        require(Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$").matches(fullName)) { "Nome de repositório inválido." }
+        val safePath = path.trim().trimStart('/')
+        require(safePath.isNotBlank() && !safePath.split('/').any { it == ".." }) { "Caminho de arquivo inválido." }
+        val encodedRepo = fullName.split("/").joinToString("/") { URLEncoder.encode(it, "UTF-8") }
+        val encodedPath = safePath.split("/").joinToString("/") { URLEncoder.encode(it, "UTF-8") }
+        request("$API/repos/$encodedRepo/contents/$encodedPath", token = token, accept = "application/vnd.github.raw+json").take(16_000)
+    }
+
+    suspend fun searchCode(token: String, fullName: String, query: String): String = withContext(Dispatchers.IO) {
+        require(Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$").matches(fullName)) { "Nome de repositório inválido." }
+        require(query.isNotBlank() && query.length <= 120) { "Informe o que procurar no código." }
+        val q = URLEncoder.encode("$query repo:$fullName", "UTF-8")
+        val json = JSONObject(request("$API/search/code?q=$q&per_page=8", token = token))
+        val items = json.optJSONArray("items") ?: JSONArray()
+        buildString {
+            appendLine("Arquivos encontrados no código de $fullName:")
+            for (i in 0 until items.length()) {
+                val item = items.optJSONObject(i) ?: continue
+                appendLine("- ${item.optString("path")} — ${item.optString("html_url")}")
+            }
+            if (items.length() == 0) appendLine("Nenhum arquivo correspondente encontrado.")
+        }.take(6_000)
+    }
+
+    suspend fun searchIssues(token: String, fullName: String, query: String): String = withContext(Dispatchers.IO) {
+        require(Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$").matches(fullName)) { "Nome de repositório inválido." }
+        val q = URLEncoder.encode("repo:$fullName $query", "UTF-8")
+        val json = JSONObject(request("$API/search/issues?q=$q&per_page=10&sort=updated", token = token))
+        val items = json.optJSONArray("items") ?: JSONArray()
+        buildString {
+            appendLine("Issues e pull requests de $fullName:")
+            for (i in 0 until items.length()) {
+                val item = items.optJSONObject(i) ?: continue
+                appendLine("- #${item.optInt("number")} ${item.optString("title")} — ${item.optString("html_url")}")
+            }
+            if (items.length() == 0) appendLine("Nenhuma issue ou pull request encontrada.")
+        }.take(6_000)
+    }
+
+    suspend fun formatRepositories(token: String): String = withContext(Dispatchers.IO) {
+        val repos = listRepositories(token).take(30)
+        repos.joinToString("\n") { repo ->
+            "- ${repo.fullName}: ${repo.description.take(180)}"
+        }.ifBlank { "Nenhum repositório encontrado." }.take(6_000)
     }
 }
 
@@ -470,4 +519,31 @@ internal fun GithubConnectorScreen(
         }
         Text(status, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
     }
+}
+
+
+internal suspend fun readGithubFile(context: Context, repository: String, path: String): String {
+    val token = GithubTokenStore.read(context) ?: throw IllegalStateException("Conecte o GitHub antes de ler arquivos.")
+    return GithubApi.readFile(token, repository, path)
+}
+
+internal suspend fun searchGithubCode(context: Context, repository: String, query: String): String {
+    val token = GithubTokenStore.read(context) ?: throw IllegalStateException("Conecte o GitHub antes de pesquisar código.")
+    return GithubApi.searchCode(token, repository, query)
+}
+
+internal suspend fun searchGithubIssues(context: Context, repository: String, query: String): String {
+    val token = GithubTokenStore.read(context) ?: throw IllegalStateException("Conecte o GitHub antes de pesquisar issues.")
+    return GithubApi.searchIssues(token, repository, query)
+}
+
+internal suspend fun listGithubRepositories(context: Context): String {
+    val token = GithubTokenStore.read(context) ?: throw IllegalStateException("Conecte o GitHub antes de listar repositórios.")
+    return GithubApi.formatRepositories(token)
+}
+
+internal suspend fun readGithubReadme(context: Context, repository: String): String {
+    val token = GithubTokenStore.read(context)
+        ?: throw IllegalStateException("Conecte o GitHub na aba GitHub antes de consultar repositórios.")
+    return GithubApi.readReadme(token, repository)
 }

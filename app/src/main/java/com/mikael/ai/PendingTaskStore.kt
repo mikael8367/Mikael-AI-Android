@@ -52,7 +52,10 @@ object PendingTaskStore {
         val id = json.optString("conversationId")
         val prompt = json.optString("prompt")
         val model = json.optString("modelId")
-        if (id.isBlank() || prompt.isBlank() || model !in setOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b")) null
+        // Aceita também a equipe local (TEAM_MODEL_ID): tarefas da equipe devem poder
+        // ser retomadas após o encerramento do processo, como as tarefas de um modelo só.
+        val validModels = ModelCatalog.models.map { it.id }.toSet() + ModelCatalog.TEAM_MODEL_ID
+        if (id.isBlank() || prompt.isBlank() || model !in validModels) null
         else PendingAiTask(id, prompt, model, json.optLong("createdAt"), json.optString("githubContext"), json.optString("completedResponse").takeIf { it.isNotBlank() })
     }.getOrNull()
 

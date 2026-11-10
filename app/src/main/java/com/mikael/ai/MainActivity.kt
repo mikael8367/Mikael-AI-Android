@@ -129,8 +129,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var showConversationList by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf(AppTab.CHAT) }
 
-    var modelPath by remember { mutableStateOf(preferences.modelPath) }
-    var installedModels by remember { mutableStateOf(listInstalledModels(context)) }
+    val initialInstalledModels = remember { listInstalledModels(context) }
+    val savedMkaiPath = preferences.modelPath?.let(::File)
+        ?.takeIf { it.isFile && MikaelModelInstaller.isValidMkai(it) }?.absolutePath
+    val discoveredMkaiPath = initialInstalledModels.firstOrNull { MikaelModelInstaller.isValidMkai(it) }?.absolutePath
+    var modelPath by remember {
+        mutableStateOf(savedMkaiPath ?: discoveredMkaiPath)
+    }
+    var installedModels by remember { mutableStateOf(initialInstalledModels) }
     var catalogInstalled by remember { mutableStateOf(loadCatalogInstalled(context)) }
     var catalogProgress by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var catalogJobs by remember { mutableStateOf<Map<String, Job>>(emptyMap()) }
@@ -138,6 +144,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var selectedCatalogModelId by remember { mutableStateOf(preferences.selectedCatalogModelId) }
     var llamaReady by remember { mutableStateOf(false) }
     var llamaStatus by remember { mutableStateOf("Instale um modelo na aba Modelos para começar.") }
+    var teamStatus by remember { mutableStateOf("") }
     var memoryLimit by remember { mutableStateOf(preferences.memoryLimitMiB) }
     var contextTokens by remember { mutableStateOf(preferences.contextTokens) }
     var modelReloadCounter by remember { mutableStateOf(0) }
@@ -149,10 +156,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     var githubClientId by remember { mutableStateOf(preferences.githubClientId) }
     var allowOnlineFeatures by remember { mutableStateOf(preferences.allowOnlineFeatures) }
     var userMemoryEnabled by remember { mutableStateOf(UserMemoryStore.isEnabled(context)) }
+    var autoLearningEnabled by remember { mutableStateOf(UserMemoryStore.isAutoLearningEnabled(context)) }
     var userMemoryItems by remember { mutableStateOf(UserMemoryStore.load(context)) }
     var pendingTask by remember { mutableStateOf(PendingTaskStore.load(context)) }
     var userMemoryCount by remember { mutableStateOf(userMemoryItems.size) }
     var githubContext by remember { mutableStateOf("") }
+    var connectorProposal by remember { mutableStateOf<ConnectorProposal?>(null) }
+    var connectorBusy by remember { mutableStateOf(false) }
+    var connectorError by remember { mutableStateOf("") }
 
     fun persistActiveConversation() {
         if (messages.isEmpty()) return
@@ -190,7 +201,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     }
 
     LaunchedEffect(Unit) {
-        if (modelPath.isNullOrBlank() && catalogInstalled.isEmpty()) {
+        if (catalogInstalled["qwen-0.5b"] == null && selectedCatalogModelId == "qwen-0.5b") {
             tab = AppTab.MODELS
         }
     }
@@ -313,7 +324,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     LaunchedEffect(selectedCatalogModelId, catalogInstalled[selectedCatalogModelId], contextTokens) {
         llamaReady = false
-        if (selectedCatalogModelId == "mikael-base") {
+        if (selectedCatalogModelId == ModelCatalog.TEAM_MODEL_ID || selectedCatalogModelId == "mikael-base") {
             LlamaInferenceEngine.cancel()
             withContext(Dispatchers.IO) { LlamaInferenceEngine.unload() }
             return@LaunchedEffect
@@ -336,7 +347,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             availableBytes = MemoryBudget.availableBytes(activityManager),
             selectedLimitMiB = memoryLimit,
             modelBytes = file.length(),
-            contextTokens = contextTokens.coerceIn(128, 2048)
+            contextTokens = contextTokens.coerceIn(128, 2048),
+            minimumEstimatedBytes = ModelCatalog.models.firstOrNull { it.id == selectedCatalogModelId }
+                ?.minimumRuntimeMemoryBytes ?: 0L
         )
         if (!memoryCheck.allowed) {
             llamaStatus = memoryCheck.reason ?: "Memória insuficiente para carregar este GGUF."
@@ -358,44 +371,210 @@ private fun MikaelAiApp(preferences: AppPreferences) {
         )
     }
 
-    val activeEngineReady = if (selectedCatalogModelId == "mikael-base") engineReady else llamaReady
-    val activeEngineStatus = if (selectedCatalogModelId == "mikael-base") engineStatus else llamaStatus
+    val mikaelTeamFile = modelPath?.let(::File)
+    val mikaelTeamAvailable = mikaelTeamFile?.let {
+        it.isFile && MikaelModelInstaller.isValidMkai(it)
+    } == true
+    val availableTeamParticipants = ModelCatalog.teamParticipants.filter { participant ->
+        if (participant.id == "mikael-base") mikaelTeamAvailable
+        else catalogInstalled[participant.id]?.isFile == true
+    }
+    // A equipe é parcial por definição: modelos ausentes são ignorados. Dois
+    // participantes são o mínimo necessário para haver colaboração e síntese.
+    val teamModelsReady = availableTeamParticipants.size >= 2
+    val activeEngineReady = when (selectedCatalogModelId) {
+        ModelCatalog.TEAM_MODEL_ID -> teamModelsReady
+        "mikael-base" -> engineReady
+        else -> llamaReady
+    }
+    val activeEngineStatus = when (selectedCatalogModelId) {
+        ModelCatalog.TEAM_MODEL_ID -> if (teamModelsReady) {
+            teamStatus.ifBlank { "Equipe local pronta com os modelos instalados. Modelos ausentes serão ignorados." }
+        } else {
+            "Instale pelo menos dois modelos locais para iniciar a equipe. O Mikael AI é opcional."
+        }
+        "mikael-base" -> engineStatus
+        else -> llamaStatus
+    }
 
-    fun launchGeneration(prompt: String) {
+    fun launchGeneration(prompt: String, githubContextOverride: String? = null) {
         if (ThinkingService.hasActiveTask()) return
         val modelId = selectedCatalogModelId
-        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), githubContext)
+        val taskGithubContext = githubContextOverride ?: githubContext
+        val taskMessages = messages.toList()
+        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), taskGithubContext)
         PendingTaskStore.save(context, task)
         pendingTask = task
         isGenerating = true
         ContextCompat.startForegroundService(context, Intent(context, ThinkingService::class.java))
         ThinkingService.launchTask {
             try {
-                val activeContext = if (modelId == "mikael-base") {
-                    LocalInferenceEngine.contextCapacityTokens()
+                val responseBudget = ConversationPrompt.responseTokenBudget(prompt)
+                val result: Result<String> = if (modelId == ModelCatalog.TEAM_MODEL_ID) {
+                    val localMemory = buildString {
+                        append(UserMemoryStore.contextForPrompt(context))
+                        val crossConversation = if (userMemoryEnabled) {
+                            ConversationStore.contextFromOtherConversations(
+                                conversations = conversations.toList(),
+                                activeConversationId = task.conversationId,
+                                maxChars = 700
+                            )
+                        } else ""
+                        if (crossConversation.isNotBlank()) {
+                            append("\nContexto resumido de outras conversas locais:\n")
+                            append(crossConversation)
+                        }
+                    }
+                    val teamChatContext = buildString {
+                        val prior = taskMessages.dropLast(1).takeLast(8)
+                        if (prior.isNotEmpty()) {
+                            append("Histórico recente da conversa:\n")
+                            // O prompt da equipe tem orçamento de contexto curto: prioriza as mensagens mais recentes.
+                            prior.asReversed().forEach { message ->
+                                append(if (message.role == "user") "Usuário: " else "Mikael AI: ")
+                                append(message.text.take(450))
+                                append("\n")
+                            }
+                        }
+                        if (localMemory.isNotBlank()) {
+                            append("\nMemória local aprovada:\n")
+                            append(localMemory.take(1_000))
+                        }
+                        if (taskGithubContext.isNotBlank()) {
+                            append("\nContexto local anexado ao chat:\n")
+                            append(taskGithubContext.take(1_500))
+                        }
+                    }
+                    val teamRun = withContext(Dispatchers.IO) {
+                        TeamConversationCoordinator.run(
+                            originalPrompt = prompt,
+                            chatContext = teamChatContext,
+                            participants = availableTeamParticipants,
+                            generate = { participant, sharedPrompt, tokenLimit ->
+                                runCatching {
+                                    LocalInferenceEngine.cancel()
+                                    LlamaInferenceEngine.cancel()
+                                    LocalInferenceEngine.unload()
+                                    LlamaInferenceEngine.unload()
+
+                                    if (participant.id == "mikael-base") {
+                                        val file = requireNotNull(modelPath?.let(::File)) {
+                                            "Checkpoint local do Mikael AI não instalado."
+                                        }
+                                        check(MikaelModelInstaller.verifyInstalledFile(file)) {
+                                            "Checkpoint do Mikael AI inválido. Reinstale-o."
+                                        }
+                                        val modelContext = minOf(
+                                            512,
+                                            MikaelModelInstaller.maxSequenceTokens(file) ?: 512
+                                        ).coerceAtLeast(16)
+                                        val mikaelPrompt = TeamConversationCoordinator.buildCompactMikaelPrompt(
+                                            originalPrompt = prompt,
+                                            chatContext = teamChatContext,
+                                            participants = ModelCatalog.teamParticipants,
+                                            maxPromptBytes = (modelContext - 24 - 4).coerceAtLeast(0)
+                                        ) ?: error("O checkpoint MKAI tem contexto de apenas $modelContext bytes. Esta mensagem e o contexto anterior são grandes demais para ele; ele não será contado como participante.")
+                                        val memory = MemoryBudget.check(
+                                            availableBytes = MemoryBudget.availableBytes(activityManager),
+                                            selectedLimitMiB = memoryLimit,
+                                            modelBytes = file.length(),
+                                            contextTokens = modelContext
+                                        )
+                                        check(memory.allowed) { memory.reason ?: "Memória insuficiente para Mikael AI." }
+                                        try {
+                                            LocalInferenceEngine.load(file.absolutePath, modelContext).getOrThrow()
+                                            LocalInferenceEngine.generate(mikaelPrompt, minOf(tokenLimit, 24)).getOrThrow()
+                                        } finally {
+                                            LocalInferenceEngine.unload()
+                                        }
+                                    } else {
+                                        val model = ModelCatalog.models.singleOrNull { it.id == participant.id }
+                                            ?: error("Participante desconhecido: ${participant.id}")
+                                        val file = ModelInstaller.installedFile(context, model)
+                                            ?: error("${participant.name} não está instalado.")
+                                        check(ModelInstaller.verifyInstalledFile(file)) {
+                                            "Arquivo de ${participant.name} corrompido. Reinstale o modelo."
+                                        }
+                                        val modelContext = TeamConversationCoordinator.contextTokensFor(
+                                            prompt = sharedPrompt,
+                                            outputTokens = tokenLimit,
+                                            preferredTokens = contextTokens
+                                        )
+                                        val memory = MemoryBudget.check(
+                                            availableBytes = MemoryBudget.availableBytes(activityManager),
+                                            selectedLimitMiB = memoryLimit,
+                                            modelBytes = file.length(),
+                                            contextTokens = modelContext,
+                                            minimumEstimatedBytes = model.minimumRuntimeMemoryBytes
+                                        )
+                                        check(memory.allowed) { memory.reason ?: "Memória insuficiente para ${participant.name}." }
+                                        try {
+                                            LlamaInferenceEngine.load(file.absolutePath, modelContext).getOrThrow()
+                                            LlamaInferenceEngine.generate(sharedPrompt, tokenLimit).getOrThrow()
+                                        } finally {
+                                            LlamaInferenceEngine.unload()
+                                        }
+                                    }
+                                }
+                            },
+                            onStage = { stage ->
+                                withContext(Dispatchers.Main.immediate) { teamStatus = stage }
+                            }
+                        )
+                    }
+                    val participation = "Equipe local: ${teamRun.participatedCount}/${teamRun.participantCount} modelos disponíveis contribuíram; ${teamRun.attemptCount} tentativas sequenciais."
+                    val failures = teamRun.failedParticipants.entries.joinToString("; ") { "${it.key}: ${it.value}" }
+                    val participantNote = if (teamRun.failedParticipants.isEmpty()) "" else {
+                        "\n\n[Participação parcial — ${teamRun.participatedCount}/${teamRun.participantCount}: ${failures}]"
+                    }
+                    val synthesisNote = if (teamRun.finalizationFallback) {
+                        "\n\n[Consolidação automática indisponível; foi usada a melhor contribuição disponível. ${teamRun.finalizationError.orEmpty()}]"
+                    } else ""
+                    withContext(Dispatchers.Main.immediate) {
+                        teamStatus = buildString {
+                            append(participation)
+                            if (failures.isNotBlank()) append(" Falhas: $failures")
+                            if (teamRun.finalizationFallback) append(" Síntese final substituída por fallback.")
+                        }
+                    }
+                    Result.success(teamRun.answer + participantNote + synthesisNote)
                 } else {
-                    LlamaInferenceEngine.contextCapacityTokens()
-                }
-                val conversationPrompt = ConversationPrompt.build(
-                    messages = messages.toList(),
-                    githubContext = githubContext,
-                    contextCapacityBytes = activeContext,
-                    userMemory = UserMemoryStore.contextForPrompt(context)
-                )
-                val result = withContext(Dispatchers.IO) {
-                    if (modelId == "mikael-base") {
-                        // MKAI v1 é experimental e a inferência Android recalcula o contexto
-                        // a cada token. Uma autocrítica + revisão triplicava o trabalho no A12.
-                        // Use uma única geração curta até o motor ganhar cache KV/otimizações.
-                        LocalInferenceEngine.generate(conversationPrompt, 64)
+                    val activeContext = if (modelId == "mikael-base") {
+                        LocalInferenceEngine.contextCapacityTokens()
                     } else {
-                        AnswerRevision.generate(
-                            originalRequest = prompt,
-                            conversationPrompt = conversationPrompt,
+                        LlamaInferenceEngine.contextCapacityTokens()
+                    }
+                    val conversationPrompt = if (modelId == "mikael-base") {
+                        ConversationPrompt.buildMkai(
+                            messages = taskMessages,
                             contextCapacityBytes = activeContext,
-                            maxAnswerTokens = 256
-                        ) { candidatePrompt, tokenLimit ->
-                            LlamaInferenceEngine.generate(candidatePrompt, tokenLimit)
+                            reserveOutputBytes = 64
+                        )
+                    } else ConversationPrompt.build(
+                        messages = taskMessages,
+                        githubContext = taskGithubContext,
+                        contextCapacityTokens = activeContext,
+                        reserveOutputTokens = responseBudget,
+                        userMemory = buildString {
+                            append(UserMemoryStore.contextForPrompt(context))
+                            val crossConversation = if (userMemoryEnabled) {
+                                ConversationStore.contextFromOtherConversations(
+                                    conversations = conversations.toList(),
+                                    activeConversationId = task.conversationId,
+                                    maxChars = 700
+                                )
+                            } else ""
+                            if (crossConversation.isNotBlank()) {
+                                append("\n[Contexto resumido de outras conversas; use apenas como referência]\n")
+                                append(crossConversation)
+                            }
+                        }
+                    )
+                    withContext(Dispatchers.IO) {
+                        if (modelId == "mikael-base") {
+                            LocalInferenceEngine.generate(conversationPrompt, 64)
+                        } else {
+                            LlamaInferenceEngine.generate(conversationPrompt, responseBudget)
                         }
                     }
                 }
@@ -414,14 +593,17 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant",
                                 "Erro local: ${error.message ?: "não foi possível gerar a resposta."}"))
                             persistActiveConversation()
-                            // Mantém o registro para permitir tentar novamente após corrigir a falha.
                         }
+                        // Falha de inferência não é uma tarefa retomável. Remova o modelo antigo
+                        // pendente para que a seleção atual volte a controlar o chat.
+                        PendingTaskStore.clear(context)
+                        pendingTask = null
                     }
                 )
             } catch (error: Exception) {
-                if (error !is kotlinx.coroutines.CancellationException) {
+                if (error !is CancellationException) {
                     ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant",
-                        "Tarefa interrompida: ${error.message ?: "erro inesperado"}. Você pode tentar retomá-la."))
+                        "Tarefa interrompida: ${error.message ?: "erro inesperado"}. Você pode tentar retomar."))
                     persistActiveConversation()
                 }
             } finally {
@@ -434,15 +616,27 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     fun resumePendingTask() {
         val task = pendingTask ?: return
         if (isGenerating || ThinkingService.hasActiveTask()) return
-        if (selectedCatalogModelId != task.modelId) {
-            selectedCatalogModelId = task.modelId
-            preferences.selectedCatalogModelId = task.modelId
+        val resumableModelId = resolveResumableModelId(
+            savedModelId = task.modelId,
+            installedFile = { id -> catalogInstalled[id] },
+            mikaelInstalled = modelPath?.let(::File)?.isFile == true
+        )
+        if (resumableModelId == null) {
+            android.widget.Toast.makeText(
+                context,
+                "Nenhum modelo instalado pode retomar esta tarefa. Instale um modelo no catálogo.",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+        if (selectedCatalogModelId != resumableModelId) {
+            selectedCatalogModelId = resumableModelId
+            preferences.selectedCatalogModelId = resumableModelId
             modelReloadCounter++
-            android.widget.Toast.makeText(context, "Carregando o modelo usado na tarefa interrompida.", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, "Preparando o modelo salvo na tarefa para retomar.", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         if (!activeEngineReady) return
-        githubContext = task.githubContext
         val conversation = conversations.firstOrNull { it.id == task.conversationId }
         messages.clear()
         if (conversation != null) {
@@ -455,7 +649,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", task.prompt))
             persistActiveConversation()
         }
-        launchGeneration(task.prompt)
+        launchGeneration(task.prompt, task.githubContext)
     }
 
     Scaffold(
@@ -540,6 +734,15 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             }
                         )
                     } else ChatScreen(
+                        activeModelName = run {
+                            val activeModelId = pendingTask?.modelId ?: selectedCatalogModelId
+                            when (activeModelId) {
+                                ModelCatalog.TEAM_MODEL_ID -> "Mikael AI — 4 modelos"
+                                "mikael-base" -> "Mikael AI local"
+                                else -> ModelCatalog.models.firstOrNull { it.id == activeModelId }?.name
+                                    ?: activeModelId
+                            }
+                        },
                         messages = messages,
                         input = input,
                         onInputChange = { input = it },
@@ -553,8 +756,8 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             pendingTask = null
                         },
                         onCancel = {
-                            if (selectedCatalogModelId == "mikael-base") LocalInferenceEngine.cancel()
-                            else LlamaInferenceEngine.cancel()
+                            LocalInferenceEngine.cancel()
+                            LlamaInferenceEngine.cancel()
                             PendingTaskStore.clear(context)
                             pendingTask = null
                             context.stopService(Intent(context, ThinkingService::class.java))
@@ -564,17 +767,23 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (pendingTask != null) {
                                 android.widget.Toast.makeText(context, "Retome ou descarte a tarefa interrompida antes de enviar outra mensagem.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
-                                input = ""
-                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
-                                val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
-                                    UserMemoryStore.forgetFromUserMessage(context, prompt)
-                                if (memoryChanged) {
+                                val explicitMemoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt)
+                                val memoryForgotten = UserMemoryStore.forgetFromUserMessage(context, prompt)
+                                val autoMemoryChanged = UserMemoryStore.learnFromUserMessage(context, prompt)
+                                if (explicitMemoryChanged || memoryForgotten || autoMemoryChanged) {
                                     userMemoryItems = UserMemoryStore.load(context)
                                     userMemoryCount = userMemoryItems.size
                                 }
+                                val proposal = if (selectedCatalogModelId == ModelCatalog.TEAM_MODEL_ID) null else ConnectorRouter.detect(prompt)
+                                input = ""
+                                ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
                                 persistActiveConversation()
-                                launchGeneration(prompt)
-
+                                if (proposal != null) {
+                                    connectorProposal = proposal
+                                    connectorError = ""
+                                } else {
+                                    launchGeneration(prompt)
+                                }
                             } else if (!activeEngineReady) {
                                 android.widget.Toast.makeText(context, activeEngineStatus, android.widget.Toast.LENGTH_SHORT).show()
                             }
@@ -589,17 +798,25 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                         progress = catalogProgress,
                         errors = catalogErrors,
                         selectedModelId = selectedCatalogModelId,
-                        mikaelAvailable = !modelPath.isNullOrBlank() && File(modelPath!!).isFile,
+                        mikaelAvailable = !modelPath.isNullOrBlank() && File(modelPath!!).isFile && MikaelModelInstaller.isValidMkai(File(modelPath!!)),
+                        teamReady = teamModelsReady,
+                        teamInstallStatus = teamStatus,
+                        teamInstalling = catalogJobs.containsKey(ModelCatalog.TEAM_MODEL_ID),
                         busy = isGenerating || catalogJobs.isNotEmpty(),
                         onSelect = { model ->
                             selectedCatalogModelId = model.id
                             preferences.selectedCatalogModelId = model.id
                             tab = AppTab.CHAT
                         },
+                        onSelectTeam = {
+                            selectedCatalogModelId = ModelCatalog.TEAM_MODEL_ID
+                            preferences.selectedCatalogModelId = ModelCatalog.TEAM_MODEL_ID
+                            tab = AppTab.CHAT
+                        },
                         onImportMkai = { modelPicker.launch(arrayOf("application/octet-stream")) },
                         onTrainMkai = {
                             val trainingUrl = Uri.parse(
-                                "https://github.com/mikael8367/Mikael-AI-Android/edit/fix/ai-runtime-stability/training/corpus.txt"
+                                "https://github.com/mikael8367/Mikael-AI-Android/edit/feature/qwen-only-engine/training/corpus.txt"
                             )
                             context.startActivity(Intent(Intent.ACTION_VIEW, trainingUrl))
                         },
@@ -642,25 +859,85 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             catalogJobs = catalogJobs + (model.id to job)
                             job.start()
                         },
-                        onCancelInstall = { model -> catalogJobs[model.id]?.cancel() },
-                        onDelete = { model ->
-                            scope.launch(Dispatchers.IO) {
-                                val file = catalogInstalled[model.id]
-                                val sharedIds = ModelCatalog.models
-                                    .filter { model.fileName != null && it.fileName == model.fileName }
-                                    .map { it.id }
-                                    .toSet()
-                                    .ifEmpty { setOf(model.id) }
-                                if (file != null) {
-                                    file.delete()
-                                    File(file.parentFile, "${file.name}.sha256").delete()
-                                }
-                                withContext(Dispatchers.Main) {
-                                    catalogInstalled = catalogInstalled.filterKeys { it !in sharedIds }
-                                    if (selectedCatalogModelId in sharedIds) {
-                                        selectedCatalogModelId = "mikael-base"
-                                        preferences.selectedCatalogModelId = "mikael-base"
+                        onInstallTeam = {
+                                                        teamStatus = "Preparando downloads..."
+                            val job = scope.launch(start = CoroutineStart.LAZY) {
+                                try {
+                                    teamStatus = "Verificando integridade local dos modelos..."
+                                    val missing = mutableListOf<CatalogModel>()
+                                    for (model in ModelCatalog.models) {
+                                        val valid = if (model.engine == ModelEngine.MKAI) {
+                                            val file = modelPath?.let(::File)
+                                            file != null && MikaelModelInstaller.verifyInstalledFile(file)
+                                        } else {
+                                            val file = ModelInstaller.installedFile(context, model)
+                                            file != null && ModelInstaller.verifyInstalledFile(file)
+                                        }
+                                        if (!valid) missing += model
                                     }
+                                    missing.forEachIndexed { index, model ->
+                                        teamStatus = "Baixando ${model.name} (${index + 1}/${missing.size})..."
+                                        catalogErrors = catalogErrors - model.id
+                                        catalogProgress = catalogProgress + (model.id to 0)
+                                        if (model.engine == ModelEngine.MKAI) {
+                                            val file = MikaelModelInstaller.install(context, model) { percent ->
+                                                catalogProgress = catalogProgress + (model.id to percent)
+                                            }
+                                            preferences.modelPath = file.absolutePath
+                                            modelPath = file.absolutePath
+                                            installedModels = listInstalledModels(context)
+                                        } else {
+                                            val file = ModelInstaller.install(context, model) { percent ->
+                                                catalogProgress = catalogProgress + (model.id to percent)
+                                            }
+                                            catalogInstalled = catalogInstalled + (model.id to file)
+                                        }
+                                        catalogProgress = catalogProgress - model.id
+                                    }
+                                    selectedCatalogModelId = ModelCatalog.TEAM_MODEL_ID
+                                    preferences.selectedCatalogModelId = ModelCatalog.TEAM_MODEL_ID
+                                    teamStatus = "Os quatro pesos foram instalados. A memória será verificada antes de cada uso."
+                                    tab = AppTab.CHAT
+                                } catch (error: CancellationException) {
+                                    teamStatus = "Instalação cancelada. Os arquivos concluídos foram preservados; downloads parciais serão descartados."
+                                    throw error
+                                } catch (error: Exception) {
+                                    teamStatus = "Falha na instalação da equipe: ${error.message ?: "erro desconhecido"}"
+                                } finally {
+                                    catalogProgress = catalogProgress - ModelCatalog.models.map { it.id }.toSet()
+                                    catalogJobs = catalogJobs - ModelCatalog.TEAM_MODEL_ID
+                                }
+                            }
+                            catalogJobs = catalogJobs + (ModelCatalog.TEAM_MODEL_ID to job)
+                            job.start()
+                        },
+                        onCancelInstall = { model -> catalogJobs[model.id]?.cancel() },
+                        onCancelTeamInstall = { catalogJobs[ModelCatalog.TEAM_MODEL_ID]?.cancel() },
+                        onDelete = { model ->
+                            scope.launch {
+                                val file = if (model.engine == ModelEngine.MKAI) modelPath?.let(::File)
+                                    else catalogInstalled[model.id]
+                                withContext(Dispatchers.IO) {
+                                    if (file != null) {
+                                        file.delete()
+                                        File(file.parentFile, "${file.name}.sha256").delete()
+                                    }
+                                }
+                                if (model.engine == ModelEngine.MKAI) {
+                                    preferences.modelPath = null
+                                    modelPath = null
+                                    installedModels = listInstalledModels(context)
+                                } else {
+                                    val sharedIds = ModelCatalog.models
+                                        .filter { model.fileName != null && it.fileName == model.fileName }
+                                        .map { it.id }
+                                        .toSet()
+                                        .ifEmpty { setOf(model.id) }
+                                    catalogInstalled = catalogInstalled.filterKeys { it !in sharedIds }
+                                }
+                                if (selectedCatalogModelId == model.id || selectedCatalogModelId == ModelCatalog.TEAM_MODEL_ID) {
+                                    selectedCatalogModelId = "qwen-0.5b"
+                                    preferences.selectedCatalogModelId = "qwen-0.5b"
                                 }
                             }
                         },
@@ -683,11 +960,17 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                     )
                     AppTab.SETTINGS -> SettingsScreen(
                         userMemoryEnabled = userMemoryEnabled,
+                        autoLearningEnabled = autoLearningEnabled,
                         userMemoryCount = userMemoryCount,
                         userMemoryItems = userMemoryItems,
                         onUserMemoryEnabledChange = { enabled ->
                             UserMemoryStore.setEnabled(context, enabled)
                             userMemoryEnabled = enabled
+                            if (!enabled) autoLearningEnabled = false
+                        },
+                        onAutoLearningEnabledChange = { enabled ->
+                            UserMemoryStore.setAutoLearningEnabled(context, enabled)
+                            autoLearningEnabled = enabled
                         },
                         onClearUserMemory = {
                             UserMemoryStore.clear(context)
@@ -726,6 +1009,78 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
             }
         }
+    }
+
+    connectorProposal?.let { proposal ->
+        AlertDialog(
+            onDismissRequest = { if (!connectorBusy) connectorProposal = null },
+            title = { Text("Autorizar conector") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(proposal.explanation)
+                    Text(
+                        when (proposal.kind) {
+                            ConnectorKind.CALCULATOR, ConnectorKind.DATE_TIME -> "Ferramenta local. Nenhum dado será enviado pela internet."
+                            ConnectorKind.WEB_SEARCH -> "Consulta enviada ao serviço online: ${proposal.query}"
+                            ConnectorKind.GITHUB_REPOSITORIES -> "Listar repositórios da conta GitHub conectada."
+                            else -> "Consulta GitHub: ${proposal.query}"
+                        }
+                    )
+                    if (proposal.kind !in setOf(ConnectorKind.CALCULATOR, ConnectorKind.DATE_TIME) && !allowOnlineFeatures) {
+                        Text("Ative os recursos online em Configurações.")
+                    }
+                    if (proposal.kind == ConnectorKind.WEB_SEARCH && !OnlineSearchClient.hasSession(context)) Text("Conecte o serviço Mikael AI na aba Pesquisa.")
+                    if (proposal.kind in setOf(
+                            ConnectorKind.GITHUB_README, ConnectorKind.GITHUB_FILE,
+                            ConnectorKind.GITHUB_CODE_SEARCH, ConnectorKind.GITHUB_ISSUES,
+                            ConnectorKind.GITHUB_REPOSITORIES
+                        ) && !GithubTokenStore.hasToken(context)) Text("Conecte o GitHub na aba GitHub.")
+                    if (connectorError.isNotBlank()) Text(connectorError, color = MaterialTheme.colorScheme.error)
+                    if (connectorBusy) CircularProgressIndicator()
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !connectorBusy &&
+                        (proposal.kind in setOf(ConnectorKind.CALCULATOR, ConnectorKind.DATE_TIME) || allowOnlineFeatures) &&
+                        (proposal.kind != ConnectorKind.WEB_SEARCH || OnlineSearchClient.hasSession(context)) &&
+                        (proposal.kind !in setOf(
+                            ConnectorKind.GITHUB_README, ConnectorKind.GITHUB_FILE,
+                            ConnectorKind.GITHUB_CODE_SEARCH, ConnectorKind.GITHUB_ISSUES,
+                            ConnectorKind.GITHUB_REPOSITORIES
+                        ) || GithubTokenStore.hasToken(context)),
+                    onClick = {
+                        connectorBusy = true
+                        connectorError = ""
+                        scope.launch {
+                            try {
+                                val externalContext = ConnectorRouter.execute(context, allowOnlineFeatures, proposal)
+                                val userRequest = messages.lastOrNull { it.role == "user" }?.text ?: proposal.query
+                                val taskContext = (githubContext + "\n\n" + externalContext).takeLast(8_000)
+                                connectorProposal = null
+                                launchGeneration(userRequest, taskContext)
+                            } catch (failure: Exception) {
+                                connectorError = failure.message ?: "Falha ao executar o conector."
+                            } finally {
+                                connectorBusy = false
+                            }
+                        }
+                    }
+                ) { Text(if (connectorBusy) "Consultando…" else "Autorizar") }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !connectorBusy && !isGenerating,
+                    onClick = {
+                        val userRequest = messages.lastOrNull { it.role == "user" }?.text
+                        connectorProposal = null
+                        if (!userRequest.isNullOrBlank() && activeEngineReady) {
+                            launchGeneration(userRequest)
+                        }
+                    }
+                ) { Text("Responder sem conector") }
+            }
+        )
     }
 }
 
@@ -775,6 +1130,7 @@ private fun copyModelToPrivateStorage(context: Context, uri: Uri): String {
 
 @Composable
 private fun ChatScreen(
+    activeModelName: String,
     messages: List<ChatMessage>,
     input: String,
     onInputChange: (String) -> Unit,
@@ -792,6 +1148,42 @@ private fun ChatScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(modifier = Modifier.fillMaxSize().imePadding()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = Color(0xFF17251D),
+                contentColor = Color(0xFFB8E8CA),
+                shape = RoundedCornerShape(50)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(if (isGenerating) Color(0xFF39D98A) else Color(0xFF8BE7B7), CircleShape)
+                    )
+                    Text("Modelo:", style = MaterialTheme.typography.labelSmall, color = Color(0xFF9EAAA2))
+                    AnimatedContent(
+                        targetState = activeModelName,
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "active-model-name"
+                    ) { name ->
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1
+                        )
+                    }
+                }
+            }
+        }
         if (pendingTask != null && !isGenerating) {
             Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color(0xFF26382D))) {
@@ -1101,9 +1493,11 @@ private fun ModelsScreen(
 @Composable
 private fun SettingsScreen(
     userMemoryEnabled: Boolean,
+    autoLearningEnabled: Boolean,
     userMemoryCount: Int,
     userMemoryItems: List<UserMemoryItem>,
     onUserMemoryEnabledChange: (Boolean) -> Unit,
+    onAutoLearningEnabledChange: (Boolean) -> Unit,
     onClearUserMemory: () -> Unit,
     onRemoveUserMemory: (UserMemoryItem) -> Unit,
     allowOnlineFeatures: Boolean,
@@ -1151,7 +1545,7 @@ private fun SettingsScreen(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                listOf(1536, 2048).forEach { value ->
+                listOf(1536, 2048, 3072).forEach { value ->
                     FilterChip(
                         selected = memoryLimit == value,
                         onClick = { onMemoryChange(value) },
@@ -1181,6 +1575,17 @@ private fun SettingsScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Usar memória nas respostas", modifier = Modifier.weight(1f))
                 Switch(checked = userMemoryEnabled, onCheckedChange = onUserMemoryEnabledChange)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Aprender automaticamente")
+                    Text("Aprende preferências e fatos técnicos explícitos e não sensíveis em memória local criptografada; não altera os pesos do modelo.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+                }
+                Switch(
+                    checked = autoLearningEnabled,
+                    onCheckedChange = onAutoLearningEnabledChange,
+                    enabled = userMemoryEnabled
+                )
             }
             OutlinedButton(onClick = onClearUserMemory, enabled = userMemoryCount > 0, modifier = Modifier.fillMaxWidth()) {
                 Text("Apagar todas as lembranças")
@@ -1295,3 +1700,22 @@ private fun loadCatalogInstalled(context: Context): Map<String, File> =
     ModelCatalog.models.mapNotNull { model ->
         ModelInstaller.installedFile(context, model)?.let { model.id to it }
     }.toMap()
+
+/** Decide qual modelo instalado pode retomar uma tarefa pendente sem fingir que um modelo ausente existe. */
+internal fun resolveResumableModelId(
+    savedModelId: String?,
+    installedFile: (String) -> File?,
+    mikaelInstalled: Boolean
+): String? {
+    if (savedModelId == null) return null
+    if (savedModelId == ModelCatalog.TEAM_MODEL_ID) return savedModelId
+    val savedInstalled = when (savedModelId) {
+        "mikael-base" -> mikaelInstalled
+        else -> installedFile(savedModelId)?.isFile == true
+    }
+    if (savedInstalled) return savedModelId
+    return ModelCatalog.models.firstOrNull { candidate ->
+        candidate.id != "mikael-base" && installedFile(candidate.id)?.isFile == true
+    }?.id ?: "mikael-base".takeIf { mikaelInstalled }
+}
+

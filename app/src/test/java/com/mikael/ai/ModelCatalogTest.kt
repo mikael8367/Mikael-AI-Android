@@ -1,46 +1,56 @@
 package com.mikael.ai
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ModelCatalogTest {
     @Test
-    fun catalogContainsFourUniqueModels() {
+    fun catalogContainsExactlyTheFourRequestedParticipants() {
         assertEquals(4, ModelCatalog.models.size)
-        assertEquals(4, ModelCatalog.models.map { it.id }.toSet().size)
+        assertEquals(
+            listOf("mikael-base", "qwen-0.5b", "smollm2-360m", "tinyllama-1.1b"),
+            ModelCatalog.models.map { it.id }
+        )
+        assertEquals(4, ModelCatalog.teamParticipants.size)
+        assertEquals(ModelCatalog.TEAM_MODEL_ID, "mikael-ai-4")
     }
 
     @Test
-    fun mikaelModelUsesOnlyItsOwnEngineAndHasNoThirdPartyDownload() {
-        val model = ModelCatalog.models.single { it.id == "mikael-base" }
-        assertEquals(ModelEngine.MKAI, model.engine)
-        assertTrue(model.downloadUrl!!.startsWith("https://github.com/"))
-        assertEquals("mikael-base.mkai", model.fileName)
-        assertTrue(model.description.contains("Checkpoint autoral"))
-    }
-
-    @Test
-    fun atLeastOneRealModelDownloadExceedsTwoHundredMegabytes() {
-        val downloadable = ModelCatalog.models.filter { it.engine == ModelEngine.LLAMA_CPP }
-        assertTrue(downloadable.all { it.approximateBytes > 200_000_000L })
-        val qwen = downloadable.single { it.id == "qwen-0.5b" }
+    fun qwenUsesPinnedApacheLicensedGguf() {
+        val qwen = ModelCatalog.models.single { it.id == "qwen-0.5b" }
+        assertEquals(ModelEngine.LLAMA_CPP, qwen.engine)
         assertEquals("Apache-2.0", qwen.license)
-        assertTrue(qwen.approximateBytes in 450_000_000L..520_000_000L)
+        assertTrue(qwen.fileName!!.endsWith(".gguf"))
         assertTrue(ModelIntegrity.isSha256(qwen.expectedSha256.orEmpty()))
     }
 
     @Test
-    fun externalModelsHaveHttpsGgufSourcesAndLlamaEngine() {
-        val external = ModelCatalog.models.filter { it.id != "mikael-base" }
-        assertEquals(3, external.size)
-        external.forEach { model ->
+    fun smolAndTinyLlamaUseGgufAndApacheLicense() {
+        listOf("smollm2-360m", "tinyllama-1.1b").forEach { id ->
+            val model = ModelCatalog.models.single { it.id == id }
             assertEquals(ModelEngine.LLAMA_CPP, model.engine)
-            assertTrue(model.downloadUrl!!.startsWith("https://"))
+            assertEquals("Apache-2.0", model.license)
             assertTrue(model.fileName!!.endsWith(".gguf"))
-            assertNotNull(model.sourceUrl)
-            assertTrue(model.approximateBytes > 0L)
+            assertTrue(model.downloadUrl!!.startsWith("https://huggingface.co/"))
+            assertTrue(model.approximateBytes > 200_000_000L)
+            if (id == "tinyllama-1.1b") assertTrue(model.minimumRuntimeMemoryBytes >= 3_000_000_000L)
         }
+    }
+
+    @Test
+    fun mikaelCheckpointIsExplicitlyMarkedAsUnlicensedAndMkai() {
+        val model = ModelCatalog.models.single { it.id == "mikael-base" }
+        assertEquals(ModelEngine.MKAI, model.engine)
+        assertEquals("Licença não declarada", model.license)
+        assertTrue(model.fileName!!.endsWith(".mkai"))
+        assertTrue(model.downloadUrl!!.startsWith("https://github.com/"))
+        assertTrue(ModelIntegrity.isSha256(model.expectedSha256.orEmpty()))
+    }
+
+    @Test
+    fun teamStorageEstimateIncludesAllFourWeights() {
+        assertEquals(ModelCatalog.models.sumOf { it.approximateBytes }, ModelCatalog.teamDownloadBytes)
+        assertTrue(ModelCatalog.teamDownloadBytes in 1_300_000_000L..1_500_000_000L)
     }
 }
