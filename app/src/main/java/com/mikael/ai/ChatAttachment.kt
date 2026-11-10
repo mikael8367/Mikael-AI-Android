@@ -27,67 +27,82 @@ data class ChatAttachment(
 fun importChatAttachments(context: Context, uris: List<Uri>): List<ChatAttachment> {
     require(uris.isNotEmpty()) { "Selecione pelo menos um arquivo." }
     require(uris.size <= 5) { "Selecione no máximo 5 arquivos por vez." }
+
     val directory = File(context.filesDir, "chat_attachments")
-    check(directory.exists() || directory.mkdirs()) { "Não foi possível criar a pasta de anexos." }
+    check(directory.exists() || directory.mkdirs()) {
+        "Não foi possível criar a pasta de anexos."
+    }
 
     var remainingAnalysisBytes = MAX_TOTAL_ANALYSIS_BYTES
     val completedFiles = mutableListOf<File>()
     try {
         uris.map { uri ->
-        val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
-        val metadata = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-            if (cursor.moveToFirst()) {
-                (if (nameIndex >= 0) cursor.getString(nameIndex) else null) to
-                    (if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else -1L)
-            } else null
-        }
-        val name = metadata?.first ?: "anexo"
-        val declaredSize = metadata?.second ?: -1L
-        require(declaredSize <= MAX_ATTACHMENT_BYTES) {
-            "$name ultrapassa o limite de 1 GB por arquivo."
-        }
-        val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100)
-        val destination = File(directory, "${System.currentTimeMillis()}_${System.nanoTime()}_$safeName")
-        val temporary = File(directory, "${destination.name}.partial")
-        try {
-            context.contentResolver.openInputStream(uri).use { input ->
-                requireNotNull(input) { "Não foi possível abrir $name." }
-                temporary.outputStream().use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var total = 0L
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        total += read
-                        require(total <= MAX_ATTACHMENT_BYTES) {
-                            "$name ultrapassa o limite de 1 GB por arquivo."
-                        }
-                        if (total % SPACE_CHECK_INTERVAL < read) {
-                            ensureStorageSpace(context, total)
-                        }
-                        output.write(buffer, 0, read)
-                    }
+            val mime = context.contentResolver.getType(uri) ?: "application/octet-stream"
+            val metadata = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (cursor.moveToFirst()) {
+                    (if (nameIndex >= 0) cursor.getString(nameIndex) else null) to
+                        (if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) cursor.getLong(sizeIndex) else -1L)
+                } else {
+                    null
                 }
             }
-            check(temporary.renameTo(destination)) { "Não foi possível salvar $name." }
-            completedFiles += destination
-            val extracted = extractAttachmentText(context, destination, mime, name)
-            val availableForThisFile = remainingAnalysisBytes.coerceAtLeast(0)
-            val safeExtracted = takeUtf8Prefix(extracted, availableForThisFile)
-            remainingAnalysisBytes -= safeExtracted.toByteArray(Charsets.UTF_8).size
-            val contextText = if (safeExtracted.isBlank()) {
-                "Anexo: $name ($mime). Nenhum texto legível foi extraído."
-            } else {
-                "Conteúdo extraído de $name ($mime):\n$safeExtracted"
+            val name = metadata?.first ?: "anexo"
+            val declaredSize = metadata?.second ?: -1L
+            require(declaredSize <= MAX_ATTACHMENT_BYTES) {
+                "$name ultrapassa o limite de 1 GB por arquivo."
             }
-            ChatAttachment(name, mime, destination.absolutePath, contextText)
-        } catch (error: Exception) {
-            temporary.delete()
-            destination.delete()
-            throw error
-        }
+
+            val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(100)
+            val destination = File(
+                directory,
+                "${System.currentTimeMillis()}_${System.nanoTime()}_$safeName"
+            )
+            val temporary = File(directory, "${destination.name}.partial")
+
+            try {
+                context.contentResolver.openInputStream(uri).use { input ->
+                    requireNotNull(input) { "Não foi possível abrir $name." }
+                    temporary.outputStream().use { output ->
+                        val buffer = ByteArray(64 * 1024)
+                        var total = 0L
+                        while (true) {
+                            val read = input.read(buffer)
+                            if (read < 0) break
+                            total += read
+                            require(total <= MAX_ATTACHMENT_BYTES) {
+                                "$name ultrapassa o limite de 1 GB por arquivo."
+                            }
+                            if (total % SPACE_CHECK_INTERVAL < read) {
+                                ensureStorageSpace(context, total)
+                            }
+                            output.write(buffer, 0, read)
+                        }
+                    }
+                }
+
+                check(temporary.renameTo(destination)) {
+                    "Não foi possível salvar $name."
+                }
+                completedFiles += destination
+
+                val extracted = extractAttachmentText(context, destination, mime, name)
+                val availableForThisFile = remainingAnalysisBytes.coerceAtLeast(0)
+                val safeExtracted = takeUtf8Prefix(extracted, availableForThisFile)
+                remainingAnalysisBytes -= safeExtracted.toByteArray(Charsets.UTF_8).size
+
+                val contextText = if (safeExtracted.isBlank()) {
+                    "Anexo: $name ($mime). Nenhum texto legível foi extraído."
+                } else {
+                    "Conteúdo extraído de $name ($mime):\n$safeExtracted"
+                }
+                ChatAttachment(name, mime, destination.absolutePath, contextText)
+            } catch (error: Exception) {
+                temporary.delete()
+                destination.delete()
+                throw error
+            }
         }
     } catch (error: Exception) {
         // Treat a multi-file import as one transaction: if any item fails,
