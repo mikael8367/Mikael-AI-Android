@@ -403,7 +403,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             )
                         } else ""
                         if (crossConversation.isNotBlank()) {
-                            append("\\n[Contexto resumido de outras conversas; use apenas como referência]\\n")
+                            append("\n[Contexto resumido de outras conversas; use apenas como referência]\n")
                             append(crossConversation)
                         }
                     }
