@@ -580,13 +580,14 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 }
                 result.fold(
                     onSuccess = { answer ->
-                        if (answer.isNotBlank()) {
-                            PendingTaskStore.complete(context, answer)
-                            ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", answer))
-                            persistActiveConversation()
-                            PendingTaskStore.clear(context)
-                            pendingTask = null
+                        val visibleAnswer = answer.ifBlank {
+                            "O modelo terminou sem produzir uma resposta. Tente novamente com um prompt menor ou outro modelo."
                         }
+                        PendingTaskStore.complete(context, visibleAnswer)
+                        ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "assistant", visibleAnswer))
+                        persistActiveConversation()
+                        PendingTaskStore.clear(context)
+                        pendingTask = null
                     },
                     onFailure = { error ->
                         if (error.message != "Geração cancelada pelo usuário.") {
