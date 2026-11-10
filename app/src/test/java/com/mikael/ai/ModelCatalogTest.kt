@@ -44,6 +44,7 @@ class ModelCatalogTest {
         assertEquals("Licença não declarada", model.license)
         assertTrue(model.fileName!!.endsWith(".mkai"))
         assertTrue(model.downloadUrl!!.startsWith("https://github.com/"))
+        assertTrue(ModelIntegrity.isSha256(model.expectedSha256.orEmpty()))
     }
 
     @Test
