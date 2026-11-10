@@ -162,7 +162,7 @@ internal object TeamConversationCoordinator {
             "Nenhum modelo contribuiu ainda."
         } else {
             contributions.joinToString("\n\n") {
-                "[${it.participant.name}]\n${safe(it.text, 100)}"
+                "[${it.participant.name}]\n${safe(it.text, 160)}"
             }
         }
         val failureText = if (failures.isEmpty()) "Nenhuma falha registrada."
