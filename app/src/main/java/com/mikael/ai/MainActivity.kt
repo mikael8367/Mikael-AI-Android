@@ -547,14 +547,14 @@ private fun ModelsScreen(
                 ) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text("Mikael AI Base", fontWeight = FontWeight.Bold, color = Color(0xFF8BE7B7))
-                        Text("Motor Transformer próprio implementado. O modelo ainda precisa receber tokenizer treinado e pesos treinados do zero.")
-                        Text("Estado: motor experimental; não há pesos oficiais para conversar com qualidade ainda.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
+                        Text("Motor e pipeline de treinamento do zero implementados. Ainda é necessário adicionar um corpus licenciado e treinar os pesos antes de conversar.")
+                        Text("Estado: aguardando corpus e primeiro treinamento. O formato atual usa bytes UTF-8 e ainda não integra o BPE MKTOK.", color = Color(0xFFFFD28A), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
             item { Text("Modelos instalados neste aparelho", fontWeight = FontWeight.Bold) }
             if (installedModels.isEmpty()) {
-                item { Text("Nenhum modelo .mkai instalado. Os pesos próprios ainda precisam ser treinados e exportados.", color = Color(0xFF9EAAA2)) }
+                item { Text("Nenhum modelo .mkai instalado. Adicione um corpus e execute o workflow de treinamento documentado em training/README.md.", color = Color(0xFF9EAAA2)) }
             } else {
                 items(installedModels, key = { it.absolutePath }) { file ->
                     Card(colors = CardDefaults.cardColors(containerColor = Color(0xFF151D19))) {
