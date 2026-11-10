@@ -100,6 +100,13 @@ object MikaelModelInstaller {
             }
 
             val digest = ModelIntegrity.sha256(temporary)
+            val pinnedSha256 = model.expectedSha256?.lowercase()
+            check(pinnedSha256 == null || ModelIntegrity.isSha256(pinnedSha256)) {
+                "O SHA-256 fixado no catálogo MKAI é inválido."
+            }
+            check(pinnedSha256 == null || digest.equals(pinnedSha256, ignoreCase = true)) {
+                "O SHA-256 do checkpoint MKAI não corresponde ao publicado. O arquivo foi descartado."
+            }
             checksumTemporary.writeText(digest)
 
             if (backup.exists()) check(backup.delete()) { "Não foi possível limpar o backup MKAI antigo." }
