@@ -94,6 +94,46 @@ jstring throwError(JNIEnv * env, const std::string & message) {
     if (cls) { env->ThrowNew(cls, message.c_str()); env->DeleteLocalRef(cls); }
     return nullptr;
 }
+std::string applyModelChatTemplate(const llama_model * model, const std::string & prompt) {
+    const char * templateText = llama_model_chat_template(model, nullptr);
+    if (!templateText) return prompt;
+    const std::string start = "<|im_start|>";
+    const std::string end = "<|im_end|>";
+    std::vector<std::string> roles;
+    std::vector<std::string> contents;
+    size_t cursor = 0;
+    while ((cursor = prompt.find(start, cursor)) != std::string::npos) {
+        cursor += start.size();
+        const size_t roleEnd = prompt.find('\n', cursor);
+        if (roleEnd == std::string::npos) break;
+        const size_t contentEnd = prompt.find(end, roleEnd + 1);
+        if (contentEnd == std::string::npos) break; // Ignore the unfinished assistant prefix.
+        roles.emplace_back(prompt.substr(cursor, roleEnd - cursor));
+        contents.emplace_back(prompt.substr(roleEnd + 1, contentEnd - roleEnd - 1));
+        cursor = contentEnd + end.size();
+    }
+    if (roles.empty()) return prompt;
+    std::vector<llama_chat_message> messages;
+    messages.reserve(roles.size());
+    for (size_t i = 0; i < roles.size(); ++i) {
+        messages.push_back({roles[i].c_str(), contents[i].c_str()});
+    }
+    std::vector<char> formatted(std::max<size_t>(4096, prompt.size() * 4 + 1024));
+    const int32_t needed = llama_chat_apply_template(
+        templateText, messages.data(), messages.size(), true, formatted.data(),
+        static_cast<int32_t>(formatted.size()));
+    if (needed <= 0) return prompt;
+    if (static_cast<size_t>(needed) > formatted.size()) {
+        formatted.resize(static_cast<size_t>(needed) + 1);
+        const int32_t retry = llama_chat_apply_template(
+            templateText, messages.data(), messages.size(), true, formatted.data(),
+            static_cast<int32_t>(formatted.size()));
+        if (retry <= 0 || static_cast<size_t>(retry) > formatted.size()) return prompt;
+        return std::string(formatted.data(), static_cast<size_t>(retry));
+    }
+    return std::string(formatted.data(), static_cast<size_t>(needed));
+}
+
 void unloadLocked() {
     if (gSampler) { llama_sampler_free(gSampler); gSampler = nullptr; }
     if (gContext) { llama_free(gContext); gContext = nullptr; }
@@ -153,10 +193,11 @@ Java_com_mikael_ai_LlamaInferenceEngine_nativeGenerate(JNIEnv * env, jobject, js
     std::lock_guard<std::mutex> lock(gMutex);
     if (!gModel || !gContext || !gSampler) return throwError(env, "Nenhum modelo GGUF carregado.");
     const llama_vocab * vocab = llama_model_get_vocab(gModel);
-    const int32_t required = -llama_tokenize(vocab, input.c_str(), static_cast<int32_t>(input.size()), nullptr, 0, true, false);
+    const std::string modelPrompt = applyModelChatTemplate(gModel, input);
+    const int32_t required = -llama_tokenize(vocab, modelPrompt.c_str(), static_cast<int32_t>(modelPrompt.size()), nullptr, 0, true, false);
     if (required <= 0 || required > static_cast<int32_t>(gContextSize) - 2) return throwError(env, "O prompt excede o contexto disponível.");
     std::vector<llama_token> tokens(static_cast<size_t>(required));
-    const int32_t tokenCount = llama_tokenize(vocab, input.c_str(), static_cast<int32_t>(input.size()), tokens.data(), required, true, false);
+    const int32_t tokenCount = llama_tokenize(vocab, modelPrompt.c_str(), static_cast<int32_t>(modelPrompt.size()), tokens.data(), required, true, false);
     if (tokenCount <= 0 || tokenCount > required) return throwError(env, "Falha ao tokenizar o prompt.");
     llama_memory_clear(llama_get_memory(gContext), true);
     llama_sampler_reset(gSampler);
