@@ -1102,10 +1102,20 @@ private fun SettingsScreen(
     memoryLimit: Int,
     contextTokens: Int,
     availableBytes: Long,
+    storageBusy: Boolean,
     onMemoryChange: (Int) -> Unit,
     onContextChange: (Int) -> Unit,
     onClearHistory: () -> Unit
 ) {
+    val context = LocalContext.current
+    var storageRefresh by remember { mutableStateOf(0) }
+    var showCacheConfirmation by remember { mutableStateOf(false) }
+    var storageMessage by remember { mutableStateOf("") }
+    val modelStorageBytes = remember(storageRefresh) { StorageManager.installedModelBytes(context) }
+    val cacheBytes = remember(storageRefresh) { StorageManager.cacheBytes(context) }
+    val partialBytes = remember(storageRefresh) { StorageManager.temporaryBytes(context) }
+    val backupBytes = remember(storageRefresh) { StorageManager.recoveryBackupBytes(context) }
+    val freeBytes = remember(storageRefresh) { context.filesDir.usableSpace }
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
@@ -1173,6 +1183,22 @@ private fun SettingsScreen(
         }
         HorizontalDivider(color = Color(0xFF26332B))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Armazenamento", fontWeight = FontWeight.SemiBold)
+            Text("Modelos instalados: ${StorageManager.formatMiB(modelStorageBytes)}")
+            Text("Cache do app: ${StorageManager.formatMiB(cacheBytes)}")
+            Text("Downloads parciais: ${StorageManager.formatMiB(partialBytes)}")
+            Text("Backups de recuperação preservados: ${StorageManager.formatMiB(backupBytes)}")
+            Text("Espaço livre no armazenamento privado: ${StorageManager.formatMiB(freeBytes)}", color = Color(0xFF9EAAA2))
+            OutlinedButton(
+                onClick = { showCacheConfirmation = true },
+                enabled = !storageBusy && (cacheBytes + partialBytes) > 0L,
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Limpar cache e downloads parciais") }
+            Text("A limpeza não apaga modelos instalados, histórico ou memória. Para remover pesos, use a aba Modelos. Backups de recuperação não são apagados.", color = Color(0xFF9EAAA2), style = MaterialTheme.typography.bodySmall)
+            if (storageMessage.isNotBlank()) Text(storageMessage, color = Color(0xFF8BE7B7), style = MaterialTheme.typography.bodySmall)
+        }
+        HorizontalDivider(color = Color(0xFF26332B))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Tamanho do contexto", fontWeight = FontWeight.SemiBold)
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(512, 1024).forEach { value ->
@@ -1200,6 +1226,22 @@ private fun SettingsScreen(
         Text(
             "A conversa com modelos instalados continua local. Recursos online serão identificados separadamente e deverão explicar quais dados serão enviados antes de pedir sua confirmação.",
             color = Color(0xFF9EAAA2)
+        )
+    }
+    if (showCacheConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showCacheConfirmation = false },
+            title = { Text("Limpar cache?") },
+            text = { Text("Serão removidos cache do aplicativo e arquivos .part de downloads interrompidos. Modelos, histórico, memória e backups de recuperação serão preservados.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cleared = StorageManager.clearCacheAndTemporaryFiles(context)
+                    storageMessage = if (cleared) "Cache e arquivos parciais limpos." else "Alguns arquivos temporários não puderam ser removidos."
+                    storageRefresh++
+                    showCacheConfirmation = false
+                }) { Text("Limpar") }
+            },
+            dismissButton = { TextButton(onClick = { showCacheConfirmation = false }) { Text("Cancelar") } }
         )
     }
 }
