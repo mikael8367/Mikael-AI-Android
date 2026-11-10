@@ -440,11 +440,13 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     fun resumePendingTask() {
         val task = pendingTask ?: return
         if (isGenerating || ThinkingService.hasActiveTask()) return
-        if (selectedCatalogModelId != task.modelId) {
-            selectedCatalogModelId = task.modelId
-            preferences.selectedCatalogModelId = task.modelId
+        // Tarefas criadas por versões antigas podem apontar para MKAI.
+        // Retomamos o mesmo pedido usando o único motor atual: Qwen2.5-Coder.
+        if (selectedCatalogModelId != "qwen-0.5b") {
+            selectedCatalogModelId = "qwen-0.5b"
+            preferences.selectedCatalogModelId = "qwen-0.5b"
             modelReloadCounter++
-            android.widget.Toast.makeText(context, "Carregando o modelo usado na tarefa interrompida.", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(context, "Carregando Qwen2.5-Coder para retomar a tarefa.", android.widget.Toast.LENGTH_SHORT).show()
             return
         }
         if (!activeEngineReady) return
