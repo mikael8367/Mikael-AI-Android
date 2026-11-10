@@ -26,7 +26,7 @@ class TeamConversationCoordinatorTest {
             }
         )
 
-        assertEquals(5, result.callCount)
+        assertEquals(5, result.attemptCount)
         assertEquals(4, result.participatedCount)
         val prompts = seenPrompts.values.toList()
         assertTrue(prompts[0].contains("PEDIDO ORIGINAL DO USUÁRIO"))
@@ -55,7 +55,7 @@ class TeamConversationCoordinatorTest {
         assertTrue(result.failedParticipants.containsKey("SmolLM2 360M"))
         assertTrue(!result.allParticipated)
         assertTrue(result.answer.isNotBlank())
-        assertEquals(5, result.callCount)
+        assertEquals(5, result.attemptCount)
     }
 
     @Test
