@@ -10,6 +10,8 @@ class ModelInstallerTest {
         assertTrue(ModelInstaller.isAllowedRedirectHost("huggingface.co"))
         assertTrue(ModelInstaller.isAllowedRedirectHost("cdn-lfs.huggingface.co"))
         assertTrue(ModelInstaller.isAllowedRedirectHost("cas-bridge.xethub.hf.co"))
+        assertTrue(ModelInstaller.isAllowedRedirectHost("us.aws.cdn.hf.co"))
+        assertTrue(ModelInstaller.isAllowedRedirectHost("hf.co"))
     }
 
     @Test
@@ -17,5 +19,6 @@ class ModelInstallerTest {
         assertFalse(ModelInstaller.isAllowedRedirectHost("huggingface.co.attacker.example"))
         assertFalse(ModelInstaller.isAllowedRedirectHost("evil-huggingface.co"))
         assertFalse(ModelInstaller.isAllowedRedirectHost("example.com"))
+        assertFalse(ModelInstaller.isAllowedRedirectHost("hf.co.attacker.example"))
     }
 }
