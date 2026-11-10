@@ -151,7 +151,7 @@ private fun MikaelOfflineApp(preferences: AppPreferences) {
         LocalInferenceEngine.setDiagnosticSink { level, message ->
             AppLogStore.add(appContext, level, message)
         }
-        logEvent("INFO", "Aplicativo iniciado • versão 1.9.0")
+        logEvent("INFO", "Aplicativo iniciado • versão 1.9.1")
     }
     val activityManager = remember(context) {
         context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
