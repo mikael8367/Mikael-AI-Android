@@ -108,7 +108,7 @@ object ConversationStore {
     private fun isSafeCrossChatMessage(text: String): Boolean {
         if (text.length > 500 || "```" in text) return false
         val normalized = text.lowercase()
-        val sensitive = listOf("senha", "password", "token", "cpf", "cartão", "cartao", "endereço", "endereco", "telefone", "saúde", "saude", "doença", "doenca", "remédio", "remedio", "medicamento", "diagnóstico", "diagnostico", "depressão", "depressao", "ansiedade", "religião", "religiao", "igreja", "política", "politica", "partido", "raça", "raca", "etnia", "sexualidade", "orientação sexual", "orientacao sexual")
+        val sensitive = listOf("senha", "password", "token", "secret", "chave", "api key", "client id", "cpf", "cartão", "cartao", "endereço", "endereco", "telefone", "saúde", "saude", "doença", "doenca", "remédio", "remedio", "medicamento", "diagnóstico", "diagnostico", "depressão", "depressao", "ansiedade", "religião", "religiao", "igreja", "política", "politica", "partido", "raça", "raca", "etnia", "sexualidade", "orientação sexual", "orientacao sexual")
         if (sensitive.any { normalized.contains(it) }) return false
         if (Regex("\\b[0-9]{8,}\\b").containsMatchIn(text)) return false
         if (Regex("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}").containsMatchIn(text)) return false
