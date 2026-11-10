@@ -217,7 +217,10 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
     const int limit=std::clamp(maxTokens,1,512);
     gCancel.store(false);
     for(int i=0;i<limit && tokens.size()<gModel.maxSeq && !gCancel.load();++i) {
-        if(!forward(tokens,logits)) break;
+        if(!forward(tokens,logits)) {
+            if(gCancel.load()) break;
+            return error(env,"Falha numérica durante a inferência Transformer.");
+        }
         const auto it=std::max_element(logits.begin(),logits.end());
         if(it==logits.end() || !std::isfinite(*it)) return error(env,"O modelo produziu logits inválidos.");
         const uint8_t next=static_cast<uint8_t>(std::distance(logits.begin(),it));
