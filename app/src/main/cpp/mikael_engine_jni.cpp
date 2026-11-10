@@ -229,7 +229,6 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
     if(tokens.size()>=gModel.activeContext) return generationError(env,"O prompt ultrapassa o contexto do modelo.");
     std::string output; std::vector<float> logits(kVocab);
     const int limit=std::clamp(maxTokens,1,512);
-    gCancel.store(false);
     for(int i=0;i<limit && tokens.size()<gModel.activeContext && !gCancel.load();++i) {
         if(!forward(tokens,logits)) {
             if(gCancel.load()) break;
@@ -255,6 +254,8 @@ Java_com_mikael_ai_LocalInferenceEngine_nativeGenerate(JNIEnv* env,jobject,jstri
         return generationError(env,"Falha inesperada durante a inferência.");
     }
 }
+extern "C" JNIEXPORT void JNICALL
+Java_com_mikael_ai_LocalInferenceEngine_nativeResetCancel(JNIEnv*,jobject){gCancel.store(false);}
 extern "C" JNIEXPORT jint JNICALL
 Java_com_mikael_ai_LocalInferenceEngine_nativeContextCapacity(JNIEnv*,jobject){
     std::lock_guard<std::mutex> lock(gMutex);
