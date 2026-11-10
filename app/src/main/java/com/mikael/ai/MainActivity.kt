@@ -337,6 +337,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val activeEngineStatus = if (selectedCatalogModelId == "mikael-base") engineStatus else llamaStatus
 
     fun launchGeneration(prompt: String) {
+        if (ThinkingService.hasActiveTask()) {
+            isGenerating = true
+            return
+        }
         val modelId = selectedCatalogModelId
         val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), githubContext)
         PendingTaskStore.save(context, task)
@@ -401,7 +405,10 @@ private fun MikaelAiApp(preferences: AppPreferences) {
 
     fun resumePendingTask() {
         val task = pendingTask ?: return
-        if (isGenerating) return
+        if (isGenerating || ThinkingService.hasActiveTask()) {
+            isGenerating = true
+            return
+        }
         if (selectedCatalogModelId != task.modelId) {
             selectedCatalogModelId = task.modelId
             preferences.selectedCatalogModelId = task.modelId
