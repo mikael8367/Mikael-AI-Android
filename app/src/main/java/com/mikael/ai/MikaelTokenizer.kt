@@ -22,7 +22,9 @@ class MikaelTokenizer private constructor(
 
     /** Converte texto UTF-8 em IDs usando a ordem determinística de merges treinada. */
     fun encode(text: String): IntArray {
+        require(text.length.toLong() <= MAX_DECODE_BYTES) { "Texto de entrada excede o limite de 1 MiB." }
         val raw = text.toByteArray(Charsets.UTF_8)
+        require(raw.size.toLong() <= MAX_DECODE_BYTES) { "Texto UTF-8 excede o limite de 1 MiB." }
         if (raw.isEmpty()) return IntArray(0)
         var ids = IntArray(raw.size) { raw[it].toInt() and 0xFF }
         for ((mergeIndex, pair) in merges.withIndex()) {
@@ -46,6 +48,7 @@ class MikaelTokenizer private constructor(
 
     /** Reconstrói exatamente os bytes UTF-8 representados pelos IDs. */
     fun decode(ids: IntArray): String {
+        require(ids.size.toLong() <= MAX_DECODE_BYTES) { "Quantidade de tokens excede o limite de segurança." }
         var total = 0L
         for (id in ids) {
             require(id in tokenBytes.indices) { "ID de token fora do vocabulário: $id" }
@@ -102,8 +105,8 @@ class MikaelTokenizer private constructor(
         private const val HEADER_BYTES = 24
         private const val DIGEST_BYTES = 32
         private const val MAX_MERGES = 4096
-        private const val MAX_CORPUS_BYTES = 16L * 1024L * 1024L
-        private const val MAX_DECODE_BYTES = 16L * 1024L * 1024L
+        private const val MAX_CORPUS_BYTES = 256L * 1024L
+        private const val MAX_DECODE_BYTES = 1024L * 1024L
         private val MAGIC = byteArrayOf(77, 75, 84, 79, 75, 48, 48, 49) // MKTOK001
 
         /**
@@ -122,6 +125,7 @@ class MikaelTokenizer private constructor(
             require(corpus.isNotEmpty()) { "O corpus de treinamento está vazio." }
             var totalBytes = 0L
             val sequences = corpus.map { text ->
+                require(text.length.toLong() <= MAX_CORPUS_BYTES) { "Uma amostra do corpus excede o limite de 256 KiB." }
                 val bytes = text.toByteArray(Charsets.UTF_8)
                 totalBytes += bytes.size
                 require(totalBytes <= MAX_CORPUS_BYTES) { "Corpus maior que 16 MiB; divida o treinamento em conjuntos menores." }
@@ -172,9 +176,10 @@ class MikaelTokenizer private constructor(
         /** Abre e valida rigorosamente um arquivo MKTOK001. */
         fun load(file: File): MikaelTokenizer {
             require(file.isFile) { "Arquivo de tokenizer não encontrado." }
+            val fileLength = file.length()
+            require(fileLength >= HEADER_BYTES + DIGEST_BYTES) { "Arquivo MKTOK incompleto." }
+            require(fileLength <= HEADER_BYTES + MAX_MERGES * 8L + DIGEST_BYTES) { "Arquivo MKTOK excede o limite." }
             val bytes = file.readBytes()
-            require(bytes.size >= HEADER_BYTES + DIGEST_BYTES) { "Arquivo MKTOK incompleto." }
-            require(bytes.size <= HEADER_BYTES + MAX_MERGES * 8 + DIGEST_BYTES) { "Arquivo MKTOK excede o limite." }
             val payloadSize = bytes.size - DIGEST_BYTES
             val payload = bytes.copyOfRange(0, payloadSize)
             val expectedDigest = MessageDigest.getInstance("SHA-256").digest(payload)
