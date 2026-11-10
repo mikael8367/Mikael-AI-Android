@@ -20,4 +20,8 @@ class AppPreferences(context: Context) {
         set(value) {
             if (value in listOf(512, 1024, 2048, 4096)) prefs.edit().putInt("context_tokens", value).apply()
         }
+
+    var githubClientId: String
+        get() = prefs.getString("github_client_id", "") ?: ""
+        set(value) { prefs.edit().putString("github_client_id", value.trim()).apply() }
 }
