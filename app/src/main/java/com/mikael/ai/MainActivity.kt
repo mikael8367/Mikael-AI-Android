@@ -370,10 +370,11 @@ private fun MikaelAiApp(preferences: AppPreferences) {
     val activeEngineReady = if (selectedCatalogModelId == "mikael-base") engineReady else llamaReady
     val activeEngineStatus = if (selectedCatalogModelId == "mikael-base") engineStatus else llamaStatus
 
-    fun launchGeneration(prompt: String) {
+    fun launchGeneration(prompt: String, githubContextOverride: String? = null) {
         if (ThinkingService.hasActiveTask()) return
         val modelId = selectedCatalogModelId
-        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), githubContext)
+        val taskGithubContext = githubContextOverride ?: githubContext
+        val task = PendingAiTask(activeConversationId, prompt, modelId, System.currentTimeMillis(), taskGithubContext)
         PendingTaskStore.save(context, task)
         pendingTask = task
         isGenerating = true
@@ -388,7 +389,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                 val responseBudget = ConversationPrompt.responseTokenBudget(prompt)
                 val conversationPrompt = ConversationPrompt.build(
                     messages = messages.toList(),
-                    githubContext = githubContext,
+                    githubContext = taskGithubContext,
                     contextCapacityTokens = activeContext,
                     reserveOutputTokens = responseBudget,
                     userMemory = UserMemoryStore.contextForPrompt(context)
@@ -446,7 +447,6 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             return
         }
         if (!activeEngineReady) return
-        githubContext = task.githubContext
         val conversation = conversations.firstOrNull { it.id == task.conversationId }
         messages.clear()
         if (conversation != null) {
@@ -459,7 +459,7 @@ private fun MikaelAiApp(preferences: AppPreferences) {
             ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", task.prompt))
             persistActiveConversation()
         }
-        launchGeneration(task.prompt)
+        launchGeneration(task.prompt, task.githubContext)
     }
 
     Scaffold(
@@ -568,22 +568,6 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             if (pendingTask != null) {
                                 android.widget.Toast.makeText(context, "Retome ou descarte a tarefa interrompida antes de enviar outra mensagem.", android.widget.Toast.LENGTH_SHORT).show()
                             } else if (prompt.isNotEmpty() && activeEngineReady && !isGenerating) {
-                                val proposal = ConnectorRouter.detect(prompt)
-                                if (proposal != null) {
-                                    input = ""
-                                    ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
-                                    persistActiveConversation()
-                                    connectorProposal = proposal
-                                    connectorError = ""
-                                } else {
-                                    input = ""
-                                    ConversationStore.append(messages, ChatMessage(System.currentTimeMillis(), "user", prompt))
-                                val memoryChanged = UserMemoryStore.rememberFromUserMessage(context, prompt) ||
-                                    UserMemoryStore.forgetFromUserMessage(context, prompt)
-                                if (memoryChanged) {
-                                    userMemoryItems = UserMemoryStore.load(context)
-                                    userMemoryCount = userMemoryItems.size
-                                }
                                     persistActiveConversation()
                                     launchGeneration(prompt)
                                 }
@@ -767,9 +751,9 @@ private fun MikaelAiApp(preferences: AppPreferences) {
                             try {
                                 val externalContext = ConnectorRouter.execute(context, allowOnlineFeatures, proposal)
                                 val userRequest = messages.lastOrNull { it.role == "user" }?.text ?: proposal.query
-                                githubContext = (githubContext + "\n\n" + externalContext).takeLast(8_000)
+                                val taskContext = (githubContext + "\n\n" + externalContext).takeLast(8_000)
                                 connectorProposal = null
-                                launchGeneration(userRequest)
+                                launchGeneration(userRequest, taskContext)
                             } catch (failure: Exception) {
                                 connectorError = failure.message ?: "Falha ao executar o conector."
                             } finally {
