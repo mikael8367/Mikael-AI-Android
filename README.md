@@ -34,4 +34,4 @@ O Galaxy A12 pode ser usado para inferência de um modelo pequeno e quantizado n
 
 ## Compilação e validação
 
-O projeto usa Gradle, Android NDK e CMake. O workflow executa testes unitários e lint em branches de funcionalidade. A geração de APK permanece restrita à branch principal e não será solicitada nesta etapa.
+O projeto usa Gradle, Android NDK e CMake. O workflow compila o motor C++ ARM64, executa testes unitários e lint em branches de funcionalidade. A geração de APK permanece restrita à branch principal e não será solicitada nesta etapa.
