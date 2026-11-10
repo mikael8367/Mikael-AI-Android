@@ -95,7 +95,7 @@ object AssistantPromptBuilder {
      * The ChatML markers emitted by this builder remain untouched.
      */
     private fun escapeSpecialTokens(value: String): String =
-        value.replace("<|", "<\\u200B|")
+        value.replace("<|", "<\u200B|")
 
     private fun takeUtf8Suffix(value: String, maxBytes: Int): String {
         if (maxBytes <= 0 || value.isEmpty()) return ""
